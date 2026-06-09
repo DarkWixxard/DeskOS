@@ -1,0 +1,13 @@
+{
+  "id": "system-monitor",
+  "name": "System Monitor Plugin",
+  "version": "1.0.0",
+  "description": "Enhanced system monitoring with detailed metrics",
+  "backend": {
+    "initialize": "backend.ts"
+  },
+  "frontend": {
+    "widgets": ["CPUWidget", "RAMWidget", "NetworkWidget"],
+    "components": ["SystemDashboard"]
+  }
+}

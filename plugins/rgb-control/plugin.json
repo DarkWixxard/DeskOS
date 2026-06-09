@@ -1,0 +1,9 @@
+{
+  "id": "rgb-control",
+  "name": "RGB Control Plugin",
+  "version": "1.0.0",
+  "description": "LED and RGB control plugin for hardware integration",
+  "backend": {
+    "initialize": "backend.ts"
+  }
+}

@@ -1,0 +1,20 @@
+// .gitignore
+node_modules/
+dist/
+build/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/
+*.log
+npm-debug.log*
+yarn-debug.log*
+*.tgz
+.next/
+out/
+public/
+.vercel/

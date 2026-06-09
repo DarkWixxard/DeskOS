@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply transition-colors duration-200;
+}
+
+body {
+  @apply bg-dark text-white;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-accent text-dark rounded-lg font-semibold hover:bg-opacity-90 transition-all;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-darker border border-accent rounded-lg text-accent hover:bg-accent hover:text-dark transition-all;
+  }
+
+  .widget {
+    @apply bg-darker border border-gray-700 rounded-lg p-4;
+  }
+
+  .widget-title {
+    @apply text-lg font-bold text-accent mb-4;
+  }
+
+  .status-online {
+    @apply text-success;
+  }
+
+  .status-offline {
+    @apply text-danger;
+  }
+
+  .status-error {
+    @apply text-warning;
+  }
+}
