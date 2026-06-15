@@ -3,6 +3,16 @@
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 export function StatusBadge({ status }: { status: string }) {
   const statusClasses = {
@@ -65,6 +75,65 @@ export function DeviceCard({ device }: { device: any }) {
   );
 }
 
+export function DeviceDetailModal() {
+  const selectedDevice = useDashboardStore((state) => state.selectedDevice);
+  const selectDevice = useDashboardStore((state) => state.selectDevice);
+
+  if (!selectedDevice) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      onClick={() => selectDevice(null)}
+    >
+      <div
+        className="widget max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="widget-title mb-0">{selectedDevice.name}</h2>
+          <button
+            type="button"
+            className="text-gray-400 hover:text-white text-xl leading-none"
+            onClick={() => selectDevice(null)}
+          >
+            ✕
+          </button>
+        </div>
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Typ</span>
+            <span className="capitalize">{selectedDevice.type}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Status</span>
+            <StatusBadge status={selectedDevice.status} />
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Zuletzt gesehen</span>
+            <span className="text-gray-300">
+              {new Date(selectedDevice.lastSeen).toLocaleString()}
+            </span>
+          </div>
+          <div>
+            <p className="text-gray-400 mb-2">Fähigkeiten</p>
+            <div className="flex flex-wrap gap-1">
+              {selectedDevice.capabilities.map((cap: string) => (
+                <span
+                  key={cap}
+                  className="text-xs bg-accent/20 text-accent px-2 py-1 rounded"
+                >
+                  {cap}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SystemMetricsWidget() {
   const systemMetrics = useDashboardStore((state) => state.systemMetrics);
 
@@ -74,10 +143,20 @@ export function SystemMetricsWidget() {
     return `${hours}h ${minutes}m`;
   };
 
+  const formatBytes = (bytes: number): string => {
+    const gb = bytes / 1024 ** 3;
+    return `${gb.toFixed(1)} GB`;
+  };
+
   return (
     <div className="widget">
       <h2 className="widget-title">System Metrics</h2>
-      <div className="grid grid-cols-3 gap-4">
+      {systemMetrics && (
+        <p className="text-xs text-gray-500 mb-3">
+          {systemMetrics.hostname} · {systemMetrics.platform}
+        </p>
+      )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div>
           <p className="text-gray-400 text-sm">CPU</p>
           <p className="text-2xl font-bold text-accent">
@@ -89,6 +168,22 @@ export function SystemMetricsWidget() {
           <p className="text-2xl font-bold text-accent">
             {systemMetrics ? `${Math.round(systemMetrics.ram.percentage)}%` : 'N/A'}
           </p>
+          {systemMetrics && (
+            <p className="text-xs text-gray-500">
+              {formatBytes(systemMetrics.ram.used)} / {formatBytes(systemMetrics.ram.total)}
+            </p>
+          )}
+        </div>
+        <div>
+          <p className="text-gray-400 text-sm">DISK</p>
+          <p className="text-2xl font-bold text-accent">
+            {systemMetrics?.disk ? `${Math.round(systemMetrics.disk.percentage)}%` : 'N/A'}
+          </p>
+          {systemMetrics?.disk && (
+            <p className="text-xs text-gray-500">
+              {formatBytes(systemMetrics.disk.used)} / {formatBytes(systemMetrics.disk.total)}
+            </p>
+          )}
         </div>
         <div>
           <p className="text-gray-400 text-sm">UPTIME</p>
@@ -101,20 +196,107 @@ export function SystemMetricsWidget() {
   );
 }
 
+const PRIORITY_BORDER: Record<string, string> = {
+  low: 'border-gray-500',
+  normal: 'border-accent',
+  high: 'border-warning',
+  critical: 'border-danger',
+};
+
 export function EventsWidget({ events }: { events: any[] }) {
+  const recent = events.slice(-10).reverse();
+
   return (
     <div className="widget max-h-64 overflow-y-auto">
       <h2 className="widget-title">Recent Events</h2>
-      <div className="space-y-2">
-        {events.slice(-10).reverse().map((event) => (
-          <div key={event.id} className="text-sm border-l-2 border-accent pl-3 py-1">
-            <p className="text-gray-300">{event.type}</p>
-            <p className="text-xs text-gray-500">
-              {new Date(event.timestamp).toLocaleTimeString()}
-            </p>
-          </div>
-        ))}
-      </div>
+      {recent.length === 0 ? (
+        <p className="text-gray-500 text-sm">Keine Events vorhanden</p>
+      ) : (
+        <div className="space-y-2">
+          {recent.map((event) => (
+            <div
+              key={event.id}
+              className={clsx(
+                'text-sm border-l-2 pl-3 py-1',
+                PRIORITY_BORDER[event.priority] ?? 'border-accent'
+              )}
+            >
+              <p className="text-gray-300">{event.type}</p>
+              <p className="text-xs text-gray-500">
+                {event.source && (
+                  <span className="text-gray-600 mr-1">[{event.source}]</span>
+                )}
+                {new Date(event.timestamp).toLocaleTimeString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MetricsHistoryChart() {
+  const metricsHistory = useDashboardStore((state) => state.metricsHistory);
+
+  const data = metricsHistory.map((m) => ({
+    time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    CPU: Math.round(m.cpu),
+    RAM: Math.round(m.ram.percentage),
+  }));
+
+  return (
+    <div className="widget">
+      <h2 className="widget-title">Metrics History</h2>
+      {data.length < 2 ? (
+        <p className="text-gray-500 text-sm text-center py-8">
+          Sammle Daten…
+        </p>
+      ) : (
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+            <XAxis
+              dataKey="time"
+              tick={{ fill: '#6b7280', fontSize: 10 }}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tickFormatter={(v) => `${v}%`}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #374151',
+                borderRadius: '6px',
+                fontSize: '12px',
+              }}
+              formatter={(value: number, name: string) => [`${value}%`, name]}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }}
+            />
+            <Line
+              type="monotone"
+              dataKey="CPU"
+              stroke="#00d9ff"
+              dot={false}
+              strokeWidth={2}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="RAM"
+              stroke="#00ff88"
+              dot={false}
+              strokeWidth={2}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
@@ -164,21 +346,24 @@ export function Dashboard() {
               )}
             />
             <span className="text-sm">
-              {wsConnected
-                ? 'Connected to Backend'
-                : 'Disconnected from Backend'}
+              {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
             </span>
           </div>
         </div>
 
         {/* System Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
             <SystemMetricsWidget />
           </div>
           <div>
             <EventsWidget events={events} />
           </div>
+        </div>
+
+        {/* Metrics History Chart */}
+        <div className="mb-8">
+          <MetricsHistoryChart />
         </div>
 
         {/* Devices Section */}
@@ -192,7 +377,6 @@ export function Dashboard() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-
             <select
               value={deviceFilter}
               onChange={(e) => setDeviceFilter(e.target.value as any)}
@@ -206,15 +390,12 @@ export function Dashboard() {
             </select>
           </div>
 
-          {/* Filter devices by type and search query */}
           {loading ? (
-            <div className="text-center py-8 text-gray-400">
-              Loading devices...
-            </div>
+            <div className="text-center py-8 text-gray-400">Loading devices...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {devices
-                .filter((d) => deviceFilter === 'all' ? true : d.type === deviceFilter)
+                .filter((d) => deviceFilter === 'all' || d.type === deviceFilter)
                 .filter((d) =>
                   searchQuery
                     ? (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -228,6 +409,9 @@ export function Dashboard() {
           )}
         </section>
       </div>
+
+      {/* Device Detail Modal */}
+      <DeviceDetailModal />
     </main>
   );
 }

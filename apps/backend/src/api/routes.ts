@@ -3,6 +3,8 @@ import { Express } from 'express';
 import { deviceManager } from '../core/DeviceManager';
 import { eventSystem } from '../core/EventSystem';
 import { systemMonitor } from '../services/SystemMonitor';
+import { automationEngine } from '../core/AutomationEngine';
+import { v4 as uuidv4 } from 'uuid';
 
 export function setupRoutes(app: Express): void {
   // Health check
@@ -70,6 +72,38 @@ export function setupRoutes(app: Express): void {
       system: metrics,
       recentEvents: recentEvents.slice(-10)
     });
+  });
+
+  // Automations
+  app.get('/api/automations', (req, res) => {
+    res.json(automationEngine.getAllRules());
+  });
+
+  app.post('/api/automations', (req, res) => {
+    const rule = req.body;
+    if (!rule.id) rule.id = uuidv4();
+    if (!rule.cooldownMs) rule.cooldownMs = 60000;
+    const created = automationEngine.addRule(rule);
+    res.status(201).json(created);
+  });
+
+  app.delete('/api/automations/:id', (req, res) => {
+    const removed = automationEngine.removeRule(req.params.id);
+    if (!removed) {
+      return res.status(404).json({ error: 'Automation rule not found' });
+    }
+    res.json({ success: true, id: req.params.id });
+  });
+
+  app.patch('/api/automations/:id', (req, res) => {
+    const rule = automationEngine.getRule(req.params.id);
+    if (!rule) {
+      return res.status(404).json({ error: 'Automation rule not found' });
+    }
+    if (typeof req.body.enabled === 'boolean') {
+      rule.enabled = req.body.enabled;
+    }
+    res.json(rule);
   });
 
   // Not found

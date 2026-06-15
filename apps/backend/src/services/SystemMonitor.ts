@@ -2,11 +2,17 @@
 import { deviceManager } from '../core/DeviceManager';
 import { eventSystem } from '../core/EventSystem';
 import * as os from 'os';
+import * as fs from 'fs';
 
 export interface SystemMetrics {
   [key: string]: unknown;
   cpu: number;
   ram: {
+    used: number;
+    total: number;
+    percentage: number;
+  };
+  disk?: {
     used: number;
     total: number;
     percentage: number;
@@ -36,7 +42,7 @@ export class SystemMonitor {
       const device = deviceManager.registerDevice(
         'local',
         os.hostname(),
-        ['cpu', 'ram', 'uptime', 'network'],
+        ['cpu', 'ram', 'disk', 'uptime', 'network'],
         { os: os.platform(), arch: os.arch() }
       );
       this.localDeviceId = device.id;
@@ -82,6 +88,7 @@ export class SystemMonitor {
           total: memInfo,
           percentage: (memUsed / memInfo) * 100
         },
+        disk: this.getDiskUsage(),
         uptime: os.uptime(),
         hostname: os.hostname(),
         platform: os.platform()
@@ -90,6 +97,21 @@ export class SystemMonitor {
       deviceManager.recordData(this.localDeviceId, metrics);
     } catch (error) {
       console.error('Error collecting metrics:', error);
+    }
+  }
+
+  /**
+   * Get disk usage for the root filesystem
+   */
+  private getDiskUsage(): SystemMetrics['disk'] {
+    try {
+      const stats = (fs as any).statfsSync('/');
+      const total = stats.blocks * stats.bsize;
+      const free = stats.bfree * stats.bsize;
+      const used = total - free;
+      return { used, total, percentage: (used / total) * 100 };
+    } catch {
+      return undefined;
     }
   }
 
@@ -151,6 +173,7 @@ export class SystemMonitor {
         total: memInfo,
         percentage: (memUsed / memInfo) * 100
       },
+      disk: this.getDiskUsage(),
       uptime: os.uptime(),
       hostname: os.hostname(),
       platform: os.platform()

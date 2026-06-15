@@ -8,6 +8,7 @@ import { systemMonitor } from './services/SystemMonitor';
 import { createDatabaseService } from './services/DatabaseService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
+import { automationEngine } from './core/AutomationEngine';
 import * as path from 'path';
 
 // Load environment variables
@@ -68,6 +69,37 @@ async function bootstrap(): Promise<void> {
     } catch (error) {
       console.warn('⚠️ Warning loading plugins:', error);
     }
+
+    // Register default automation rules
+    automationEngine.addRule({
+      id: 'default-cpu-high',
+      name: 'CPU High Alert',
+      trigger: {
+        type: 'threshold',
+        condition: { field: 'cpu', operator: 'gt', value: 85 },
+      },
+      actions: [{
+        type: 'emit_event',
+        payload: { eventType: 'alert:cpu-high', priority: 'high', message: 'CPU-Auslastung über 85%' },
+      }],
+      enabled: true,
+      cooldownMs: 60000,
+    });
+
+    automationEngine.addRule({
+      id: 'default-ram-high',
+      name: 'RAM High Alert',
+      trigger: {
+        type: 'threshold',
+        condition: { field: 'ram.percentage', operator: 'gt', value: 90 },
+      },
+      actions: [{
+        type: 'emit_event',
+        payload: { eventType: 'alert:ram-high', priority: 'high', message: 'RAM-Auslastung über 90%' },
+      }],
+      enabled: true,
+      cooldownMs: 60000,
+    });
 
     // Start HTTP server
     server.listen(PORT, () => {
