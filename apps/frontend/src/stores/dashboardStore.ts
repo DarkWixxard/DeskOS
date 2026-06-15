@@ -26,9 +26,18 @@ export interface SystemMetrics {
     total: number;
     percentage: number;
   };
+  disk?: {
+    used: number;
+    total: number;
+    percentage: number;
+  };
   uptime: number;
   hostname: string;
   platform: string;
+}
+
+export interface MetricsSnapshot extends SystemMetrics {
+  timestamp: number;
 }
 
 interface DashboardStore {
@@ -36,12 +45,13 @@ interface DashboardStore {
   selectedDevice: Device | null;
   events: DashboardEvent[];
   systemMetrics: SystemMetrics | null;
+  metricsHistory: MetricsSnapshot[];
   wsConnected: boolean;
   socket: Socket | null;
   loading: boolean;
   deviceFilter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor';
   searchQuery: string;
-  
+
   // Actions
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
@@ -61,6 +71,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   selectedDevice: null,
   events: [],
   systemMetrics: null,
+  metricsHistory: [],
   wsConnected: false,
   socket: null,
   loading: false,
@@ -105,9 +116,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       
       // Update system metrics if it's the local device
       if (data.deviceId === 'local' || data.data?.hostname) {
-        set({ systemMetrics: data.data as SystemMetrics });
+        const snapshot: MetricsSnapshot = {
+          ...(data.data as SystemMetrics),
+          timestamp: data.timestamp || Date.now(),
+        };
+        const history = [...get().metricsHistory, snapshot];
+        if (history.length > 30) history.shift();
+        set({ systemMetrics: data.data as SystemMetrics, metricsHistory: history });
       }
-      
+
       set({ devices: [...devices] });
     });
 

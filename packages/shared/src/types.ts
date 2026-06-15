@@ -16,6 +16,11 @@ export interface SystemMetrics {
     total: number;
     percentage: number;
   };
+  disk?: {
+    used: number;
+    total: number;
+    percentage: number;
+  };
   uptime: number;
   hostname: string;
   platform: string;
