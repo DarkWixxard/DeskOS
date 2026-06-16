@@ -4,6 +4,7 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import { OverlayMenu } from '@/components/OverlayMenu';
+import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
 import {
   LineChart,
   Line,
@@ -15,17 +16,31 @@ import {
   Legend,
 } from 'recharts';
 
+// Cyan field styling shared by the device search box and filter dropdown.
+const holoField =
+  'rounded-none border border-accent/30 bg-darker/60 px-3 py-1.5 text-sm text-white ' +
+  'placeholder:text-accent/30 outline-none transition-colors focus:border-accent focus:shadow-glow-sm';
+
+// Reusable holo "chip" for capability tags.
+function CapChip({ label }: { label: string }) {
+  return (
+    <span className="rounded-none border border-accent/20 bg-accent/5 px-2 py-0.5 font-mono text-[10px] text-accent/70">
+      {label}
+    </span>
+  );
+}
+
 export function StatusBadge({ status }: { status: string }) {
   const statusClasses = {
-    online: 'status-online bg-green-900/30',
-    offline: 'status-offline bg-red-900/30',
-    error: 'status-error bg-yellow-900/30',
+    online: 'text-success ring-success/40 bg-success/10',
+    offline: 'text-danger ring-danger/40 bg-danger/10',
+    error: 'text-warning ring-warning/40 bg-warning/10',
   };
 
   return (
     <span
       className={clsx(
-        'px-3 py-1 rounded-full text-sm font-semibold',
+        'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1',
         statusClasses[status as keyof typeof statusClasses]
       )}
     >
@@ -50,27 +65,32 @@ export function DeviceCard({ device }: { device: any }) {
 
   return (
     <div
-      className="widget cursor-pointer hover:border-accent"
+      className="holo-tile group relative cursor-pointer p-4"
       onClick={() => selectDevice(device)}
     >
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <h3 className="text-lg font-bold">{device.name}</h3>
-          <p className="text-sm text-gray-400">{device.type}</p>
+      <HoloCorners />
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="truncate font-mono text-base font-bold text-white transition-colors group-hover:text-accent">
+            {device.name}
+          </h3>
+          <p className="holo-label mt-0.5">{device.type}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <StatusBadge status={device.status} />
           <button
             type="button"
-            className="text-xs text-red-400 hover:text-red-500"
+            className="text-[10px] uppercase tracking-wider text-danger/70 transition-colors hover:text-danger"
             onClick={handleRemove}
           >
             Entfernen
           </button>
         </div>
       </div>
-      <div className="text-sm text-gray-400">
-        {device.capabilities.join(', ')}
+      <div className="flex flex-wrap gap-1">
+        {device.capabilities.map((cap: string) => (
+          <CapChip key={cap} label={cap} />
+        ))}
       </div>
     </div>
   );
@@ -84,52 +104,52 @@ export function DeviceDetailModal() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={() => selectDevice(null)}
     >
-      <div
-        className="widget max-w-md w-full mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="widget-title mb-0">{selectedDevice.name}</h2>
-          <button
-            type="button"
-            className="text-gray-400 hover:text-white text-xl leading-none"
-            onClick={() => selectDevice(null)}
-          >
-            ✕
-          </button>
-        </div>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Typ</span>
-            <span className="capitalize">{selectedDevice.type}</span>
+      <div className="mx-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <Panel>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2
+              className="truncate font-mono text-lg font-bold tracking-wider text-accent"
+              style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
+            >
+              {selectedDevice.name}
+            </h2>
+            <button
+              type="button"
+              className="text-accent/60 transition-colors hover:text-accent text-xl leading-none"
+              onClick={() => selectDevice(null)}
+              aria-label="Schließen"
+            >
+              ✕
+            </button>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Status</span>
-            <StatusBadge status={selectedDevice.status} />
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Zuletzt gesehen</span>
-            <span className="text-gray-300">
-              {new Date(selectedDevice.lastSeen).toLocaleString()}
-            </span>
-          </div>
-          <div>
-            <p className="text-gray-400 mb-2">Fähigkeiten</p>
-            <div className="flex flex-wrap gap-1">
-              {selectedDevice.capabilities.map((cap: string) => (
-                <span
-                  key={cap}
-                  className="text-xs bg-accent/20 text-accent px-2 py-1 rounded"
-                >
-                  {cap}
-                </span>
-              ))}
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="holo-label">Typ</span>
+              <span className="font-mono capitalize text-white/85">{selectedDevice.type}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="holo-label">Status</span>
+              <StatusBadge status={selectedDevice.status} />
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="holo-label">Zuletzt gesehen</span>
+              <span className="font-mono text-white/85">
+                {new Date(selectedDevice.lastSeen).toLocaleString()}
+              </span>
+            </div>
+            <div>
+              <p className="holo-label mb-2">Fähigkeiten</p>
+              <div className="flex flex-wrap gap-1">
+                {selectedDevice.capabilities.map((cap: string) => (
+                  <CapChip key={cap} label={cap} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </Panel>
       </div>
     </div>
   );
@@ -149,51 +169,50 @@ export function SystemMetricsWidget() {
     return `${gb.toFixed(1)} GB`;
   };
 
+  const cpu = systemMetrics ? Math.round(systemMetrics.cpu) : 0;
+  const ram = systemMetrics ? Math.round(systemMetrics.ram.percentage) : 0;
+  const disk = systemMetrics?.disk ? Math.round(systemMetrics.disk.percentage) : null;
+
   return (
-    <div className="widget">
-      <h2 className="widget-title">System Metrics</h2>
-      {systemMetrics && (
-        <p className="text-xs text-gray-500 mb-3">
-          {systemMetrics.hostname} · {systemMetrics.platform}
-        </p>
-      )}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div>
-          <p className="text-gray-400 text-sm">CPU</p>
-          <p className="text-2xl font-bold text-accent">
-            {systemMetrics ? `${Math.round(systemMetrics.cpu)}%` : 'N/A'}
-          </p>
-        </div>
-        <div>
-          <p className="text-gray-400 text-sm">RAM</p>
-          <p className="text-2xl font-bold text-accent">
-            {systemMetrics ? `${Math.round(systemMetrics.ram.percentage)}%` : 'N/A'}
-          </p>
-          {systemMetrics && (
-            <p className="text-xs text-gray-500">
-              {formatBytes(systemMetrics.ram.used)} / {formatBytes(systemMetrics.ram.total)}
-            </p>
-          )}
-        </div>
-        <div>
-          <p className="text-gray-400 text-sm">DISK</p>
-          <p className="text-2xl font-bold text-accent">
-            {systemMetrics?.disk ? `${Math.round(systemMetrics.disk.percentage)}%` : 'N/A'}
-          </p>
-          {systemMetrics?.disk && (
-            <p className="text-xs text-gray-500">
-              {formatBytes(systemMetrics.disk.used)} / {formatBytes(systemMetrics.disk.total)}
-            </p>
-          )}
-        </div>
-        <div>
-          <p className="text-gray-400 text-sm">UPTIME</p>
-          <p className="text-2xl font-bold text-accent">
-            {systemMetrics ? formatUptime(systemMetrics.uptime) : 'N/A'}
-          </p>
+    <Panel
+      title="System Metrics"
+      className="h-full"
+      badge={
+        systemMetrics ? (
+          <span className="font-mono text-[10px] text-accent/60">
+            {systemMetrics.hostname} · {systemMetrics.platform}
+          </span>
+        ) : null
+      }
+    >
+      <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[150px_1fr]">
+        <RadialGauge value={cpu} label="CPU Load" />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <StatBar
+            label="RAM"
+            value={systemMetrics ? `${ram}%` : 'N/A'}
+            percent={systemMetrics ? ram : undefined}
+          />
+          <StatBar
+            label="Disk"
+            value={disk != null ? `${disk}%` : 'N/A'}
+            percent={disk ?? undefined}
+          />
+          <StatBar
+            label="Uptime"
+            value={systemMetrics ? formatUptime(systemMetrics.uptime) : 'N/A'}
+          />
+          <StatBar
+            label="Memory"
+            value={
+              systemMetrics
+                ? `${formatBytes(systemMetrics.ram.used)} / ${formatBytes(systemMetrics.ram.total)}`
+                : 'N/A'
+            }
+          />
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -208,32 +227,33 @@ export function EventsWidget({ events }: { events: any[] }) {
   const recent = events.slice(-10).reverse();
 
   return (
-    <div className="widget max-h-64 overflow-y-auto">
-      <h2 className="widget-title">Recent Events</h2>
+    <Panel
+      title="Recent Events"
+      className="flex h-full flex-col"
+      badge={<span className="font-mono text-[10px] text-accent">{events.length} TOTAL</span>}
+    >
       {recent.length === 0 ? (
-        <p className="text-gray-500 text-sm">Keine Events vorhanden</p>
+        <p className="py-2 text-[11px] text-accent/40">Keine Events vorhanden</p>
       ) : (
-        <div className="space-y-2">
+        <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
           {recent.map((event) => (
             <div
               key={event.id}
               className={clsx(
-                'text-sm border-l-2 pl-3 py-1',
-                PRIORITY_BORDER[event.priority] ?? 'border-accent'
+                'border-l-2 pl-3 py-1',
+                PRIORITY_BORDER[event.priority] ?? 'border-accent/40'
               )}
             >
-              <p className="text-gray-300">{event.type}</p>
-              <p className="text-xs text-gray-500">
-                {event.source && (
-                  <span className="text-gray-600 mr-1">[{event.source}]</span>
-                )}
+              <p className="truncate text-[11px] text-white/80">{event.type}</p>
+              <p className="font-mono text-[10px] text-accent/50">
+                {event.source && <span className="mr-1 text-accent/35">[{event.source}]</span>}
                 {new Date(event.timestamp).toLocaleTimeString()}
               </p>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -247,38 +267,48 @@ export function MetricsHistoryChart() {
   }));
 
   return (
-    <div className="widget">
-      <h2 className="widget-title">Metrics History</h2>
+    <Panel title="Metrics History">
       {data.length < 2 ? (
-        <p className="text-gray-500 text-sm text-center py-8">
-          Sammle Daten…
-        </p>
+        <p className="py-8 text-center text-[11px] text-accent/40">Sammle Daten…</p>
       ) : (
         <ResponsiveContainer width="100%" height={160}>
           <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+            <defs>
+              <filter id="holo-line-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2" result="b" />
+                <feMerge>
+                  <feMergeNode in="b" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,217,255,0.12)" />
             <XAxis
               dataKey="time"
-              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tick={{ fill: 'rgba(0,217,255,0.5)', fontSize: 10 }}
+              stroke="rgba(0,217,255,0.2)"
               interval="preserveStartEnd"
             />
             <YAxis
               domain={[0, 100]}
-              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tick={{ fill: 'rgba(0,217,255,0.5)', fontSize: 10 }}
+              stroke="rgba(0,217,255,0.2)"
               tickFormatter={(v) => `${v}%`}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1a1a1a',
-                border: '1px solid #374151',
-                borderRadius: '6px',
+                backgroundColor: 'rgba(8,16,22,0.92)',
+                border: '1px solid rgba(0,217,255,0.4)',
+                borderRadius: '4px',
                 fontSize: '12px',
+                boxShadow: '0 0 16px rgba(0,217,255,0.25)',
               }}
+              labelStyle={{ color: '#00d9ff' }}
+              itemStyle={{ color: '#fff' }}
+              cursor={{ stroke: 'rgba(0,217,255,0.3)' }}
               formatter={(value: number, name: string) => [`${value}%`, name]}
             />
-            <Legend
-              wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }}
-            />
+            <Legend wrapperStyle={{ fontSize: '12px', color: 'rgba(0,217,255,0.7)' }} />
             <Line
               type="monotone"
               dataKey="CPU"
@@ -286,6 +316,7 @@ export function MetricsHistoryChart() {
               dot={false}
               strokeWidth={2}
               isAnimationActive={false}
+              filter="url(#holo-line-glow)"
             />
             <Line
               type="monotone"
@@ -294,20 +325,29 @@ export function MetricsHistoryChart() {
               dot={false}
               strokeWidth={2}
               isAnimationActive={false}
+              filter="url(#holo-line-glow)"
             />
           </LineChart>
         </ResponsiveContainer>
       )}
-    </div>
+    </Panel>
   );
 }
 
 export function Header() {
   return (
-    <header className="bg-darker border-b border-gray-700 py-6">
-      <div className="container mx-auto px-4">
-        <h1 className="text-4xl font-bold text-accent">DeskOS</h1>
-        <p className="text-gray-400">Modular Monitoring & Control System</p>
+    <header className="border-b border-accent/20 bg-darker/40 py-6 backdrop-blur">
+      <div className="container mx-auto flex items-center gap-3 px-4">
+        <HoloIcon name="grid" className="h-7 w-7 text-accent" />
+        <div>
+          <h1
+            className="font-mono text-3xl font-bold tracking-[0.3em] text-accent"
+            style={{ textShadow: '0 0 14px rgba(0,217,255,0.6)' }}
+          >
+            DESK<span className="text-white/90">OS</span>
+          </h1>
+          <p className="holo-label mt-0.5">Modular Monitoring &amp; Control System</p>
+        </div>
       </div>
     </header>
   );
@@ -333,82 +373,97 @@ export function Dashboard() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-dark">
-      <Header />
+    <main className="holo-grid-bg relative min-h-screen overflow-x-hidden bg-dark text-white">
+      {/* Fixed scanline texture behind all content */}
+      <div className="holo-scanlines pointer-events-none fixed inset-0 z-0" />
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Connection Status */}
-        <div className="mb-6 p-4 bg-darker border border-gray-700 rounded-lg">
-          <div className="flex items-center gap-2">
+      {/* Content (the constant holo flicker lives here, not on the modal/overlay) */}
+      <div className="animate-holo-flicker relative z-10">
+        <Header />
+
+        <div className="container mx-auto px-4 py-8">
+          {/* Connection Status */}
+          <div className="mb-6 flex items-center justify-between">
+            <span className="holo-label">Backend Link</span>
             <div
               className={clsx(
-                'w-3 h-3 rounded-full',
-                wsConnected ? 'bg-green-500' : 'bg-red-500'
+                'flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ring-1 backdrop-blur',
+                wsConnected
+                  ? 'bg-success/10 text-success ring-success/40'
+                  : 'bg-danger/10 text-danger ring-danger/40'
               )}
-            />
-            <span className="text-sm">
-              {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
-            </span>
-          </div>
-        </div>
-
-        {/* System Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2">
-            <SystemMetricsWidget />
-          </div>
-          <div>
-            <EventsWidget events={events} />
-          </div>
-        </div>
-
-        {/* Metrics History Chart */}
-        <div className="mb-8">
-          <MetricsHistoryChart />
-        </div>
-
-        {/* Devices Section */}
-        <section>
-          <h2 className="text-2xl font-bold text-accent mb-4">Devices</h2>
-          <div className="mb-4 flex items-center gap-3">
-            <input
-              type="text"
-              placeholder="Search devices..."
-              className="input input-sm bg-darker"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <select
-              value={deviceFilter}
-              onChange={(e) => setDeviceFilter(e.target.value as any)}
-              className="select select-sm bg-darker"
             >
-              <option value="all">All types</option>
-              <option value="local">Local</option>
-              <option value="remote">Remote</option>
-              <option value="esp32">ESP32</option>
-              <option value="sensor">Sensor</option>
-            </select>
+              <span className={clsx('h-2 w-2 rounded-full', wsConnected ? 'bg-success' : 'bg-danger')} />
+              {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
+            </div>
           </div>
 
-          {loading ? (
-            <div className="text-center py-8 text-gray-400">Loading devices...</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {devices
-                .filter((d) => deviceFilter === 'all' || d.type === deviceFilter)
-                .filter((d) =>
-                  searchQuery
-                    ? (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      (d.metadata && JSON.stringify(d.metadata).toLowerCase().includes(searchQuery.toLowerCase()))
-                    : true
-                )
-                .map((device) => (
-                  <DeviceCard key={device.id} device={device} />
-                ))}
+          {/* System Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2">
+              <SystemMetricsWidget />
             </div>
-          )}
-        </section>
+            <div>
+              <EventsWidget events={events} />
+            </div>
+          </div>
+
+          {/* Metrics History Chart */}
+          <div className="mb-8">
+            <MetricsHistoryChart />
+          </div>
+
+          {/* Devices Section */}
+          <section>
+            <div className="mb-4 flex items-center gap-2">
+              <HoloIcon name="cpu" className="h-5 w-5 text-accent" />
+              <h2
+                className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
+                style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
+              >
+                Devices
+              </h2>
+            </div>
+            <div className="mb-4 flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="Search devices..."
+                className={holoField}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <select
+                value={deviceFilter}
+                onChange={(e) => setDeviceFilter(e.target.value as any)}
+                className={clsx(holoField, 'cursor-pointer')}
+              >
+                <option value="all">All types</option>
+                <option value="local">Local</option>
+                <option value="remote">Remote</option>
+                <option value="esp32">ESP32</option>
+                <option value="sensor">Sensor</option>
+              </select>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-8 text-accent/50">Loading devices...</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {devices
+                  .filter((d) => deviceFilter === 'all' || d.type === deviceFilter)
+                  .filter((d) =>
+                    searchQuery
+                      ? (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (d.metadata && JSON.stringify(d.metadata).toLowerCase().includes(searchQuery.toLowerCase()))
+                      : true
+                  )
+                  .map((device) => (
+                    <DeviceCard key={device.id} device={device} />
+                  ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       {/* Device Detail Modal */}
