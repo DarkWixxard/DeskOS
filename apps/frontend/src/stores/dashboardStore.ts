@@ -9,6 +9,7 @@ export interface Device {
   status: 'online' | 'offline' | 'error';
   lastSeen: number;
   capabilities: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface DashboardEvent {
