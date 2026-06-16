@@ -3,6 +3,7 @@
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
+import { OverlayMenu } from '@/components/OverlayMenu';
 import {
   LineChart,
   Line,
@@ -412,6 +413,9 @@ export function Dashboard() {
 
       {/* Device Detail Modal */}
       <DeviceDetailModal />
+
+      {/* Holographic overlay launcher (toggle with ` / F2 or the core button) */}
+      <OverlayMenu />
     </main>
   );
 }
