@@ -1,0 +1,23 @@
+[Unit]
+Description=DeskOS Frontend (Next.js Dashboard, Port 3000)
+Documentation=https://github.com/DarkWixxard/DeskOS
+After=network-online.target descos-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__DESCOS_USER__
+Group=__DESCOS_USER__
+WorkingDirectory=__DESCOS_DIR__
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=PATH=__NODE_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=__NPM_BIN__ run start --workspace=apps/frontend
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=descos-frontend
+
+[Install]
+WantedBy=multi-user.target

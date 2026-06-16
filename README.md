@@ -39,6 +39,24 @@ npm install
 npm run dev
 ```
 
+## Autostart & Kiosk-Modus
+
+DeskOS kann beim Booten automatisch starten und das Dashboard im Vollbild
+(Kiosk-Modus) anzeigen – z. B. auf einem Raspberry Pi oder Mini-PC am
+Schreibtisch.
+
+**Linux / Raspberry Pi:**
+```bash
+sudo ./deploy/linux/install.sh
+```
+
+**Windows:**
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\install-autostart.ps1
+```
+
+Details, Autologin und Troubleshooting: siehe [KIOSK.md](./KIOSK.md).
+
 ## Tech Stack
 
 - **Frontend**: React, Next.js, TailwindCSS, Framer Motion, Zustand, Recharts

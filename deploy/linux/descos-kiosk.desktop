@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=DeskOS Kiosk
+Comment=Open the DeskOS dashboard fullscreen on login
+Exec=__DESCOS_DIR__/deploy/linux/start-kiosk.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true
