@@ -18,6 +18,11 @@ Es gibt zwei Bausteine:
 
 Alle Dateien liegen unter [`deploy/`](./deploy).
 
+> **Fernzugriff:** Soll das Dashboard zusätzlich von anderen Geräten über eine
+> Tailscale-Domain (`https://<gerät>.<tailnet>.ts.net`) erreichbar sein, ohne dass
+> sich am lokalen `http://localhost:3000` etwas ändert, siehe
+> [TAILSCALE.md](./TAILSCALE.md).
+
 ---
 
 ## Linux / Raspberry Pi

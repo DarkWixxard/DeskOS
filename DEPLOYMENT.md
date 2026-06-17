@@ -106,6 +106,19 @@ docker build -t descos-backend .
 docker run -p 3001:3001 descos-backend
 ```
 
+## Remote Access via Tailscale (Optional)
+
+To reach the dashboard from other devices over a Tailscale domain
+(`https://<device>.<tailnet>.ts.net`) over HTTPS — while keeping
+`http://localhost:3000` working unchanged — use Tailscale Serve:
+
+```bash
+sudo ./deploy/linux/tailscale-serve.sh
+```
+
+No code changes are required. See [TAILSCALE.md](./TAILSCALE.md) for prerequisites
+(MagicDNS + HTTPS certificates) and details.
+
 ## Database Setup
 
 SQLite is automatically initialized on first run. For PostgreSQL:
