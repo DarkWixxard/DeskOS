@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Nur die schlanken Web-Abhaengigkeiten (kein Tkinter/matplotlib noetig)
+COPY services/oszi/requirements-web.txt ./requirements-web.txt
+RUN pip install --no-cache-dir -r requirements-web.txt
+
+COPY services/oszi ./services/oszi
+
+EXPOSE 5000
+
+ENV OSZI_HOST=0.0.0.0 \
+    OSZI_PORT=5000
+
+CMD ["python", "services/oszi/oszi_server.py"]

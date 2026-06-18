@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rigol Oszilloskop Dashboard</title>
+  <style>
+    /* =====================================================
+       RESET & BASE
+    ===================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #0a0f1e;
+      color: #c8d8e8;
+      min-height: 100vh;
+    }
+
+    /* =====================================================
+       LAYOUT
+    ===================================================== */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px 24px 40px;
+    }
+
+    /* =====================================================
+       HEADER
+    ===================================================== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #1a2a40;
+      padding-bottom: 16px;
+    }
+
+    .header-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #00ff44;
+      text-shadow: 0 0 8px rgba(0, 255, 68, 0.4);
+    }
+
+    .header-sub {
+      font-size: 0.75rem;
+      color: #4a6a8a;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    /* =====================================================
+       STATUS BAR
+    ===================================================== */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      color: #7a9ab8;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #f59e0b;
+      flex-shrink: 0;
+      transition: background 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    .status-dot.connected { background: #00ff44; box-shadow: 0 0 8px #00ff44; }
+    .status-dot.error     { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+    .status-dot.unknown   { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+
+    #status-update-time {
+      font-size: 0.72rem;
+      color: #3a5a7a;
+    }
+
+    /* =====================================================
+       OSCILLOSCOPE CANVAS SECTION
+    ===================================================== */
+    .scope-section {
+      background: #060b14;
+      border: 1px solid #1a3050;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+
+    .scope-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #2a4a6a;
+      margin-bottom: 8px;
+    }
+
+    #waveform-canvas {
+      display: block;
+      width: 100%;
+      height: 300px;
+      background: #000305;
+      border-radius: 4px;
+      border: 1px solid #0d2035;
+    }
+
+    .scope-footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 0.68rem;
+      color: #2a4a6a;
+      letter-spacing: 0.06em;
+    }
+
+    /* =====================================================
+       MEASUREMENT CARDS
+    ===================================================== */
+    .cards-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .cards-row { grid-template-columns: 1fr; }
+    }
+
+    .mcard {
+      background: #0d1a2e;
+      border: 1px solid #1a3050;
+      border-radius: 8px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mcard::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .mcard.freq::before  { background: #00ff44; box-shadow: 0 0 6px #00ff44; }
+    .mcard.vpp::before   { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+    .mcard.vrms::before  { background: #a78bfa; box-shadow: 0 0 6px #a78bfa; }
+
+    .mcard-icon {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .mcard.freq .mcard-icon  { color: #00cc38; }
+    .mcard.vpp .mcard-icon   { color: #2ea8d8; }
+    .mcard.vrms .mcard-icon  { color: #8b6bd8; }
+
+    .mcard-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #3a5a7a;
+      margin-bottom: 8px;
+    }
+
+    .mcard-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      word-break: break-all;
+    }
+
+    .mcard.freq .mcard-value  { color: #00ff44; text-shadow: 0 0 8px rgba(0,255,68,0.3); }
+    .mcard.vpp .mcard-value   { color: #7dd8f8; text-shadow: 0 0 8px rgba(56,189,248,0.2); }
+    .mcard.vrms .mcard-value  { color: #c4b0f8; text-shadow: 0 0 8px rgba(167,139,250,0.2); }
+
+    /* =====================================================
+       BUTTON GROUPS
+    ===================================================== */
+    .controls-section { margin-bottom: 20px; }
+
+    .controls-section-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #2a4a6a;
+      margin-bottom: 8px;
+    }
+
+    .btn-groups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #0d1a2e;
+      border: 1px solid #1a3050;
+      border-radius: 8px;
+    }
+
+    .btn-group-title {
+      width: 100%;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #2a4a6a;
+      margin-bottom: 4px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 5px;
+      padding: 9px 16px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s, background 0.1s;
+      text-transform: uppercase;
+    }
+
+    .btn:active { transform: translateY(1px); }
+
+    .btn-connect { background: #00aa30; color: #000; }
+    .btn-connect:hover { background: #00cc3a; box-shadow: 0 0 10px rgba(0,200,50,0.4); }
+
+    .btn-run { background: #22c55e; color: #000; }
+    .btn-run:hover { background: #16e05a; box-shadow: 0 0 10px rgba(34,197,94,0.4); }
+
+    .btn-stop { background: #ef4444; color: #fff; }
+    .btn-stop:hover { background: #f87171; box-shadow: 0 0 10px rgba(239,68,68,0.4); }
+
+    .btn-auto { background: #f59e0b; color: #000; }
+    .btn-auto:hover { background: #fbbf24; box-shadow: 0 0 10px rgba(245,158,11,0.4); }
+
+    .btn-export { background: #1e3a5a; color: #7ab8e8; border: 1px solid #2a5070; }
+    .btn-export:hover { background: #254870; box-shadow: 0 0 8px rgba(56,130,200,0.3); }
+
+    .btn-util { background: #1a1a3a; color: #8888cc; border: 1px solid #2a2a5a; }
+    .btn-util:hover { background: #222260; box-shadow: 0 0 8px rgba(100,100,220,0.3); }
+
+    .btn-trigger { background: #1a2a1a; color: #44aa44; border: 1px solid #2a4a2a; }
+    .btn-trigger.active {
+      background: #004400;
+      color: #00ff44;
+      border-color: #00aa30;
+      box-shadow: 0 0 8px rgba(0,255,68,0.3);
+    }
+    .btn-trigger:hover { background: #1e3a1e; }
+
+    /* =====================================================
+       BOTTOM PANELS (SCPI + TRIGGER)
+    ===================================================== */
+    .bottom-panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .bottom-panels { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: #0d1a2e;
+      border: 1px solid #1a3050;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .panel-title {
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #2a4a6a;
+      margin-bottom: 12px;
+    }
+
+    /* =====================================================
+       SCPI CONSOLE
+    ===================================================== */
+    .scpi-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .scpi-input {
+      flex: 1;
+      background: #060b14;
+      border: 1px solid #1a3050;
+      border-radius: 5px;
+      padding: 9px 12px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      color: #c8d8e8;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .scpi-input:focus { border-color: #2a6090; }
+    .scpi-input::placeholder { color: #2a4a6a; }
+
+    .scpi-result {
+      min-height: 32px;
+      background: #060b14;
+      border: 1px solid #0d2035;
+      border-radius: 5px;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      color: #7ab8e8;
+      margin-top: 8px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    .scpi-result.error { color: #f87171; }
+
+    .scpi-history-display { margin-top: 8px; }
+
+    .scpi-history-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #2a4a6a;
+      margin-bottom: 4px;
+    }
+
+    .scpi-history-item {
+      font-size: 0.72rem;
+      color: #3a6a8a;
+      padding: 2px 0;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .scpi-history-item:hover { color: #7ab8e8; }
+
+    /* =====================================================
+       TRIGGER PANEL
+    ===================================================== */
+    .trigger-btns { display: flex; gap: 10px; }
+
+    .trigger-info {
+      margin-top: 12px;
+      font-size: 0.72rem;
+      color: #2a4a6a;
+      line-height: 1.5;
+    }
+
+    #active-trigger-display {
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: #00aa30;
+      letter-spacing: 0.06em;
+    }
+
+    /* =====================================================
+       FOOTER
+    ===================================================== */
+    .footer {
+      font-size: 0.68rem;
+      color: #2a4a6a;
+      letter-spacing: 0.05em;
+      text-align: center;
+      border-top: 1px solid #0d1a2e;
+      padding-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div>
+        <div class="header-title">Rigol Oszilloskop Dashboard</div>
+        <div class="header-sub">Echtzeit-Weboberfläche &mdash; Port 5000</div>
+      </div>
+      <div class="status-bar">
+        <span class="status-dot unknown" id="status-dot"></span>
+        <span id="status-text">Verbinde&hellip;</span>
+        <span id="status-update-time"></span>
+      </div>
+    </header>
+
+    <!-- OSCILLOSCOPE DISPLAY -->
+    <div class="scope-section">
+      <div class="scope-label">Wellenform &mdash; CHAN1</div>
+      <canvas id="waveform-canvas"></canvas>
+      <div class="scope-footer">
+        <span id="scope-points">0 Punkte</span>
+        <span id="scope-range">&mdash;</span>
+        <span>500ms Intervall</span>
+      </div>
+    </div>
+
+    <!-- MEASUREMENT CARDS -->
+    <div class="cards-row">
+      <div class="mcard freq">
+        <div class="mcard-icon">&#x1F4C8; FREQUENZ</div>
+        <div class="mcard-label">Grundfrequenz</div>
+        <div class="mcard-value" id="frequency-value">-- Hz</div>
+      </div>
+      <div class="mcard vpp">
+        <div class="mcard-icon">&#x21D5; Vpp</div>
+        <div class="mcard-label">Spitze-zu-Spitze</div>
+        <div class="mcard-value" id="vpp-value">-- V</div>
+      </div>
+      <div class="mcard vrms">
+        <div class="mcard-icon">&#x223C; Vrms</div>
+        <div class="mcard-label">Effektivwert</div>
+        <div class="mcard-value" id="voltage-value">-- V</div>
+      </div>
+    </div>
+
+    <!-- CONTROL BUTTONS -->
+    <div class="controls-section">
+      <div class="controls-section-label">Steuerung</div>
+      <div class="btn-groups">
+
+        <div class="btn-group">
+          <div class="btn-group-title">Ger&auml;t</div>
+          <button class="btn btn-connect" onclick="sendCommand('/connect')">Verbinden</button>
+          <button class="btn btn-run"     onclick="sendCommand('/run')">Start</button>
+          <button class="btn btn-stop"    onclick="sendCommand('/stop')">Stop</button>
+          <button class="btn btn-auto"    onclick="sendCommand('/autoscale')">Autoscale</button>
+        </div>
+
+        <div class="btn-group">
+          <div class="btn-group-title">Export</div>
+          <button class="btn btn-export" onclick="sendCommand('/screenshot')">Screenshot</button>
+          <button class="btn btn-export" onclick="sendCommand('/export_csv')">CSV</button>
+          <button class="btn btn-export" onclick="sendCommand('/report_pdf')">PDF</button>
+        </div>
+
+        <div class="btn-group">
+          <div class="btn-group-title">Dienstprogramm</div>
+          <button class="btn btn-util" onclick="sendCommand('/network_scan')">Netzwerk Scan</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTTOM PANELS -->
+    <div class="bottom-panels">
+
+      <!-- SCPI CONSOLE -->
+      <div class="panel">
+        <div class="panel-title">SCPI Konsole</div>
+        <div class="scpi-row">
+          <input
+            id="scpi-input"
+            class="scpi-input"
+            type="text"
+            list="scpi-history-list"
+            placeholder=":MEASure:VPP? CHAN1"
+            autocomplete="off"
+            onkeydown="if(event.key==='Enter') sendScpi()"
+          >
+          <datalist id="scpi-history-list"></datalist>
+          <button class="btn btn-connect" style="white-space:nowrap;" onclick="sendScpi()">Senden</button>
+        </div>
+        <div class="scpi-result" id="scpi-result">Bereit.</div>
+        <div class="scpi-history-display" id="scpi-history-display" style="display:none;">
+          <div class="scpi-history-label">Letzte Befehle</div>
+          <div id="scpi-history-items"></div>
+        </div>
+      </div>
+
+      <!-- TRIGGER SELECTOR -->
+      <div class="panel">
+        <div class="panel-title">Triggerquelle</div>
+        <div class="trigger-btns">
+          <button class="btn btn-trigger active" id="trig-chan1" onclick="sendTarget('CHAN1')">CHAN1</button>
+          <button class="btn btn-trigger"        id="trig-chan2" onclick="sendTarget('CHAN2')">CHAN2</button>
+        </div>
+        <div id="active-trigger-display">Aktiv: CHAN1</div>
+        <div class="trigger-info">
+          Die Triggerquelle wird direkt an das Oszilloskop &uuml;bermittelt.<br>
+          &Auml;nderungen werden sofort aktiv.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      Rigol Oszilloskop Dashboard &mdash; Lokale Weboberfl&auml;che auf Port 5000
+      &mdash; Messwerte alle 2&thinsp;s &mdash; Wellenform alle 500&thinsp;ms
+    </div>
+
+  </div><!-- end .page -->
+
+  <script>
+    // =====================================================
+    // DOM REFERENCES
+    // =====================================================
+    const statusDot        = document.getElementById('status-dot');
+    const statusText       = document.getElementById('status-text');
+    const statusUpdateTime = document.getElementById('status-update-time');
+    const frequencyValue   = document.getElementById('frequency-value');
+    const vppValue         = document.getElementById('vpp-value');
+    const voltageValue     = document.getElementById('voltage-value');
+    const scopePoints      = document.getElementById('scope-points');
+    const scopeRange       = document.getElementById('scope-range');
+    const scpiResult       = document.getElementById('scpi-result');
+    const scpiInput        = document.getElementById('scpi-input');
+    const canvas           = document.getElementById('waveform-canvas');
+    const ctx              = canvas.getContext('2d');
+
+    // =====================================================
+    // STATE
+    // =====================================================
+    var scpiHistory   = [];
+    var activeTrigger = 'CHAN1';
+
+    // =====================================================
+    // CANVAS SIZING (responsive)
+    // =====================================================
+    function resizeCanvas() {
+      var rect = canvas.getBoundingClientRect();
+      canvas.width  = Math.max(rect.width  || 600, 600);
+      canvas.height = Math.max(rect.height || 300, 300);
+    }
+
+    window.addEventListener('resize', function() {
+      resizeCanvas();
+      drawNoSignal();
+    });
+
+    // =====================================================
+    // WAVEFORM DRAWING
+    // =====================================================
+    var GRID_COLOR  = 'rgba(0, 180, 60, 0.18)';
+    var GRID_MAJOR  = 'rgba(0, 200, 70, 0.28)';
+    var TRACE_COLOR = '#00ff44';
+    var TRACE_GLOW  = 'rgba(0, 255, 68, 0.22)';
+    var H_DIVS = 10;
+    var V_DIVS = 8;
+
+    function drawGrid() {
+      var W = canvas.width;
+      var H = canvas.height;
+
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.fillStyle = '#000305';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = GRID_COLOR;
+      ctx.lineWidth = 0.5;
+
+      for (var i = 0; i <= H_DIVS; i++) {
+        var x = (W / H_DIVS) * i;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (var j = 0; j <= V_DIVS; j++) {
+        var y = (H / V_DIVS) * j;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+
+      ctx.strokeStyle = GRID_MAJOR;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+    }
+
+    function drawNoSignal() {
+      resizeCanvas();
+      drawGrid();
+      var W = canvas.width;
+      var H = canvas.height;
+      ctx.fillStyle = 'rgba(0, 255, 68, 0.25)';
+      ctx.font = 'bold 1.1rem Courier New, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('KEIN SIGNAL', W / 2, H / 2);
+    }
+
+    function drawWaveform(samples) {
+      resizeCanvas();
+      drawGrid();
+
+      if (!samples || samples.length === 0) {
+        drawNoSignal();
+        return;
+      }
+
+      var W = canvas.width;
+      var H = canvas.height;
+
+      var yMin = samples[0], yMax = samples[0];
+      for (var i = 1; i < samples.length; i++) {
+        if (samples[i] < yMin) yMin = samples[i];
+        if (samples[i] > yMax) yMax = samples[i];
+      }
+
+      var yRange = yMax - yMin;
+      var yPad   = yRange === 0 ? 1 : yRange * 0.1;
+      var yLo    = yMin - yPad;
+      var yHi    = yMax + yPad;
+      var ySpan  = yHi - yLo;
+      var n      = samples.length;
+
+      function mapX(idx) { return (idx / (n - 1)) * W; }
+      function mapY(v)   { return H - ((v - yLo) / ySpan) * H; }
+
+      // Glow pass
+      ctx.beginPath();
+      ctx.moveTo(mapX(0), mapY(samples[0]));
+      for (var gi = 1; gi < n; gi++) {
+        ctx.lineTo(mapX(gi), mapY(samples[gi]));
+      }
+      ctx.strokeStyle = TRACE_GLOW;
+      ctx.lineWidth   = 4;
+      ctx.lineJoin    = 'round';
+      ctx.stroke();
+
+      // Main trace
+      ctx.beginPath();
+      ctx.moveTo(mapX(0), mapY(samples[0]));
+      for (var mi = 1; mi < n; mi++) {
+        ctx.lineTo(mapX(mi), mapY(samples[mi]));
+      }
+      ctx.strokeStyle = TRACE_COLOR;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+      ctx.stroke();
+
+      scopeRange.textContent = yRange === 0
+        ? yMin.toFixed(3) + ' V'
+        : yMin.toFixed(3) + ' V – ' + yMax.toFixed(3) + ' V';
+    }
+
+    // =====================================================
+    // API: STATUS (every 2s)
+    // =====================================================
+    function updateStatus() {
+      fetch('/api/status')
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function(data) {
+          var connected = data.status && data.status.toLowerCase().includes('verbunden');
+          setStatusDot(connected ? 'connected' : 'unknown');
+          statusText.textContent = data.status || 'N/A';
+          statusUpdateTime.textContent =
+            'Aktualisiert: ' + new Date().toLocaleTimeString('de-DE');
+          frequencyValue.textContent = data.frequency_readable || '-- Hz';
+          vppValue.textContent       = data.vpp_readable       || '-- V';
+          voltageValue.textContent   = data.voltage_readable   || '-- V';
+        })
+        .catch(function() {
+          setStatusDot('error');
+          statusText.textContent = 'Verbindung fehlgeschlagen';
+        });
+    }
+
+    // =====================================================
+    // API: WAVEFORM (every 500ms)
+    // =====================================================
+    function updateWaveform() {
+      fetch('/api/waveform')
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function(data) {
+          var samples = data.waveform || [];
+          scopePoints.textContent = samples.length + ' Punkte';
+          drawWaveform(samples);
+        })
+        .catch(function() {
+          scopePoints.textContent = 'Fehler';
+        });
+    }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+    function setStatusDot(state) {
+      statusDot.className = 'status-dot ' + state;
+    }
+
+    function sendCommand(path) {
+      fetch(path)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); })
+        .then(function() { updateStatus(); })
+        .catch(function() {
+          setStatusDot('error');
+          statusText.textContent = 'Befehl fehlgeschlagen';
+        });
+    }
+
+    // =====================================================
+    // SCPI CONSOLE
+    // =====================================================
+    function sendScpi() {
+      var cmd = scpiInput.value.trim();
+      if (!cmd) return;
+
+      scpiResult.className = 'scpi-result';
+      scpiResult.textContent = 'Sende…';
+
+      fetch('/scpi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) {
+            scpiResult.className = 'scpi-result error';
+            scpiResult.textContent = 'Fehler: ' + data.error;
+          } else {
+            scpiResult.className = 'scpi-result';
+            scpiResult.textContent = data.result || '(keine Antwort)';
+          }
+          addToScpiHistory(cmd);
+          updateStatus();
+        })
+        .catch(function() {
+          scpiResult.className = 'scpi-result error';
+          scpiResult.textContent = 'Netzwerkfehler beim Senden des Befehls.';
+        });
+    }
+
+    function addToScpiHistory(cmd) {
+      scpiHistory = scpiHistory.filter(function(c) { return c !== cmd; });
+      scpiHistory.unshift(cmd);
+      if (scpiHistory.length > 5) scpiHistory.length = 5;
+      renderScpiHistory();
+    }
+
+    function renderScpiHistory() {
+      var dl = document.getElementById('scpi-history-list');
+      dl.innerHTML = '';
+      scpiHistory.forEach(function(cmd) {
+        var opt = document.createElement('option');
+        opt.value = cmd;
+        dl.appendChild(opt);
+      });
+
+      var display = document.getElementById('scpi-history-display');
+      var items   = document.getElementById('scpi-history-items');
+
+      if (scpiHistory.length === 0) {
+        display.style.display = 'none';
+        return;
+      }
+
+      display.style.display = 'block';
+      items.innerHTML = '';
+      scpiHistory.forEach(function(cmd) {
+        var div = document.createElement('div');
+        div.className = 'scpi-history-item';
+        div.textContent = cmd;
+        div.onclick = function() {
+          scpiInput.value = cmd;
+          scpiInput.focus();
+        };
+        items.appendChild(div);
+      });
+    }
+
+    // =====================================================
+    // TRIGGER
+    // =====================================================
+    function sendTarget(channel) {
+      fetch('/target', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: channel })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          activeTrigger = data.channel || channel;
+          document.getElementById('active-trigger-display').textContent =
+            'Aktiv: ' + activeTrigger;
+          document.getElementById('trig-chan1').classList.toggle('active', activeTrigger === 'CHAN1');
+          document.getElementById('trig-chan2').classList.toggle('active', activeTrigger === 'CHAN2');
+        })
+        .catch(function() {
+          statusText.textContent = 'Trigger konnte nicht gesetzt werden.';
+        });
+    }
+
+    // =====================================================
+    // BOOTSTRAP
+    // =====================================================
+    resizeCanvas();
+    drawNoSignal();
+
+    updateStatus();
+    updateWaveform();
+
+    setInterval(updateStatus,   2000);
+    setInterval(updateWaveform,  500);
+  </script>
+</body>
+</html>

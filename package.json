@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/backend & npm run dev --workspace=apps/frontend",
+    "dev:oszi": "python services/oszi/oszi_server.py",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
     "lint": "eslint \"apps/*/src\" \"packages/*/src\""

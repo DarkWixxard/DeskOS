@@ -106,6 +106,52 @@ export function setupRoutes(app: Express): void {
     res.json(rule);
   });
 
+  // ---- Oszi (Oszilloskop) Service-Proxy: /api/oszi/* -> Flask (Port 5000) ----
+  // Leitet die Anfragen der nativen "Oszi"-Ansicht an den Python/Flask-Dienst
+  // weiter. So spricht das Frontend nur das Backend (Port 3001) an -> kein CORS,
+  // und der Oszi-Port bleibt intern.
+  const OSZI_TARGET =
+    process.env.OSZI_URL ||
+    `http://${process.env.OSZI_HOST || 'localhost'}:${process.env.OSZI_PORT || 5000}`;
+
+  app.all('/api/oszi/*', async (req, res) => {
+    // CORS-Preflight direkt beantworten
+    if (req.method === 'OPTIONS') {
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      return res.sendStatus(204);
+    }
+
+    const subPath = req.originalUrl.replace(/^\/api\/oszi/, '') || '/';
+    const target = OSZI_TARGET + subPath;
+
+    try {
+      const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+      const headers: Record<string, string> = {};
+      if (hasBody) headers['Content-Type'] = 'application/json';
+
+      const upstream = await fetch(target, {
+        method: req.method,
+        headers,
+        body: hasBody ? JSON.stringify(req.body ?? {}) : undefined,
+      });
+
+      res.status(upstream.status);
+      const contentType = upstream.headers.get('content-type');
+      if (contentType) res.setHeader('Content-Type', contentType);
+      const disposition = upstream.headers.get('content-disposition');
+      if (disposition) res.setHeader('Content-Disposition', disposition);
+
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.send(buffer);
+    } catch (err) {
+      res.status(502).json({
+        error: 'Oszi-Service nicht erreichbar',
+        target,
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
   // Not found
   app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
