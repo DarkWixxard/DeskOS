@@ -18,3 +18,12 @@ yarn-debug.log*
 out/
 public/
 .vercel/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Python (services/)
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -52,12 +52,14 @@ interface DashboardStore {
   loading: boolean;
   deviceFilter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor';
   searchQuery: string;
+  activeView: string;
 
   // Actions
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor') => void;
   setSearchQuery: (query: string) => void;
+  setActiveView: (view: string) => void;
   setDevices: (devices: Device[]) => void;
   selectDevice: (device: Device | null) => void;
   updateEvents: (events: DashboardEvent[]) => void;
@@ -78,6 +80,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   loading: false,
   deviceFilter: 'all',
   searchQuery: '',
+  activeView: 'dashboard',
 
   connectWebSocket: () => {
     const apiUrl =
@@ -155,6 +158,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   setDevices: (devices: Device[]) => set({ devices }),
   setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor') => set({ deviceFilter: filter }),
   setSearchQuery: (query: string) => set({ searchQuery: query }),
+  setActiveView: (view: string) => set({ activeView: view }),
   selectDevice: (device: Device | null) => set({ selectedDevice: device }),
   updateEvents: (events: DashboardEvent[]) => set({ events }),
   addEvent: (event: DashboardEvent) => {

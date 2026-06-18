@@ -20,6 +20,7 @@ interface ModuleDef {
   label: string;
   icon: string;
   filter?: 'all' | 'local' | 'remote' | 'esp32' | 'sensor';
+  view?: string;
 }
 
 const PAGES: { title: string; modules: ModuleDef[] }[] = [
@@ -54,6 +55,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'security', label: 'Security', icon: 'shield' },
       { id: 'scenes', label: 'Scenes', icon: 'layers' },
       { id: 'plugins', label: 'Plugins', icon: 'plug' },
+      { id: 'oszi', label: 'Oszi', icon: 'chart', view: 'oszi' },
       { id: 'labs', label: 'Labs', icon: 'flask' },
     ],
   },
@@ -78,6 +80,7 @@ export function OverlayMenu() {
   const events = useDashboardStore((s) => s.events);
   const wsConnected = useDashboardStore((s) => s.wsConnected);
   const setDeviceFilter = useDashboardStore((s) => s.setDeviceFilter);
+  const setActiveView = useDashboardStore((s) => s.setActiveView);
 
   // Derived, real data from the store
   const online = devices.filter((d) => d.status === 'online').length;
@@ -140,6 +143,7 @@ export function OverlayMenu() {
 
   const handleModule = (mod: ModuleDef) => {
     if (mod.filter) setDeviceFilter(mod.filter);
+    if (mod.view) setActiveView(mod.view);
     setOpen(false);
   };
 

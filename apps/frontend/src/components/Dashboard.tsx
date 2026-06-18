@@ -4,6 +4,7 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import { OverlayMenu } from '@/components/OverlayMenu';
+import { OsziView } from '@/components/oszi/OsziView';
 import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
 import {
   LineChart,
@@ -365,6 +366,7 @@ export function Dashboard() {
     searchQuery,
     setDeviceFilter,
     setSearchQuery,
+    activeView,
   } = useDashboardStore();
 
   useEffect(() => {
@@ -381,6 +383,9 @@ export function Dashboard() {
       <div className="animate-holo-flicker relative z-10">
         <Header />
 
+        {activeView === 'oszi' && <OsziView />}
+
+        {activeView !== 'oszi' && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">
@@ -464,6 +469,7 @@ export function Dashboard() {
             )}
           </section>
         </div>
+        )}
       </div>
 
       {/* Device Detail Modal */}

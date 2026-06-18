@@ -1,0 +1,8 @@
+# Schlanke Abhaengigkeiten fuer den kopflosen Web-Dienst (oszi_server.py).
+# Das Original ultimate_rigol_lab.py braucht zusaetzlich matplotlib (Tk-GUI)
+# -> dafuer requirements.txt verwenden.
+flask
+numpy
+pyvisa
+pyvisa-py
+reportlab

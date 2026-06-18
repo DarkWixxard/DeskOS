@@ -11,8 +11,24 @@ services:
       - NODE_ENV=development
       - DATABASE_PATH=/data/descos.db
       - LOG_LEVEL=debug
+      # Ziel fuer den /api/oszi/* Proxy (Oszi-Service)
+      - OSZI_URL=http://oszi:5000
     volumes:
       - ./data:/data
+    depends_on:
+      - oszi
+    restart: unless-stopped
+
+  oszi:
+    build:
+      context: .
+      dockerfile: Dockerfile.oszi
+    ports:
+      - "5000:5000"
+    environment:
+      # IP des Rigol-Oszilloskops (LAN/VISA). Fuer Test ohne Hardware: OSZI_DEMO=1
+      - RIGOL_IP=192.168.1.45
+      # - OSZI_DEMO=1
     restart: unless-stopped
 
   frontend:
