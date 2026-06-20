@@ -8,6 +8,7 @@ import time
 import csv
 import socket
 import sys
+import os
 
 HAS_PYVISA = False
 HAS_NUMPY = False
@@ -224,7 +225,7 @@ def start_webserver():
 
     app.run(
         host='0.0.0.0',
-        port=5000,
+        port=int(os.environ.get("OSZI_PORT", "4002")),
         debug=False,
         use_reloader=False
     )

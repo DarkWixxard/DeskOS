@@ -1,18 +1,23 @@
 version: '3.8'
 
+# Ports werden zentral über die Root-.env gesteuert (docker compose liest .env
+# im selben Verzeichnis automatisch). Die ${VAR:-default}-Schreibweise stellt
+# sinnvolle Defaults sicher, falls keine .env vorhanden ist.
+
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     ports:
-      - "3001:3001"
+      - "${BACKEND_PORT:-4001}:${BACKEND_PORT:-4001}"
     environment:
       - NODE_ENV=development
+      - BACKEND_PORT=${BACKEND_PORT:-4001}
       - DATABASE_PATH=/data/descos.db
       - LOG_LEVEL=debug
       # Ziel fuer den /api/oszi/* Proxy (Oszi-Service)
-      - OSZI_URL=http://oszi:5000
+      - OSZI_URL=http://oszi:${OSZI_PORT:-4002}
     volumes:
       - ./data:/data
     depends_on:
@@ -24,8 +29,9 @@ services:
       context: .
       dockerfile: Dockerfile.oszi
     ports:
-      - "5000:5000"
+      - "${OSZI_PORT:-4002}:${OSZI_PORT:-4002}"
     environment:
+      - OSZI_PORT=${OSZI_PORT:-4002}
       # IP des Rigol-Oszilloskops (LAN/VISA). Fuer Test ohne Hardware: OSZI_DEMO=1
       - RIGOL_IP=192.168.1.45
       # - OSZI_DEMO=1
@@ -35,10 +41,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        # Backend-Port wird beim Build ins Client-Bundle eingebacken.
+        - NEXT_PUBLIC_BACKEND_PORT=${BACKEND_PORT:-4001}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-4000}:${FRONTEND_PORT:-4000}"
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:3001
+      - PORT=${FRONTEND_PORT:-4000}
     depends_on:
       - backend
     restart: unless-stopped
@@ -46,7 +55,7 @@ services:
   mqtt:
     image: eclipse-mosquitto:latest
     ports:
-      - "1883:1883"
+      - "${MQTT_PORT:-1883}:1883"
       - "9001:9001"
     volumes:
       - ./mqtt-config:/mosquitto/config

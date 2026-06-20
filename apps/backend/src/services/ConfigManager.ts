@@ -42,7 +42,7 @@ class ConfigManager {
   private loadConfig(): DeskOSConfig {
     return {
       server: {
-        port: parseInt(process.env.PORT || '3001'),
+        port: parseInt(process.env.BACKEND_PORT || process.env.PORT || '4001'),
         env: process.env.NODE_ENV || 'development',
         host: process.env.HOST || 'localhost'
       },

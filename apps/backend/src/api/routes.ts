@@ -106,13 +106,13 @@ export function setupRoutes(app: Express): void {
     res.json(rule);
   });
 
-  // ---- Oszi (Oszilloskop) Service-Proxy: /api/oszi/* -> Flask (Port 5000) ----
+  // ---- Oszi (Oszilloskop) Service-Proxy: /api/oszi/* -> Flask-Dienst ----
   // Leitet die Anfragen der nativen "Oszi"-Ansicht an den Python/Flask-Dienst
-  // weiter. So spricht das Frontend nur das Backend (Port 3001) an -> kein CORS,
-  // und der Oszi-Port bleibt intern.
+  // weiter. So spricht das Frontend nur das Backend an -> kein CORS,
+  // und der Oszi-Port bleibt intern (konfigurierbar via OSZI_URL/OSZI_PORT).
   const OSZI_TARGET =
     process.env.OSZI_URL ||
-    `http://${process.env.OSZI_HOST || 'localhost'}:${process.env.OSZI_PORT || 5000}`;
+    `http://${process.env.OSZI_HOST || 'localhost'}:${process.env.OSZI_PORT || 4002}`;
 
   app.all('/api/oszi/*', async (req, res) => {
     // CORS-Preflight direkt beantworten

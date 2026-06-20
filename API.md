@@ -3,7 +3,7 @@
 ## Base URL
 
 ```
-http://localhost:3001/api
+http://localhost:4001/api
 ```
 
 ## Endpoints
@@ -143,7 +143,7 @@ Response:
 
 ## WebSocket Events
 
-Connect to WebSocket at `ws://localhost:3001`
+Connect to WebSocket at `ws://localhost:4001`
 
 ### Client -> Server
 
@@ -253,7 +253,7 @@ Currently no authentication required. Will be added in security update.
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api'
+  baseURL: 'http://localhost:4001/api'
 });
 
 // Get all devices
@@ -274,7 +274,7 @@ const summary = await api.get('/dashboard/summary');
 ```python
 import requests
 
-BASE_URL = 'http://localhost:3001/api'
+BASE_URL = 'http://localhost:4001/api'
 
 # Get devices
 response = requests.get(f'{BASE_URL}/devices')
@@ -289,11 +289,11 @@ metrics = response.json()
 
 ```bash
 # Get all devices
-curl http://localhost:3001/api/devices
+curl http://localhost:4001/api/devices
 
 # Get system metrics
-curl http://localhost:3001/api/system/metrics
+curl http://localhost:4001/api/system/metrics
 
 # Get event history
-curl "http://localhost:3001/api/events?limit=10"
+curl "http://localhost:4001/api/events?limit=10"
 ```

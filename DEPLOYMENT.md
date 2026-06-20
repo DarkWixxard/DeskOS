@@ -51,7 +51,7 @@ Start frontend (in another terminal):
 npm run dev --workspace=apps/frontend
 ```
 
-Access the dashboard at http://localhost:3000
+Access the dashboard at http://localhost:4000
 
 ## Production Deployment
 
@@ -96,21 +96,21 @@ WORKDIR /app
 COPY . .
 RUN npm install
 RUN npm run build --workspace=apps/backend
-EXPOSE 3001
+EXPOSE 4001
 CMD ["node", "apps/backend/dist/index.js"]
 ```
 
 Build and run:
 ```bash
 docker build -t descos-backend .
-docker run -p 3001:3001 descos-backend
+docker run -p 4001:4001 descos-backend
 ```
 
 ## Remote Access via Tailscale (Optional)
 
 To reach the dashboard from other devices over a Tailscale domain
 (`https://<device>.<tailnet>.ts.net`) over HTTPS — while keeping
-`http://localhost:3000` working unchanged — use Tailscale Serve:
+`http://localhost:4000` working unchanged — use Tailscale Serve:
 
 ```bash
 sudo ./deploy/linux/tailscale-serve.sh
@@ -132,7 +132,7 @@ SQLite is automatically initialized on first run. For PostgreSQL:
 
 ### Backend won't start
 - Check NODE_ENV is set correctly
-- Ensure port 3001 is available
+- Ensure port 4001 is available
 - Check .env file is properly configured
 
 ### Frontend can't connect

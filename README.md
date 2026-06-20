@@ -60,7 +60,7 @@ Ein vollständig modulares System zur Überwachung und Steuerung von lokalen PCs
 ## Architektur
 
 ```
-Browser / Dashboard (http://localhost:3000)
+Browser / Dashboard (http://localhost:4000)
               │
               ▼
       React Frontend
@@ -70,7 +70,7 @@ Browser / Dashboard (http://localhost:3000)
               ▼
 ┌─────────────────────────────────────┐
 │    Node.js Backend (Express)        │
-│    http://localhost:3001            │
+│    http://localhost:4001            │
 ├─────────────────────────────────────┤
 │  EventSystem  │  DeviceManager      │
 │  PluginSystem │  AutomationEngine   │
@@ -153,17 +153,17 @@ cp apps/agent/.env.example apps/agent/.env
 **3. Entwicklungsserver starten (3 Terminals)**
 
 ```bash
-# Terminal 1 – Backend (Port 3001)
+# Terminal 1 – Backend (Port 4001)
 npm run dev --workspace=apps/backend
 
-# Terminal 2 – Frontend (Port 3000)
+# Terminal 2 – Frontend (Port 4000)
 npm run dev --workspace=apps/frontend
 
 # Terminal 3 – Agent (optional)
 npm run dev --workspace=apps/agent
 ```
 
-Das Dashboard ist dann unter **http://localhost:3000** erreichbar.
+Das Dashboard ist dann unter **http://localhost:4000** erreichbar.
 
 ---
 
@@ -213,11 +213,28 @@ DeskOS/
 
 ## Umgebungsvariablen
 
+### Ports zentral ändern (`.env` im Projekt-Root)
+
+Alle Ports lassen sich an **einer** Stelle anpassen: `.env.example` nach `.env` kopieren
+und die Werte ändern. Standard ist bewusst der 4000er-Bereich (statt 3000/3001), um
+Konflikte mit anderen Anwendungen zu vermeiden.
+
+| Variable | Standard | Dienst |
+|----------|----------|--------|
+| `FRONTEND_PORT` | `4000` | Web-Dashboard (Next.js) |
+| `BACKEND_PORT` | `4001` | API + WebSocket |
+| `OSZI_PORT` | `4002` | Oszi-Service (Flask) |
+| `MQTT_PORT` | `1883` | MQTT-Broker |
+
+`npm run dev`, `docker compose` und `setup.sh` lesen diese `.env` automatisch. Nach einer
+Port-Änderung in Produktion das Frontend neu bauen (`setup.sh`/Docker erledigen das),
+damit der Backend-Port ins Client-Bundle eingebacken wird.
+
 ### Backend (`apps/backend/.env`)
 
 | Variable | Standard | Beschreibung |
 |----------|----------|--------------|
-| `PORT` | `3001` | HTTP-Port des Backends |
+| `BACKEND_PORT` | `4001` | HTTP-Port des Backends (zentral über Root-`.env`) |
 | `NODE_ENV` | `development` | Umgebung (`development` / `production`) |
 | `DATABASE_PATH` | `./descos.db` | Pfad zur SQLite-Datenbank |
 | `MQTT_BROKER` | – | MQTT-Broker-URL (optional) |
@@ -227,7 +244,7 @@ DeskOS/
 
 | Variable | Standard | Beschreibung |
 |----------|----------|--------------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | Backend-URL |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:4001` | Backend-URL |
 
 ### Agent (`apps/agent/.env`)
 
@@ -241,7 +258,7 @@ DeskOS/
 
 ## API-Referenz
 
-**Base URL:** `http://localhost:3001/api`
+**Base URL:** `http://localhost:4001/api`
 
 ### REST-Endpoints
 

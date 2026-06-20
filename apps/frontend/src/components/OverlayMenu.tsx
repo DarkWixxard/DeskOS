@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { HoloIcon, Panel, Sparkline, RadialGauge, StatBar } from '@/components/holo';
+import { getBackendPort } from '@/lib/api';
 
 /* =========================================================================
    DeskOS Overlay Menu — holographic "mobiGlas" style launcher.
@@ -376,7 +377,7 @@ export function OverlayMenu() {
                       </div>
                       <div>
                         <div className="holo-label">Port</div>
-                        <div className="font-mono text-white/80">3001</div>
+                        <div className="font-mono text-white/80">{getBackendPort()}</div>
                       </div>
                     </div>
                   </Panel>

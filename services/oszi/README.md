@@ -21,7 +21,7 @@ RIGOL_IP=192.168.1.45 python oszi_server.py
 OSZI_DEMO=1 python oszi_server.py
 ```
 
-Der Dienst lauscht auf `http://0.0.0.0:5000`. Aus dem DeskOS-Repo-Root genügt:
+Der Dienst lauscht auf `http://0.0.0.0:4002`. Aus dem DeskOS-Repo-Root genügt:
 
 ```bash
 npm run dev:oszi          # echtes Gerät
@@ -34,13 +34,13 @@ OSZI_DEMO=1 npm run dev:oszi   # Demo
 |----------|---------|-----------|
 | `RIGOL_IP` | `192.168.1.45` | IP des Rigol (LAN/VISA) |
 | `OSZI_HOST` | `0.0.0.0` | Bind-Adresse |
-| `OSZI_PORT` | `5000` | Port |
+| `OSZI_PORT` | `4002` | Port |
 | `OSZI_DEMO` | – | `1`/`true` → synthetisches Demo-Signal statt Hardware |
 
 ## Anbindung an DeskOS
 
-Die React-Ansicht ruft **nicht** direkt Port 5000 auf, sondern geht über den
-Node-Backend-Proxy: `GET/POST {Backend:3001}/api/oszi/*` → `{OSZI:5000}/*`.
+Die React-Ansicht ruft **nicht** direkt Port 4002 auf, sondern geht über den
+Node-Backend-Proxy: `GET/POST {Backend:4001}/api/oszi/*` → `{OSZI:4002}/*`.
 Der Proxy wird über `OSZI_URL` (bzw. `OSZI_HOST`/`OSZI_PORT`) im Backend konfiguriert.
 
 > **Hinweis Hardware:** Es gibt keinen eingebauten Simulationsmodus im Original –

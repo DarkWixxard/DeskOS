@@ -8,9 +8,9 @@ RUN pip install --no-cache-dir -r requirements-web.txt
 
 COPY services/oszi ./services/oszi
 
-EXPOSE 5000
+EXPOSE 4002
 
 ENV OSZI_HOST=0.0.0.0 \
-    OSZI_PORT=5000
+    OSZI_PORT=4002
 
 CMD ["python", "services/oszi/oszi_server.py"]

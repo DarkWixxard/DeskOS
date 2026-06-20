@@ -1,19 +1,13 @@
 // API-Client fuer den Oszi-Service.
-// Alle Aufrufe gehen ueber das DeskOS-Backend (Port 3001), das sie unter
-// /api/oszi/* an den Python/Flask-Dienst (Port 5000) weiterleitet.
+// Alle Aufrufe gehen ueber das DeskOS-Backend, das sie unter /api/oszi/*
+// an den Python/Flask-Dienst weiterleitet. Die Backend-Basis-URL (inkl.
+// konfigurierbarem Port) kommt zentral aus lib/api.
 
-function apiBase(): string {
-  return (
-    process.env.NEXT_PUBLIC_API_URL ||
-    (typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:3001`
-      : 'http://localhost:3001')
-  );
-}
+import { getApiBaseUrl } from './api';
 
 /** Vollstaendige URL fuer einen Oszi-Endpunkt, z. B. osziUrl('/run'). */
 export function osziUrl(path: string): string {
-  return `${apiBase()}/api/oszi${path}`;
+  return `${getApiBaseUrl()}/api/oszi${path}`;
 }
 
 export interface OsziStatus {

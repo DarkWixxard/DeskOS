@@ -33,18 +33,18 @@
    npm run dev --workspace=apps/backend
    ```
    
-   Wait for: `✅ Server listening on http://localhost:3001`
+   Wait for: `✅ Server listening on http://localhost:4001`
 
 4. **Start frontend** (Terminal 2)
    ```bash
    npm run dev --workspace=apps/frontend
    ```
    
-   Wait for: `ready - started server on 0.0.0.0:3000`
+   Wait for: `ready - started server on 0.0.0.0:4000`
 
 5. **Open in browser**
-   - Dashboard: http://localhost:3000
-   - Backend API: http://localhost:3001
+   - Dashboard: http://localhost:4000
+   - Backend API: http://localhost:4001
 
 ### Option 2: Docker (Single Command)
 
@@ -53,8 +53,8 @@ docker-compose up
 ```
 
 Access:
-- Dashboard: http://localhost:3000
-- Backend API: http://localhost:3001
+- Dashboard: http://localhost:4000
+- Backend API: http://localhost:4001
 
 ### Option 3: Production Build
 
@@ -74,36 +74,36 @@ npm start
 
 ### 1. Check Backend Health
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:4001/health
 ```
 
 ### 2. View Dashboard
-Open http://localhost:3000 in your browser
+Open http://localhost:4000 in your browser
 
 ### 3. Check Devices
 ```bash
-curl http://localhost:3001/api/devices
+curl http://localhost:4001/api/devices
 ```
 
 ### 4. Monitor System Metrics
 ```bash
-curl http://localhost:3001/api/system/metrics
+curl http://localhost:4001/api/system/metrics
 ```
 
 ### 5. View Event History
 ```bash
-curl http://localhost:3001/api/events
+curl http://localhost:4001/api/events
 ```
 
 ## Troubleshooting
 
 ### Backend won't start
 ```bash
-# Check if port 3001 is available
-netstat -an | grep 3001
+# Check if port 4001 is available
+netstat -an | grep 4001
 
-# Or use different port
-PORT=3002 npm run dev --workspace=apps/backend
+# Ports zentral ändern: in der Root-.env z. B. BACKEND_PORT=4500 setzen, dann:
+npm run dev
 ```
 
 ### Frontend can't connect
@@ -136,7 +136,7 @@ npm install
 # Setup environment
 cp .env.example .env
 # Edit .env with your backend URL:
-# BACKEND_URL=http://your-backend-ip:3001
+# BACKEND_URL=http://your-backend-ip:4001
 ```
 
 ### 2. Start Agent
@@ -151,7 +151,7 @@ NODE_ENV=production node dist/index.js
 ```
 
 ### 3. Verify in Dashboard
-Go to http://localhost:3000 and check the Devices section.
+Go to http://localhost:4000 and check the Devices section.
 
 ## Next Steps
 
@@ -195,7 +195,7 @@ For issues:
 ```
 ┌─────────────────────┐
 │  Browser/Dashboard  │
-│   (http://localhost:3000)
+│   (http://localhost:4000)
 └──────────┬──────────┘
            │
            ▼
@@ -207,7 +207,7 @@ For issues:
            ▼
 ┌─────────────────────┐        ┌──────────────┐
 │  Node.js Backend    │◄─────►│   SQLite DB  │
-│  (localhost:3001)   │        └──────────────┘
+│  (localhost:4001)   │        └──────────────┘
 └──────────┬──────────┘
            │
      ┌─────┴─────┬──────────┐
