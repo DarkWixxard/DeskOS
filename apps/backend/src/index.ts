@@ -14,7 +14,7 @@ import * as path from 'path';
 // Load environment variables
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.BACKEND_PORT || process.env.PORT || 4001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const DATABASE_PATH = process.env.DATABASE_PATH || './descos.db';
 const PLUGINS_DIR = path.join(__dirname, '..', '..', '..', 'plugins');

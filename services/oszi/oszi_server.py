@@ -12,7 +12,7 @@ kann.
 Konfiguration ueber Umgebungsvariablen:
   RIGOL_IP   IP-Adresse des Rigol-Oszilloskops (Default 192.168.1.45)
   OSZI_HOST  Bind-Adresse des Webservers       (Default 0.0.0.0)
-  OSZI_PORT  Port des Webservers               (Default 5000)
+  OSZI_PORT  Port des Webservers               (Default 4002)
   OSZI_DEMO  Wenn gesetzt (1/true): Demo-Modus mit synthetischem Signal,
              damit die Oberflaeche auch OHNE echte Hardware getestet werden kann.
 
@@ -58,7 +58,7 @@ from flask import Flask, jsonify, request, Response, render_template
 # ---------------------------------------------------------------------------
 RIGOL_IP = os.environ.get("RIGOL_IP", "192.168.1.45")
 OSZI_HOST = os.environ.get("OSZI_HOST", "0.0.0.0")
-OSZI_PORT = int(os.environ.get("OSZI_PORT", "5000"))
+OSZI_PORT = int(os.environ.get("OSZI_PORT", "4002"))
 DEMO = os.environ.get("OSZI_DEMO", "").lower() in ("1", "true", "yes", "on")
 
 # ---------------------------------------------------------------------------

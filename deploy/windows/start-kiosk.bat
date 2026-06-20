@@ -1,7 +1,15 @@
 @echo off
 REM DeskOS - open the dashboard fullscreen (kiosk) in Chrome, falling back to Edge.
 setlocal
-set "URL=http://localhost:3000"
+REM Frontend-Port zentral aus der Root-.env (Fallback 4000); DESCOS_KIOSK_URL hat Vorrang.
+set "FRONTEND_PORT=4000"
+if exist "%~dp0..\..\.env" (
+  for /f "usebackq tokens=1,2 delims==" %%A in ("%~dp0..\..\.env") do (
+    if /i "%%A"=="FRONTEND_PORT" set "FRONTEND_PORT=%%B"
+  )
+)
+set "URL=%DESCOS_KIOSK_URL%"
+if not defined URL set "URL=http://localhost:%FRONTEND_PORT%"
 
 echo Waiting for %URL% ...
 set /a tries=0

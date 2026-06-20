@@ -144,13 +144,13 @@ cp apps/agent/.env.example apps/agent/.env
 **Terminal 1 - Backend**
 ```bash
 npm run dev --workspace=apps/backend
-# ✅ Server listening on http://localhost:3001
+# ✅ Server listening on http://localhost:4001
 ```
 
 **Terminal 2 - Frontend**
 ```bash
 npm run dev --workspace=apps/frontend
-# ✅ Dashboard on http://localhost:3000
+# ✅ Dashboard on http://localhost:4000
 ```
 
 **Terminal 3 - Agent (Optional)**
@@ -160,9 +160,9 @@ npm run dev --workspace=apps/agent
 ```
 
 ### Access
-- 🌐 Dashboard: http://localhost:3000
-- 🔌 Backend API: http://localhost:3001
-- 📡 WebSocket: ws://localhost:3001
+- 🌐 Dashboard: http://localhost:4000
+- 🔌 Backend API: http://localhost:4001
+- 📡 WebSocket: ws://localhost:4001
 
 ---
 
@@ -174,7 +174,7 @@ npm run dev --workspace=apps/agent
 ┌─────────────────────────────┐
 │     DeskOS Dashboard        │
 │  (React + Next.js + Zustand)│
-│   http://localhost:3000     │
+│   http://localhost:4000     │
 └──────────────┬──────────────┘
                │
                │ WebSocket
@@ -182,7 +182,7 @@ npm run dev --workspace=apps/agent
 ┌──────────────▼──────────────┐
 │   Backend Core              │
 │  (Node.js + Express)        │
-│  http://localhost:3001      │
+│  http://localhost:4001      │
 ├─────────────────────────────┤
 │ • Event System              │
 │ • Device Manager            │
@@ -364,8 +364,8 @@ docker-compose up
 ```bash
 docker build -t descos-backend -f Dockerfile.backend .
 docker build -t descos-frontend -f Dockerfile.frontend .
-docker run -p 3001:3001 descos-backend
-docker run -p 3000:3000 descos-frontend
+docker run -p 4001:4001 descos-backend
+docker run -p 4000:4000 descos-frontend
 ```
 
 ---
@@ -374,7 +374,7 @@ docker run -p 3000:3000 descos-frontend
 
 ### Backend (.env)
 ```
-PORT=3001
+BACKEND_PORT=4001
 NODE_ENV=development
 MQTT_BROKER=mqtt://localhost:1883
 DATABASE_PATH=./descos.db
@@ -383,12 +383,12 @@ LOG_LEVEL=debug
 
 ### Frontend (.env.local)
 ```
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:4001
 ```
 
 ### Agent (.env)
 ```
-BACKEND_URL=http://localhost:3001
+BACKEND_URL=http://localhost:4001
 AGENT_NAME=remote-pc-1
 POLL_INTERVAL=1000
 ```

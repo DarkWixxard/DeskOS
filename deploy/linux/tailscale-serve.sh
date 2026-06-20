@@ -1,25 +1,32 @@
 #!/usr/bin/env bash
 # DeskOS - Tailscale Serve setup
-# Publishes the DeskOS dashboard (frontend :3000) and backend (:3001) over HTTPS
+# Publishes the DeskOS dashboard (frontend :4000) and backend (:4001) over HTTPS
 # on your tailnet, so DeskOS becomes reachable at
 #   https://<device>.<tailnet>.ts.net
-# in ADDITION to the existing http://localhost:3000 (which keeps working unchanged).
+# in ADDITION to the existing http://localhost:4000 (which keeps working unchanged).
 #
 # Usage:
 #   sudo ./deploy/linux/tailscale-serve.sh [on|off|status]
 #
-#   on      (default) publish frontend on :443 and backend on :3001 via HTTPS
+#   on      (default) publish frontend on :443 and backend on :4001 via HTTPS
 #   off     remove all Tailscale Serve mappings  (tailscale serve reset)
 #   status  show the current Tailscale Serve configuration
 #
-# Override the ports if your setup differs:
-#   sudo FRONTEND_PORT=3000 BACKEND_PORT=3001 ./deploy/linux/tailscale-serve.sh
+# Die Ports kommen standardmäßig aus der zentralen Root-.env. Überschreiben:
+#   sudo FRONTEND_PORT=4000 BACKEND_PORT=4001 ./deploy/linux/tailscale-serve.sh
 
 set -euo pipefail
 
 ACTION="${1:-on}"
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
-BACKEND_PORT="${BACKEND_PORT:-3001}"
+
+# Zentrale Port-Konfiguration aus der Root-.env übernehmen (falls vorhanden).
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [ -f "${REPO_DIR}/.env" ]; then
+  # shellcheck disable=SC1091
+  set -a; . "${REPO_DIR}/.env"; set +a
+fi
+FRONTEND_PORT="${FRONTEND_PORT:-4000}"
+BACKEND_PORT="${BACKEND_PORT:-4001}"
 
 # --- tailscale must be installed -------------------------------------------
 if ! command -v tailscale >/dev/null 2>&1; then
@@ -72,7 +79,7 @@ if ! tailscale serve --bg --https=443 "http://127.0.0.1:${FRONTEND_PORT}"; then
   exit 1
 fi
 
-# Backend / WebSocket on :3001 (the frontend talks to <host>:3001 automatically)
+# Backend / WebSocket (the frontend talks to <host>:${BACKEND_PORT} automatically)
 tailscale serve --bg --https="${BACKEND_PORT}" "http://127.0.0.1:${BACKEND_PORT}"
 
 echo

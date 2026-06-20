@@ -8,7 +8,7 @@ import * as http from 'http';
 
 dotenv.config();
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4001';
 const AGENT_NAME = process.env.AGENT_NAME || os.hostname();
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '1000');
 

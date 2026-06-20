@@ -6,21 +6,21 @@ Display (Raspberry Pi, Mini-PC) auf dem Schreibtisch.
 
 Es gibt zwei Bausteine:
 
-1. **Autostart der Dienste** – Backend (Port `3001`) und Frontend (Port `3000`)
+1. **Autostart der Dienste** – Backend (Port `4001`) und Frontend (Port `4000`)
    starten automatisch und werden bei einem Absturz neu gestartet.
-2. **Kiosk-Browser** – ein Chromium/Chrome/Edge öffnet `http://localhost:3000`
+2. **Kiosk-Browser** – ein Chromium/Chrome/Edge öffnet `http://localhost:4000`
    im Vollbild ohne Adressleiste, Tabs oder Bedienelemente.
 
 > Auf einem Einzelgerät ist keine zusätzliche Konfiguration nötig: Das Frontend
-> verbindet sich standardmäßig mit dem Backend unter `http://<hostname>:3001`.
+> verbindet sich standardmäßig mit dem Backend unter `http://<hostname>:4001`.
 > Liegt das Backend auf einem anderen Rechner, setze vor dem Build
-> `NEXT_PUBLIC_API_URL=http://<backend-ip>:3001` in `apps/frontend/.env.local`.
+> `NEXT_PUBLIC_API_URL=http://<backend-ip>:4001` in `apps/frontend/.env.local`.
 
 Alle Dateien liegen unter [`deploy/`](./deploy).
 
 > **Fernzugriff:** Soll das Dashboard zusätzlich von anderen Geräten über eine
 > Tailscale-Domain (`https://<gerät>.<tailnet>.ts.net`) erreichbar sein, ohne dass
-> sich am lokalen `http://localhost:3000` etwas ändert, siehe
+> sich am lokalen `http://localhost:4000` etwas ändert, siehe
 > [TAILSCALE.md](./TAILSCALE.md).
 
 ---
@@ -131,7 +131,7 @@ ausgeführt.
 
 ### Was passiert
 
-- `start-descos.bat` startet Backend (`:3001`) und Frontend (`:3000`) in
+- `start-descos.bat` startet Backend (`:4001`) und Frontend (`:4000`) in
   minimierten Fenstern.
 - `start-kiosk.bat` wartet, bis das Dashboard antwortet, und öffnet dann
   **Chrome** mit `--kiosk` (oder ersatzweise **Edge** mit `--kiosk`).
@@ -168,7 +168,7 @@ Den Kiosk-Browser anschließend wie oben beschrieben einrichten
 
 | Problem | Lösung |
 | --- | --- |
-| Kiosk öffnet, zeigt aber Verbindungsfehler | Backend prüfen: `systemctl status descos-backend` / Port `3001` frei? |
+| Kiosk öffnet, zeigt aber Verbindungsfehler | Backend prüfen: `systemctl status descos-backend` / Port `4001` frei? |
 | Schwarzer Bildschirm / kein Browser | `chromium-browser` installiert? `./deploy/linux/start-kiosk.sh` manuell ausführen und Fehler lesen |
 | `npm: command not found` im Service | Node via nvm? `install.sh` erneut ausführen – es trägt den korrekten Pfad ein |
 | Display schaltet sich ab | Autologin aktiv? Unter Wayland Bildschirm-Timeout im Desktop deaktivieren |

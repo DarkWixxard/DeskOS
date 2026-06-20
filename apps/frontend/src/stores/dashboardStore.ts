@@ -1,6 +1,7 @@
 // Store for application state using Zustand
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
+import { getApiBaseUrl } from '@/lib/api';
 
 export interface Device {
   id: string;
@@ -83,11 +84,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   activeView: 'dashboard',
 
   connectWebSocket: () => {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL ||
-      (typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname}:3001`
-        : 'http://localhost:3001');
+    const apiUrl = getApiBaseUrl();
 
     console.log('Connecting to backend API URL:', apiUrl);
     const socket = io(apiUrl);
@@ -170,11 +167,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   setSystemMetrics: (metrics: SystemMetrics) => set({ systemMetrics: metrics }),
   setLoading: (loading: boolean) => set({ loading }),
   removeDevice: async (deviceId: string) => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL ||
-      (typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname}:3001`
-        : 'http://localhost:3001');
+    const baseUrl = getApiBaseUrl();
     try {
       const response = await fetch(
         `${baseUrl}/api/devices/${encodeURIComponent(deviceId)}`,

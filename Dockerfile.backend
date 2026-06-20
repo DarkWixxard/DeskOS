@@ -15,7 +15,7 @@ RUN npm ci
 RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=apps/backend
 
-EXPOSE 3001
+EXPOSE 4001
 
 ENV NODE_ENV=production
 CMD ["node", "apps/backend/dist/index.js"]

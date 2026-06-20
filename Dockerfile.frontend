@@ -7,6 +7,10 @@ COPY tsconfig.json ./
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
+# Backend-Port zur Build-Zeit ins Client-Bundle einbacken (NEXT_PUBLIC_*).
+ARG NEXT_PUBLIC_BACKEND_PORT=4001
+ENV NEXT_PUBLIC_BACKEND_PORT=$NEXT_PUBLIC_BACKEND_PORT
+
 RUN npm ci
 RUN npm run build --workspace=apps/frontend
 
@@ -20,6 +24,7 @@ COPY --from=builder /app/apps/frontend/package*.json ./
 
 RUN npm ci --omit=dev
 
-EXPOSE 3000
+# Laufzeit-Port via PORT-Env (von docker-compose gesetzt). EXPOSE ist nur Doku.
+EXPOSE 4000
 
 CMD ["npm", "start"]

@@ -5,7 +5,13 @@
 
 set -euo pipefail
 
-URL="${DESCOS_KIOSK_URL:-http://localhost:3000}"
+# Frontend-Port zentral aus der Root-.env (falls vorhanden); DESCOS_KIOSK_URL hat Vorrang.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [ -f "${REPO_DIR}/.env" ]; then
+  # shellcheck disable=SC1091
+  set -a; . "${REPO_DIR}/.env"; set +a
+fi
+URL="${DESCOS_KIOSK_URL:-http://localhost:${FRONTEND_PORT:-4000}}"
 
 # 1. Wait until the frontend answers (max ~60s) ----------------------------
 echo "[descos-kiosk] Waiting for ${URL} ..."
