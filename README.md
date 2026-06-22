@@ -376,13 +376,19 @@ Weitere Details zu Autologin, Troubleshooting und Produktivkonfiguration: [DEPLO
 
 ## Roadmap
 
-| Phase | Version | Thema |
-|-------|---------|-------|
-| ✅ Phase 1 | v0.1.0 | Core-System, Backend, Frontend, Monitoring |
-| 🔜 Phase 2 | v0.2.0 | Remote-PCs: Multi-Agent, Remote-Befehle |
-| 🔜 Phase 3 | v0.3.0 | Hardware: ESP32, WS2812B LEDs, OLED-Displays, Sensoren |
-| 🔜 Phase 4 | v0.4.0 | Automationen: Regelengine, Szenen, geplante Tasks |
-| 🔜 Phase 5 | v0.5.0 | Plugin-Marketplace, Community-Plugins |
+Die vollständige Roadmap inkl. Machbarkeit, Ist-Zustand und Detailaufgaben steht in
+**[ROADMAP.md](./ROADMAP.md)**. Kurzüberblick der Meilensteine:
+
+| Meilenstein | Version | Thema |
+|-------------|---------|-------|
+| ✅ Basis | v0.1.0 | Core-System, Backend, Frontend, Multi-PC-Monitoring (Ansatz), Oszi |
+| 🔜 M0 | v1.0 | Fundament: Typen-Cleanup & SQLite-Persistenz anschließen |
+| 🔜 M1 | v1.0 | Monitoring-Tiefe: GPU, Temperaturen, Lüfter, Netz, Prozesse (`systeminformation`) |
+| 🔜 M2 | v1.0 | Device Center (Detailansicht) + Notification- & Log-Center |
+| 🔜 M3 | v2.0 | RGB-Engine + WLED-Steuerung (Ambient + Zimmerlicht) |
+| 🔜 M4 | v2.0 | Automation-Engine v2 + Layout-/Profil-System |
+| 🔜 M5 | v3.0 | ESP32/MQTT + Sensor-Hub + Modul-Manager (inkl. Simulator) |
+| 🔜 M6 | v3.0 | Firmware-Center + Plugin-System v2 (Spotify, Discord, OBS, Hue …) |
 
 ---
 
