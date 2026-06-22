@@ -5,6 +5,7 @@ import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import { OverlayMenu } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
+import { MonitorView } from '@/components/MonitorView';
 import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
 import {
   LineChart,
@@ -16,6 +17,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+
+// activeView values handled by the dedicated Monitoring Center (MonitorView).
+const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -385,7 +389,9 @@ export function Dashboard() {
 
         {activeView === 'oszi' && <OsziView />}
 
-        {activeView !== 'oszi' && (
+        {MONITOR_VIEWS.includes(activeView) && <MonitorView />}
+
+        {activeView !== 'oszi' && !MONITOR_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">

@@ -19,6 +19,10 @@ interface DashboardStore {
   events: DashboardEvent[];
   systemMetrics: SystemMetrics | null;
   metricsHistory: MetricsSnapshot[];
+  // Per-device latest metrics + rolling history (keyed by device id).
+  localDeviceId: string | null;
+  metricsByDevice: Record<string, MetricsSnapshot>;
+  historyByDevice: Record<string, MetricsSnapshot[]>;
   wsConnected: boolean;
   socket: Socket | null;
   loading: boolean;
@@ -47,6 +51,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   events: [],
   systemMetrics: null,
   metricsHistory: [],
+  localDeviceId: null,
+  metricsByDevice: {},
+  historyByDevice: {},
   wsConnected: false,
   socket: null,
   loading: false,
@@ -71,6 +78,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     socket.on('local:device:id', (data: { deviceId: string }) => {
       console.log('Local device ID:', data.deviceId);
+      set({ localDeviceId: data.deviceId });
       socket.emit('subscribe:device', data.deviceId);
     });
 
@@ -79,25 +87,36 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     });
 
     socket.on('device:update', (data: any) => {
-      // Update device list
-      const devices = get().devices;
-      const deviceIndex = devices.findIndex(d => d.id === data.deviceId);
-      if (deviceIndex >= 0) {
-        devices[deviceIndex].lastSeen = data.timestamp;
-      }
-      
-      // Update system metrics if it's the local device
-      if (data.deviceId === 'local' || data.data?.hostname) {
-        const snapshot: MetricsSnapshot = {
-          ...(data.data as SystemMetrics),
-          timestamp: data.timestamp || Date.now(),
-        };
-        const history = [...get().metricsHistory, snapshot];
-        if (history.length > 30) history.shift();
-        set({ systemMetrics: data.data as SystemMetrics, metricsHistory: history });
+      const deviceId = data.deviceId as string;
+      const metrics = data.data as SystemMetrics | undefined;
+      const timestamp = data.timestamp || Date.now();
+
+      // Update lastSeen immutably.
+      const devices = get().devices.map((d) =>
+        d.id === deviceId ? { ...d, lastSeen: timestamp } : d
+      );
+      const patch: Partial<DashboardStore> = { devices };
+
+      if (metrics && typeof metrics.cpu === 'number') {
+        const snapshot: MetricsSnapshot = { ...metrics, timestamp };
+
+        patch.metricsByDevice = { ...get().metricsByDevice, [deviceId]: snapshot };
+        const prevHistory = get().historyByDevice[deviceId] ?? [];
+        const history = [...prevHistory, snapshot];
+        if (history.length > 120) history.shift();
+        patch.historyByDevice = { ...get().historyByDevice, [deviceId]: history };
+
+        // Mirror the local device into the legacy single-metrics fields used by
+        // the overview widgets.
+        const localId = get().localDeviceId;
+        const isLocal = localId ? deviceId === localId : !!metrics.hostname;
+        if (isLocal) {
+          patch.systemMetrics = metrics;
+          patch.metricsHistory = history.slice(-30);
+        }
       }
 
-      set({ devices: [...devices] });
+      set(patch);
     });
 
     socket.on('event:new', (event: DashboardEvent) => {

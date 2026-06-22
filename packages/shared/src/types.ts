@@ -19,21 +19,67 @@ export interface Device {
   capabilities: string[];
 }
 
+export interface GpuMetrics {
+  model?: string;
+  vendor?: string;
+  load?: number; // %
+  tempC?: number;
+  memUsed?: number; // bytes
+  memTotal?: number; // bytes
+}
+
+export interface DiskMetrics {
+  fs?: string;
+  mount?: string;
+  type?: string;
+  used: number; // bytes
+  total: number; // bytes
+  percentage: number;
+}
+
+export interface NetworkMetrics {
+  iface?: string;
+  rxSec: number; // bytes/second
+  txSec: number; // bytes/second
+  rxBytes?: number; // total received
+  txBytes?: number; // total transmitted
+}
+
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  cpu: number; // %
+  memBytes?: number;
+}
+
 export interface SystemMetrics {
   // The index signature keeps SystemMetrics assignable to Record<string, unknown>
-  // (used by DeviceManager.recordData) and leaves room for the richer metrics
-  // added in M1 (GPU, temperatures, fans, network throughput, top processes).
+  // (used by DeviceManager.recordData). All M1 fields below are optional so the
+  // plain `os`-only fallback object still satisfies the type.
   [key: string]: unknown;
-  cpu: number;
+  cpu: number; // %
+  cpuTempC?: number;
+  cpuModel?: string;
+  cpuCores?: number;
   ram: {
     used: number;
     total: number;
     percentage: number;
   };
+  // Primary/root filesystem (kept for backwards compatibility); `disks` carries
+  // the full per-filesystem breakdown.
   disk?: {
     used: number;
     total: number;
     percentage: number;
+  };
+  disks?: DiskMetrics[];
+  gpus?: GpuMetrics[];
+  fansRpm?: number[];
+  network?: NetworkMetrics;
+  processes?: {
+    count?: number;
+    top: ProcessInfo[];
   };
   uptime: number;
   hostname: string;

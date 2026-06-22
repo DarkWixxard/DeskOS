@@ -30,12 +30,12 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
     modules: [
       { id: 'overview', label: 'Overview', icon: 'grid' },
       { id: 'devices', label: 'Devices', icon: 'cpu', filter: 'all' },
-      { id: 'monitor', label: 'System Monitor', icon: 'activity' },
-      { id: 'metrics', label: 'Metrics', icon: 'chart' },
+      { id: 'monitor', label: 'System Monitor', icon: 'activity', view: 'monitor' },
+      { id: 'metrics', label: 'Metrics', icon: 'chart', view: 'metrics' },
       { id: 'events', label: 'Event Log', icon: 'list' },
       { id: 'automations', label: 'Automations', icon: 'zap' },
-      { id: 'network', label: 'Network', icon: 'wifi' },
-      { id: 'storage', label: 'Storage', icon: 'database' },
+      { id: 'network', label: 'Network', icon: 'wifi', view: 'network' },
+      { id: 'storage', label: 'Storage', icon: 'database', view: 'storage' },
       { id: 'terminal', label: 'Terminal', icon: 'terminal' },
       { id: 'alerts', label: 'Alerts', icon: 'bell' },
       { id: 'api', label: 'API Console', icon: 'code' },
@@ -144,7 +144,9 @@ export function OverlayMenu() {
 
   const handleModule = (mod: ModuleDef) => {
     if (mod.filter) setDeviceFilter(mod.filter);
-    if (mod.view) setActiveView(mod.view);
+    // Tiles without an explicit view return to the main dashboard, so picking a
+    // filter tile never leaves you stuck inside a sub-view (oszi/monitor/…).
+    setActiveView(mod.view ?? 'dashboard');
     setOpen(false);
   };
 
