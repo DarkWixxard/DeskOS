@@ -1,34 +1,27 @@
 // Event System - Herz des DeskOS
-import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
+import type { DeskOSEvent, EventPriority } from '@shared/types';
 
-export interface DeskOSEvent {
-  id: string;
-  type: string;
-  timestamp: number;
-  source: string;
-  payload: unknown;
-  priority: 'low' | 'normal' | 'high' | 'critical';
-}
+// Re-exported so existing imports (`import { DeskOSEvent } from './EventSystem'`)
+// keep working while the canonical definition lives in @shared/types.
+export type { DeskOSEvent };
 
 export interface EventHandler {
   (event: DeskOSEvent): Promise<void> | void;
 }
 
-export class EventSystem extends EventEmitter {
+// A focused pub/sub bus with event history. Uses its own handler map (rather
+// than Node's EventEmitter) so `emit` can be async and `on`/`once` can return
+// an unsubscribe function.
+export class EventSystem {
   private eventHistory: DeskOSEvent[] = [];
   private maxHistorySize = 10000;
   private eventHandlers: Map<string, EventHandler[]> = new Map();
 
-  constructor() {
-    super();
-    this.setMaxListeners(100);
-  }
-
   /**
    * Publish an event to the system
    */
-  async emit(type: string, payload: unknown, source: string = 'system', priority: 'low' | 'normal' | 'high' | 'critical' = 'normal'): Promise<void> {
+  async emit(type: string, payload: unknown, source: string = 'system', priority: EventPriority = 'normal'): Promise<void> {
     const event: DeskOSEvent = {
       id: uuidv4(),
       type,
@@ -53,9 +46,6 @@ export class EventSystem extends EventEmitter {
         console.error(`Error in event handler for ${type}:`, error);
       }
     }
-
-    // Emit to EventEmitter listeners as well
-    super.emit(type, event);
   }
 
   /**

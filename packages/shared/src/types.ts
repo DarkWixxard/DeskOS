@@ -1,15 +1,29 @@
 // Shared Types and Interfaces
+//
+// Single source of truth for the DeskOS domain types. Backend, frontend and
+// agent import from here (via the "@shared/*" path alias) and re-export where
+// needed, so a type only ever needs to change in one place.
+
+export type DeviceType = 'local' | 'remote' | 'esp32' | 'sensor';
+export type DeviceStatus = 'online' | 'offline' | 'error';
+export type EventPriority = 'low' | 'normal' | 'high' | 'critical';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 export interface Device {
   id: string;
-  type: 'local' | 'remote' | 'esp32' | 'sensor';
+  type: DeviceType;
   name: string;
-  status: 'online' | 'offline' | 'error';
+  status: DeviceStatus;
   lastSeen: number;
   metadata: Record<string, unknown>;
   capabilities: string[];
 }
 
 export interface SystemMetrics {
+  // The index signature keeps SystemMetrics assignable to Record<string, unknown>
+  // (used by DeviceManager.recordData) and leaves room for the richer metrics
+  // added in M1 (GPU, temperatures, fans, network throughput, top processes).
+  [key: string]: unknown;
   cpu: number;
   ram: {
     used: number;
@@ -38,7 +52,16 @@ export interface DeskOSEvent {
   timestamp: number;
   source: string;
   payload: unknown;
-  priority: 'low' | 'normal' | 'high' | 'critical';
+  priority: EventPriority;
+}
+
+export interface LogEntry {
+  id?: number;
+  level: LogLevel;
+  message: string;
+  source: string;
+  timestamp: number;
+  metadata?: unknown;
 }
 
 export interface PluginConfig {

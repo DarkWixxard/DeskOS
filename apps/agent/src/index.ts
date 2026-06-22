@@ -5,6 +5,7 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
+import type { SystemMetrics } from '@shared/types';
 
 dotenv.config();
 
@@ -12,18 +13,8 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4001';
 const AGENT_NAME = process.env.AGENT_NAME || os.hostname();
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '1000');
 
-interface RemoteSystemMetrics {
-  cpu: number;
-  ram: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  uptime: number;
-  hostname: string;
-  platform: string;
-  timestamp: number;
-}
+// The agent reports the shared SystemMetrics shape (plus a capture timestamp).
+type RemoteSystemMetrics = SystemMetrics & { timestamp: number };
 
 class RemoteAgent {
   private socket: Socket | null = null;

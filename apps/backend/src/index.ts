@@ -6,8 +6,10 @@ import { setupRoutes } from './api/routes';
 import { createWebSocketServer } from './services/WebSocketServer';
 import { systemMonitor } from './services/SystemMonitor';
 import { createDatabaseService } from './services/DatabaseService';
+import { createPersistenceService } from './services/PersistenceService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
+import { deviceManager } from './core/DeviceManager';
 import { automationEngine } from './core/AutomationEngine';
 import * as path from 'path';
 
@@ -37,9 +39,15 @@ app.use((req, res, next) => {
 // Initialize services
 const database = createDatabaseService(DATABASE_PATH);
 const wsServer = createWebSocketServer(server);
+const persistence = createPersistenceService({
+  db: database,
+  eventSystem,
+  deviceManager,
+  automationEngine,
+});
 
 // Setup routes
-setupRoutes(app);
+setupRoutes(app, { persistence });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -57,6 +65,12 @@ async function bootstrap(): Promise<void> {
     console.log(`📍 Environment: ${NODE_ENV}`);
     console.log(`📊 Database: ${DATABASE_PATH}`);
 
+    // Restore persisted devices + automation rules, then attach live persistence
+    // BEFORE anything starts emitting, so new state is written through to SQLite.
+    await persistence.restore();
+    persistence.attach();
+    console.log('✅ Persistence restored & attached');
+
     // Start system monitoring
     systemMonitor.start();
     console.log('✅ System monitoring started');
@@ -70,36 +84,39 @@ async function bootstrap(): Promise<void> {
       console.warn('⚠️ Warning loading plugins:', error);
     }
 
-    // Register default automation rules
-    automationEngine.addRule({
-      id: 'default-cpu-high',
-      name: 'CPU High Alert',
-      trigger: {
-        type: 'threshold',
-        condition: { field: 'cpu', operator: 'gt', value: 85 },
-      },
-      actions: [{
-        type: 'emit_event',
-        payload: { eventType: 'alert:cpu-high', priority: 'high', message: 'CPU-Auslastung über 85%' },
-      }],
-      enabled: true,
-      cooldownMs: 60000,
-    });
+    // Seed default automation rules only when none were restored from the DB,
+    // so user edits/deletions survive restarts instead of reappearing.
+    if (automationEngine.getAllRules().length === 0) {
+      automationEngine.addRule({
+        id: 'default-cpu-high',
+        name: 'CPU High Alert',
+        trigger: {
+          type: 'threshold',
+          condition: { field: 'cpu', operator: 'gt', value: 85 },
+        },
+        actions: [{
+          type: 'emit_event',
+          payload: { eventType: 'alert:cpu-high', priority: 'high', message: 'CPU-Auslastung über 85%' },
+        }],
+        enabled: true,
+        cooldownMs: 60000,
+      });
 
-    automationEngine.addRule({
-      id: 'default-ram-high',
-      name: 'RAM High Alert',
-      trigger: {
-        type: 'threshold',
-        condition: { field: 'ram.percentage', operator: 'gt', value: 90 },
-      },
-      actions: [{
-        type: 'emit_event',
-        payload: { eventType: 'alert:ram-high', priority: 'high', message: 'RAM-Auslastung über 90%' },
-      }],
-      enabled: true,
-      cooldownMs: 60000,
-    });
+      automationEngine.addRule({
+        id: 'default-ram-high',
+        name: 'RAM High Alert',
+        trigger: {
+          type: 'threshold',
+          condition: { field: 'ram.percentage', operator: 'gt', value: 90 },
+        },
+        actions: [{
+          type: 'emit_event',
+          payload: { eventType: 'alert:ram-high', priority: 'high', message: 'RAM-Auslastung über 90%' },
+        }],
+        enabled: true,
+        cooldownMs: 60000,
+      });
+    }
 
     // Start HTTP server
     server.listen(PORT, () => {
@@ -114,6 +131,7 @@ async function bootstrap(): Promise<void> {
     process.on('SIGINT', async () => {
       console.log('\n⏹️ Shutting down gracefully...');
       systemMonitor.stop();
+      persistence.stop();
       await database.close();
       server.close(() => {
         console.log('✅ Server shut down');

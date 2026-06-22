@@ -3,24 +3,10 @@ import { deviceManager } from '../core/DeviceManager';
 import { eventSystem } from '../core/EventSystem';
 import * as os from 'os';
 import * as fs from 'fs';
+import type { SystemMetrics } from '@shared/types';
 
-export interface SystemMetrics {
-  [key: string]: unknown;
-  cpu: number;
-  ram: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  disk?: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  uptime: number;
-  hostname: string;
-  platform: string;
-}
+// Canonical definition lives in @shared/types; re-exported for existing callers.
+export type { SystemMetrics };
 
 export class SystemMonitor {
   private monitorInterval: NodeJS.Timeout | null = null;
@@ -37,9 +23,10 @@ export class SystemMonitor {
       return;
     }
 
-    // Register local device if not already registered
+    // Register local device, reusing a persisted entry (matched by name + type)
+    // so restarts don't accumulate duplicate "local" devices.
     if (!this.localDeviceId) {
-      const device = deviceManager.registerDevice(
+      const device = deviceManager.registerOrUpdateDevice(
         'local',
         os.hostname(),
         ['cpu', 'ram', 'disk', 'uptime', 'network'],

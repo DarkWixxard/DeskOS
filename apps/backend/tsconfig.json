@@ -4,11 +4,12 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "moduleResolution": "bundler",
+    "isolatedModules": true,
     "paths": {
       "@/*": ["src/*"],
-      "@shared/*": ["../../packages/shared/src/*"]
+      "@shared/*": ["../../packages/shared/dist/*"]
     }
   },
   "include": ["src/**/*"],

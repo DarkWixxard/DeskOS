@@ -2,41 +2,12 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { getApiBaseUrl } from '@/lib/api';
+import type { Device, SystemMetrics, DeskOSEvent } from '@shared/types';
 
-export interface Device {
-  id: string;
-  type: 'local' | 'remote' | 'esp32' | 'sensor';
-  name: string;
-  status: 'online' | 'offline' | 'error';
-  lastSeen: number;
-  capabilities: string[];
-  metadata?: Record<string, unknown>;
-}
-
-export interface DashboardEvent {
-  id: string;
-  type: string;
-  timestamp: number;
-  source: string;
-  payload: unknown;
-}
-
-export interface SystemMetrics {
-  cpu: number;
-  ram: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  disk?: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  uptime: number;
-  hostname: string;
-  platform: string;
-}
+// Canonical domain types live in @shared/types; re-exported so existing
+// component imports keep working from a single source of truth.
+export type { Device, SystemMetrics };
+export type DashboardEvent = DeskOSEvent;
 
 export interface MetricsSnapshot extends SystemMetrics {
   timestamp: number;

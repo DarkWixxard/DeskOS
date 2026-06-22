@@ -4,8 +4,8 @@
   "description": "Modular Monitoring & Control System",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",

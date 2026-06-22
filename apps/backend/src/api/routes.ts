@@ -5,8 +5,14 @@ import { eventSystem } from '../core/EventSystem';
 import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
 import { v4 as uuidv4 } from 'uuid';
+import type { PersistenceService } from '../services/PersistenceService';
+import type { LogLevel } from '@shared/types';
 
-export function setupRoutes(app: Express): void {
+export interface RouteDeps {
+  persistence?: PersistenceService;
+}
+
+export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   // Health check
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
@@ -28,9 +34,14 @@ export function setupRoutes(app: Express): void {
     res.json({ device, data });
   });
 
-  app.get('/api/devices/:id/data', (req, res) => {
+  app.get('/api/devices/:id/data', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
-    const data = deviceManager.getDeviceData(req.params.id, limit);
+    let data = deviceManager.getDeviceData(req.params.id, limit);
+    // Fall back to durable history (survives restarts) when the in-memory
+    // buffer is empty, e.g. right after a backend restart.
+    if (data.length === 0 && deps.persistence) {
+      data = await deps.persistence.getDeviceHistory(req.params.id, limit);
+    }
     res.json(data);
   });
 
@@ -54,6 +65,16 @@ export function setupRoutes(app: Express): void {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
     const history = eventSystem.getHistory(type, limit);
     res.json(history);
+  });
+
+  // Logs (persisted) - durable, survives restarts. Foundation for the Log
+  // Center view (M2).
+  app.get('/api/logs', async (req, res) => {
+    if (!deps.persistence) return res.json([]);
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
+    const level = req.query.level as LogLevel | undefined;
+    const logs = await deps.persistence.getLogs(limit, level);
+    res.json(logs);
   });
 
   // Dashboard summary
@@ -96,12 +117,17 @@ export function setupRoutes(app: Express): void {
   });
 
   app.patch('/api/automations/:id', (req, res) => {
+    // Toggling via setEnabled emits an event so the change is persisted.
+    if (typeof req.body.enabled === 'boolean') {
+      const updated = automationEngine.setEnabled(req.params.id, req.body.enabled);
+      if (!updated) {
+        return res.status(404).json({ error: 'Automation rule not found' });
+      }
+      return res.json(updated);
+    }
     const rule = automationEngine.getRule(req.params.id);
     if (!rule) {
       return res.status(404).json({ error: 'Automation rule not found' });
-    }
-    if (typeof req.body.enabled === 'boolean') {
-      rule.enabled = req.body.enabled;
     }
     res.json(rule);
   });

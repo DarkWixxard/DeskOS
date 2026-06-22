@@ -1,7 +1,47 @@
 // Database Service - SQLite Integration
 import sqlite3 from 'sqlite3';
-import { promisify } from 'util';
-import * as path from 'path';
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS devices (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL,
+  lastSeen INTEGER,
+  metadata TEXT,
+  capabilities TEXT,
+  registeredAt INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS device_data (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  deviceId TEXT NOT NULL,
+  data TEXT NOT NULL,
+  timestamp INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  level TEXT,
+  message TEXT,
+  source TEXT,
+  timestamp INTEGER,
+  metadata TEXT
+);
+
+CREATE TABLE IF NOT EXISTS automations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  trigger TEXT NOT NULL,
+  actions TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  cooldownMs INTEGER NOT NULL DEFAULT 60000,
+  createdAt INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_data_device_ts ON device_data(deviceId, timestamp);
+CREATE INDEX IF NOT EXISTS idx_logs_ts ON logs(timestamp);
+`;
 
 export class DatabaseService {
   private db: sqlite3.Database;
@@ -9,85 +49,51 @@ export class DatabaseService {
 
   constructor(databasePath: string) {
     this.db = new sqlite3.Database(databasePath);
-
     this.ready = this.initialize();
   }
 
-  private async initialize(): Promise<void> {
+  // --- raw helpers (do not await `ready`, used during initialization) ---
+
+  private execRaw(sql: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.serialize(() => {
-        // Devices table
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS devices (
-            id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
-            name TEXT NOT NULL,
-            status TEXT NOT NULL,
-            lastSeen INTEGER,
-            metadata TEXT,
-            capabilities TEXT,
-            registeredAt INTEGER
-          )
-        `, (err) => {
-          if (err) reject(err);
-        });
-
-        // Device data table
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS device_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            deviceId TEXT NOT NULL,
-            data TEXT NOT NULL,
-            timestamp INTEGER,
-            FOREIGN KEY (deviceId) REFERENCES devices(id)
-          )
-        `, (err) => {
-          if (err) reject(err);
-        });
-
-        // Logs table
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level TEXT,
-            message TEXT,
-            source TEXT,
-            timestamp INTEGER,
-            metadata TEXT
-          )
-        `, (err) => {
-          if (err) reject(err);
-        });
-
-        // Automations table
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS automations (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            trigger TEXT NOT NULL,
-            actions TEXT NOT NULL,
-            enabled BOOLEAN,
-            createdAt INTEGER
-          )
-        `, (err) => {
-          if (err) reject(err);
-          resolve();
-        });
-      });
+      this.db.exec(sql, (err) => (err ? reject(err) : resolve()));
     });
   }
+
+  private runRaw(sql: string, params: unknown[] = []): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, (err) => (err ? reject(err) : resolve()));
+    });
+  }
+
+  private allRaw<T = any>(sql: string, params: unknown[] = []): Promise<T[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => (err ? reject(err) : resolve((rows as T[]) || [])));
+    });
+  }
+
+  private async initialize(): Promise<void> {
+    await this.execRaw(SCHEMA);
+    // Defensive migration: databases created by the original schema lack the
+    // cooldownMs column on `automations`.
+    await this.ensureColumn('automations', 'cooldownMs', 'INTEGER NOT NULL DEFAULT 60000');
+  }
+
+  private async ensureColumn(table: string, column: string, definition: string): Promise<void> {
+    const cols = await this.allRaw<{ name: string }>(`PRAGMA table_info(${table})`);
+    if (!cols.some((c) => c.name === column)) {
+      await this.runRaw(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+
+  // --- public API (await `ready` so the schema exists) ---
 
   /**
    * Run a query
    */
   async run(sql: string, params: unknown[] = []): Promise<void> {
     await this.ready;
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    return this.runRaw(sql, params);
   }
 
   /**
@@ -98,7 +104,7 @@ export class DatabaseService {
     return new Promise((resolve, reject) => {
       this.db.get(sql, params, (err, row) => {
         if (err) reject(err);
-        else resolve(row || null);
+        else resolve((row as T) || null);
       });
     });
   }
@@ -108,12 +114,7 @@ export class DatabaseService {
    */
   async all<T = any>(sql: string, params: unknown[] = []): Promise<T[]> {
     await this.ready;
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
+    return this.allRaw<T>(sql, params);
   }
 
   /**
