@@ -110,6 +110,28 @@ export interface LogEntry {
   metadata?: unknown;
 }
 
+// --- RGB / WLED ---
+export type RgbMode = 'manual' | 'temperature' | 'alarm';
+
+export interface WledState {
+  on: boolean;
+  brightness: number; // 0-100 (UI scale; WLED uses 0-255 internally)
+  color: [number, number, number]; // primary RGB
+  effect: number; // WLED effect (fx) index
+  effectName?: string;
+}
+
+export interface WledLight {
+  id: string; // backing device id
+  name: string;
+  ip: string;
+  online: boolean;
+  mode: RgbMode;
+  state?: WledState;
+  ledCount?: number;
+  version?: string;
+}
+
 export type NotificationLevel = 'info' | 'success' | 'warn' | 'error';
 
 export interface DeskNotification {

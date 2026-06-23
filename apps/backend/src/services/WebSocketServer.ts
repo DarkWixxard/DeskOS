@@ -40,6 +40,11 @@ export class WebSocketServer {
     eventSystem.on('notification:new', (event: DeskOSEvent) => {
       this.io.emit('notification:new', event.payload);
     });
+
+    // Relay live WLED light state.
+    eventSystem.on('wled:update', (event: DeskOSEvent) => {
+      this.io.emit('wled:update', event.payload);
+    });
   }
 
   private registerLocalDeviceListener(): void {

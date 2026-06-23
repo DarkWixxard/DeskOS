@@ -2,12 +2,19 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { getApiBaseUrl } from '@/lib/api';
-import type { Device, SystemMetrics, DeskOSEvent, DeskNotification } from '@shared/types';
+import type { Device, SystemMetrics, DeskOSEvent, DeskNotification, WledLight, RgbMode } from '@shared/types';
 
 // Canonical domain types live in @shared/types; re-exported so existing
 // component imports keep working from a single source of truth.
-export type { Device, SystemMetrics, DeskNotification };
+export type { Device, SystemMetrics, DeskNotification, WledLight, RgbMode };
 export type DashboardEvent = DeskOSEvent;
+
+export interface WledControl {
+  on?: boolean;
+  brightness?: number;
+  color?: [number, number, number] | string;
+  effect?: number;
+}
 
 export interface MetricsSnapshot extends SystemMetrics {
   timestamp: number;
@@ -33,6 +40,8 @@ interface DashboardStore {
   notifications: DeskNotification[];
   unreadCount: number;
   notificationsOpen: boolean;
+  // WLED / RGB
+  wledLights: WledLight[];
 
   // Actions
   connectWebSocket: () => void;
@@ -52,6 +61,12 @@ interface DashboardStore {
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   setNotificationsOpen: (open: boolean) => void;
+  fetchWledLights: () => Promise<void>;
+  controlWledLight: (id: string, patch: WledControl) => Promise<void>;
+  setWledMode: (id: string, mode: RgbMode) => Promise<void>;
+  addWledLight: (name: string, ip: string) => Promise<boolean>;
+  updateWledLight: (id: string, patch: { name?: string; ip?: string }) => Promise<void>;
+  removeWledLight: (id: string) => Promise<void>;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -72,6 +87,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   notificationsOpen: false,
+  wledLights: [],
 
   connectWebSocket: () => {
     const apiUrl = getApiBaseUrl();
@@ -87,11 +103,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       socket.emit('get:devices');
       socket.emit('subscribe:events');
       get().fetchNotifications();
+      get().fetchWledLights();
     });
 
     socket.on('notification:new', (n: DeskNotification) => {
       const notifications = [n, ...get().notifications].slice(0, 200);
       set({ notifications, unreadCount: get().unreadCount + (n.read ? 0 : 1) });
+    });
+
+    socket.on('wled:update', (lights: WledLight[]) => {
+      set({ wledLights: lights });
     });
 
     socket.on('local:device:id', (data: { deviceId: string }) => {
@@ -266,4 +287,86 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   },
 
   setNotificationsOpen: (open: boolean) => set({ notificationsOpen: open }),
+
+  fetchWledLights: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/wled/lights`);
+      set({ wledLights: (await res.json()) as WledLight[] });
+    } catch (error) {
+      console.error('Unable to fetch WLED lights:', error);
+    }
+  },
+
+  controlWledLight: async (id: string, patch: WledControl) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/wled/lights/${encodeURIComponent(id)}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const light = (await res.json()) as WledLight;
+        set({ wledLights: get().wledLights.map((l) => (l.id === id ? light : l)) });
+      }
+    } catch (error) {
+      console.error('WLED control failed:', error);
+    }
+  },
+
+  setWledMode: async (id: string, mode: RgbMode) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/wled/lights/${encodeURIComponent(id)}/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (res.ok) {
+        const light = (await res.json()) as WledLight;
+        set({ wledLights: get().wledLights.map((l) => (l.id === id ? light : l)) });
+      }
+    } catch (error) {
+      console.error('WLED mode change failed:', error);
+    }
+  },
+
+  addWledLight: async (name: string, ip: string) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/wled/lights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, ip }),
+      });
+      if (!res.ok) return false;
+      await get().fetchWledLights();
+      return true;
+    } catch (error) {
+      console.error('WLED add failed:', error);
+      return false;
+    }
+  },
+
+  updateWledLight: async (id: string, patch: { name?: string; ip?: string }) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/wled/lights/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const light = (await res.json()) as WledLight;
+        set({ wledLights: get().wledLights.map((l) => (l.id === id ? light : l)) });
+      }
+    } catch (error) {
+      console.error('WLED update failed:', error);
+    }
+  },
+
+  removeWledLight: async (id: string) => {
+    try {
+      await fetch(`${getApiBaseUrl()}/api/wled/lights/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      set({ wledLights: get().wledLights.filter((l) => l.id !== id) });
+    } catch (error) {
+      console.error('WLED remove failed:', error);
+    }
+  },
 }));

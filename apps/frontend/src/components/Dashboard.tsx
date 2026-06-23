@@ -7,6 +7,7 @@ import { OverlayMenu } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
+import { RgbView } from '@/components/RgbView';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
 import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
@@ -355,7 +356,9 @@ export function Dashboard() {
 
         {activeView === 'logs' && <LogView />}
 
-        {activeView !== 'oszi' && activeView !== 'logs' && !MONITOR_VIEWS.includes(activeView) && (
+        {activeView === 'rgb' && <RgbView />}
+
+        {activeView !== 'oszi' && activeView !== 'logs' && activeView !== 'rgb' && !MONITOR_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">

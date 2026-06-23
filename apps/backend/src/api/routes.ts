@@ -4,6 +4,7 @@ import { deviceManager } from '../core/DeviceManager';
 import { eventSystem } from '../core/EventSystem';
 import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
+import { wledService } from '../services/WledService';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
@@ -109,6 +110,50 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   app.post('/api/notifications/read-all', async (req, res) => {
     if (deps.notifications) await deps.notifications.markAllRead();
     res.json({ success: true });
+  });
+
+  // ---- WLED / RGB Engine ----
+  app.get('/api/wled/lights', (req, res) => {
+    res.json(wledService.listLights());
+  });
+
+  app.post('/api/wled/lights', (req, res) => {
+    const { name, ip } = req.body ?? {};
+    if (!name || !ip) return res.status(400).json({ error: 'name und ip erforderlich' });
+    res.status(201).json(wledService.addLight(String(name), String(ip)));
+  });
+
+  app.patch('/api/wled/lights/:id', (req, res) => {
+    const { name, ip, mode } = req.body ?? {};
+    const light = wledService.updateLight(req.params.id, { name, ip, mode });
+    if (!light) return res.status(404).json({ error: 'WLED-Licht nicht gefunden' });
+    res.json(light);
+  });
+
+  app.delete('/api/wled/lights/:id', (req, res) => {
+    const ok = wledService.removeLight(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'WLED-Licht nicht gefunden' });
+    res.json({ success: true, id: req.params.id });
+  });
+
+  app.post('/api/wled/lights/:id/state', async (req, res) => {
+    try {
+      const light = await wledService.control(req.params.id, req.body ?? {});
+      if (!light) return res.status(404).json({ error: 'WLED-Licht nicht gefunden' });
+      res.json(light);
+    } catch (err) {
+      res.status(502).json({ error: 'WLED nicht erreichbar', detail: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/wled/lights/:id/mode', (req, res) => {
+    const light = wledService.setMode(req.params.id, req.body?.mode);
+    if (!light) return res.status(404).json({ error: 'WLED-Licht nicht gefunden' });
+    res.json(light);
+  });
+
+  app.get('/api/wled/lights/:id/effects', async (req, res) => {
+    res.json(await wledService.getEffects(req.params.id));
   });
 
   // Dashboard summary

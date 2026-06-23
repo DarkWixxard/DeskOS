@@ -8,6 +8,7 @@ import { systemMonitor } from './services/SystemMonitor';
 import { createDatabaseService } from './services/DatabaseService';
 import { createPersistenceService } from './services/PersistenceService';
 import { createNotificationService } from './services/NotificationService';
+import { wledService } from './services/WledService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -78,6 +79,11 @@ async function bootstrap(): Promise<void> {
     notifications.attach();
     console.log('✅ Persistence restored & attached');
 
+    // RGB / WLED: seed configured lights on first run, then poll + drive modes.
+    wledService.seedDefaults();
+    wledService.attach();
+    console.log('✅ WLED/RGB engine attached');
+
     // Start system monitoring
     systemMonitor.start();
     console.log('✅ System monitoring started');
@@ -138,6 +144,7 @@ async function bootstrap(): Promise<void> {
     process.on('SIGINT', async () => {
       console.log('\n⏹️ Shutting down gracefully...');
       systemMonitor.stop();
+      wledService.stop();
       persistence.stop();
       await database.close();
       server.close(() => {
