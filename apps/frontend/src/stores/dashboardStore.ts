@@ -2,11 +2,11 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { getApiBaseUrl } from '@/lib/api';
-import type { Device, SystemMetrics, DeskOSEvent } from '@shared/types';
+import type { Device, SystemMetrics, DeskOSEvent, DeskNotification } from '@shared/types';
 
 // Canonical domain types live in @shared/types; re-exported so existing
 // component imports keep working from a single source of truth.
-export type { Device, SystemMetrics };
+export type { Device, SystemMetrics, DeskNotification };
 export type DashboardEvent = DeskOSEvent;
 
 export interface MetricsSnapshot extends SystemMetrics {
@@ -29,6 +29,10 @@ interface DashboardStore {
   deviceFilter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor';
   searchQuery: string;
   activeView: string;
+  // Notification Center
+  notifications: DeskNotification[];
+  unreadCount: number;
+  notificationsOpen: boolean;
 
   // Actions
   connectWebSocket: () => void;
@@ -43,6 +47,11 @@ interface DashboardStore {
   setSystemMetrics: (metrics: SystemMetrics) => void;
   setLoading: (loading: boolean) => void;
   removeDevice: (deviceId: string) => Promise<boolean>;
+  renameDevice: (deviceId: string, name: string) => Promise<boolean>;
+  fetchNotifications: () => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  setNotificationsOpen: (open: boolean) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -60,6 +69,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   deviceFilter: 'all',
   searchQuery: '',
   activeView: 'dashboard',
+  notifications: [],
+  unreadCount: 0,
+  notificationsOpen: false,
 
   connectWebSocket: () => {
     const apiUrl = getApiBaseUrl();
@@ -74,6 +86,12 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       // Request initial data
       socket.emit('get:devices');
       socket.emit('subscribe:events');
+      get().fetchNotifications();
+    });
+
+    socket.on('notification:new', (n: DeskNotification) => {
+      const notifications = [n, ...get().notifications].slice(0, 200);
+      set({ notifications, unreadCount: get().unreadCount + (n.read ? 0 : 1) });
     });
 
     socket.on('local:device:id', (data: { deviceId: string }) => {
@@ -83,7 +101,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     });
 
     socket.on('devices:list', (devices: Device[]) => {
-      set({ devices });
+      // Keep an open device-detail view in sync (e.g. after a rename).
+      const sel = get().selectedDevice;
+      const selectedDevice = sel ? devices.find((d) => d.id === sel.id) ?? sel : null;
+      set({ devices, selectedDevice });
     });
 
     socket.on('device:update', (data: any) => {
@@ -181,5 +202,68 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       console.error('Unable to remove device:', error);
       return false;
     }
-  }
+  },
+
+  renameDevice: async (deviceId: string, name: string) => {
+    const baseUrl = getApiBaseUrl();
+    try {
+      const response = await fetch(`${baseUrl}/api/devices/${encodeURIComponent(deviceId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error('rename failed');
+      const updated = (await response.json()) as Device;
+      const devices = get().devices.map((d) => (d.id === deviceId ? updated : d));
+      const sel = get().selectedDevice;
+      set({ devices, selectedDevice: sel?.id === deviceId ? updated : sel });
+      return true;
+    } catch (error) {
+      console.error('Unable to rename device:', error);
+      return false;
+    }
+  },
+
+  fetchNotifications: async () => {
+    const baseUrl = getApiBaseUrl();
+    try {
+      const [listRes, countRes] = await Promise.all([
+        fetch(`${baseUrl}/api/notifications?limit=100`),
+        fetch(`${baseUrl}/api/notifications/unread-count`),
+      ]);
+      const notifications = (await listRes.json()) as DeskNotification[];
+      const { count } = await countRes.json();
+      set({ notifications, unreadCount: count ?? 0 });
+    } catch (error) {
+      console.error('Unable to fetch notifications:', error);
+    }
+  },
+
+  markNotificationRead: async (id: string) => {
+    const baseUrl = getApiBaseUrl();
+    const current = get().notifications.find((n) => n.id === id);
+    if (current && !current.read) {
+      set({
+        notifications: get().notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        unreadCount: Math.max(0, get().unreadCount - 1),
+      });
+    }
+    try {
+      await fetch(`${baseUrl}/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+    } catch (error) {
+      console.error('Unable to mark notification read:', error);
+    }
+  },
+
+  markAllNotificationsRead: async () => {
+    const baseUrl = getApiBaseUrl();
+    set({ notifications: get().notifications.map((n) => ({ ...n, read: true })), unreadCount: 0 });
+    try {
+      await fetch(`${baseUrl}/api/notifications/read-all`, { method: 'POST' });
+    } catch (error) {
+      console.error('Unable to mark all notifications read:', error);
+    }
+  },
+
+  setNotificationsOpen: (open: boolean) => set({ notificationsOpen: open }),
 }));

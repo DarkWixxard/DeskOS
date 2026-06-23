@@ -31,6 +31,15 @@ export class WebSocketServer {
       const devices = deviceManager.getAllDevices();
       this.io.emit('devices:list', devices);
     });
+
+    eventSystem.on('device:updated', () => {
+      this.io.emit('devices:list', deviceManager.getAllDevices());
+    });
+
+    // Relay curated notifications to all connected clients.
+    eventSystem.on('notification:new', (event: DeskOSEvent) => {
+      this.io.emit('notification:new', event.payload);
+    });
   }
 
   private registerLocalDeviceListener(): void {

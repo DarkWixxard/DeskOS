@@ -110,6 +110,20 @@ export interface LogEntry {
   metadata?: unknown;
 }
 
+export type NotificationLevel = 'info' | 'success' | 'warn' | 'error';
+
+export interface DeskNotification {
+  id: string;
+  level: NotificationLevel;
+  title: string;
+  message: string;
+  source: string;
+  eventType?: string;
+  deviceId?: string;
+  read: boolean;
+  timestamp: number;
+}
+
 export interface PluginConfig {
   id: string;
   name: string;

@@ -6,10 +6,12 @@ import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
+import type { NotificationService } from '../services/NotificationService';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
   persistence?: PersistenceService;
+  notifications?: NotificationService;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -45,6 +47,15 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     res.json(data);
   });
 
+  app.patch('/api/devices/:id', (req, res) => {
+    const { name, metadata } = req.body ?? {};
+    const updated = deviceManager.updateDevice(req.params.id, { name, metadata });
+    if (!updated) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    res.json(updated);
+  });
+
   app.delete('/api/devices/:id', (req, res) => {
     const removed = deviceManager.removeDevice(req.params.id);
     if (!removed) {
@@ -75,6 +86,29 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     const level = req.query.level as LogLevel | undefined;
     const logs = await deps.persistence.getLogs(limit, level);
     res.json(logs);
+  });
+
+  // Notifications (Notification Center)
+  app.get('/api/notifications', async (req, res) => {
+    if (!deps.notifications) return res.json([]);
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const unreadOnly = req.query.unread === '1' || req.query.unread === 'true';
+    res.json(await deps.notifications.list(limit, unreadOnly));
+  });
+
+  app.get('/api/notifications/unread-count', async (req, res) => {
+    const count = deps.notifications ? await deps.notifications.unreadCount() : 0;
+    res.json({ count });
+  });
+
+  app.post('/api/notifications/:id/read', async (req, res) => {
+    if (deps.notifications) await deps.notifications.markRead(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.post('/api/notifications/read-all', async (req, res) => {
+    if (deps.notifications) await deps.notifications.markAllRead();
+    res.json({ success: true });
   });
 
   // Dashboard summary

@@ -39,8 +39,21 @@ CREATE TABLE IF NOT EXISTS automations (
   createdAt INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  level TEXT,
+  title TEXT,
+  message TEXT,
+  source TEXT,
+  eventType TEXT,
+  deviceId TEXT,
+  read INTEGER NOT NULL DEFAULT 0,
+  timestamp INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_device_data_device_ts ON device_data(deviceId, timestamp);
 CREATE INDEX IF NOT EXISTS idx_logs_ts ON logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_notifications_ts ON notifications(timestamp);
 `;
 
 export class DatabaseService {

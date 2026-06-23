@@ -7,6 +7,7 @@ import { createWebSocketServer } from './services/WebSocketServer';
 import { systemMonitor } from './services/SystemMonitor';
 import { createDatabaseService } from './services/DatabaseService';
 import { createPersistenceService } from './services/PersistenceService';
+import { createNotificationService } from './services/NotificationService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -45,9 +46,14 @@ const persistence = createPersistenceService({
   deviceManager,
   automationEngine,
 });
+const notifications = createNotificationService({
+  db: database,
+  eventSystem,
+  deviceManager,
+});
 
 // Setup routes
-setupRoutes(app, { persistence });
+setupRoutes(app, { persistence, notifications });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -69,6 +75,7 @@ async function bootstrap(): Promise<void> {
     // BEFORE anything starts emitting, so new state is written through to SQLite.
     await persistence.restore();
     persistence.attach();
+    notifications.attach();
     console.log('✅ Persistence restored & attached');
 
     // Start system monitoring

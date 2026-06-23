@@ -152,6 +152,7 @@ export class PersistenceService {
     const es = this.eventSystem;
 
     es.on('device:registered', (e) => this.fireAndForget('saveDevice', this.saveDevice(e.payload as Device)));
+    es.on('device:updated', (e) => this.fireAndForget('saveDevice', this.saveDevice(e.payload as Device)));
     es.on('device:status-changed', (e) => {
       const { deviceId, newStatus } = e.payload as { deviceId: string; newStatus: Device['status'] };
       this.fireAndForget(

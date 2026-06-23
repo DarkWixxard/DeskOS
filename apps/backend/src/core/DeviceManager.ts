@@ -113,6 +113,24 @@ export class DeviceManager {
   }
 
   /**
+   * Update editable device fields (name/metadata) and persist via event.
+   */
+  updateDevice(
+    deviceId: string,
+    patch: { name?: string; metadata?: Record<string, unknown> }
+  ): Device | null {
+    const device = this.devices.get(deviceId);
+    if (!device) return null;
+
+    if (typeof patch.name === 'string' && patch.name.trim()) device.name = patch.name.trim();
+    if (patch.metadata !== undefined) device.metadata = patch.metadata;
+    device.lastSeen = Date.now();
+
+    eventSystem.emit('device:updated', device, 'device-manager');
+    return device;
+  }
+
+  /**
    * Get device by ID
    */
   getDevice(deviceId: string): Device | null {

@@ -32,7 +32,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'devices', label: 'Devices', icon: 'cpu', filter: 'all' },
       { id: 'monitor', label: 'System Monitor', icon: 'activity', view: 'monitor' },
       { id: 'metrics', label: 'Metrics', icon: 'chart', view: 'metrics' },
-      { id: 'events', label: 'Event Log', icon: 'list' },
+      { id: 'events', label: 'Log Center', icon: 'list', view: 'logs' },
       { id: 'automations', label: 'Automations', icon: 'zap' },
       { id: 'network', label: 'Network', icon: 'wifi', view: 'network' },
       { id: 'storage', label: 'Storage', icon: 'database', view: 'storage' },
@@ -82,6 +82,7 @@ export function OverlayMenu() {
   const wsConnected = useDashboardStore((s) => s.wsConnected);
   const setDeviceFilter = useDashboardStore((s) => s.setDeviceFilter);
   const setActiveView = useDashboardStore((s) => s.setActiveView);
+  const setNotificationsOpen = useDashboardStore((s) => s.setNotificationsOpen);
 
   // Derived, real data from the store
   const online = devices.filter((d) => d.status === 'online').length;
@@ -143,6 +144,12 @@ export function OverlayMenu() {
   }, [open]);
 
   const handleModule = (mod: ModuleDef) => {
+    // The Alerts tile opens the Notification Center slide-over.
+    if (mod.id === 'alerts') {
+      setNotificationsOpen(true);
+      setOpen(false);
+      return;
+    }
     if (mod.filter) setDeviceFilter(mod.filter);
     // Tiles without an explicit view return to the main dashboard, so picking a
     // filter tile never leaves you stuck inside a sub-view (oszi/monitor/…).
