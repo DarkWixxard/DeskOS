@@ -170,3 +170,75 @@ export interface DashboardSummary {
   system: SystemMetrics;
   recentEvents: DeskOSEvent[];
 }
+
+// --- Automation Engine v2 ---
+export type AutomationOperator = 'gt' | 'lt' | 'gte' | 'lte' | 'eq';
+
+export interface ThresholdTrigger {
+  type: 'threshold';
+  field: string; // e.g. 'cpu' or 'ram.percentage'
+  operator: AutomationOperator;
+  value: number;
+}
+export interface EventTrigger {
+  type: 'event';
+  eventType: string; // exact event type to react to
+}
+export interface DeviceStatusTrigger {
+  type: 'device_status';
+  status: DeviceStatus;
+  deviceId?: string; // optional: only this device
+}
+export interface ScheduleTrigger {
+  type: 'schedule';
+  time: string; // 'HH:MM' (24h, local time)
+  days?: number[]; // 0=Sun .. 6=Sat; empty/undefined = every day
+}
+export type AutomationTrigger = ThresholdTrigger | EventTrigger | DeviceStatusTrigger | ScheduleTrigger;
+
+export interface EmitEventAction {
+  type: 'emit_event';
+  eventType: string;
+  message?: string;
+  priority?: EventPriority;
+}
+export interface NotifyAction {
+  type: 'notify';
+  title: string;
+  message: string;
+  level?: NotificationLevel;
+}
+export interface WledAction {
+  type: 'wled';
+  target: string; // 'all' or a light/device id
+  on?: boolean;
+  brightness?: number;
+  color?: [number, number, number] | string;
+  effect?: number;
+  mode?: RgbMode;
+}
+export interface LayoutAction {
+  type: 'layout';
+  profileId?: string;
+  view?: string;
+}
+export type AutomationAction = EmitEventAction | NotifyAction | WledAction | LayoutAction;
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  trigger: AutomationTrigger;
+  actions: AutomationAction[];
+  enabled: boolean;
+  cooldownMs: number;
+  lastFired: number;
+}
+
+// --- Layout / Profile System ---
+export interface LayoutProfile {
+  id: string;
+  name: string;
+  icon?: string;
+  view?: string; // dashboard view to switch to
+  actions: AutomationAction[]; // the "scene" applied on activation
+}

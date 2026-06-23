@@ -88,9 +88,29 @@ export class WledService {
 
   attach(): void {
     eventSystem.on('*', (e) => this.onEvent(e));
+    // Commands from automations / layout scenes.
+    eventSystem.on('wled:command', (e) => this.onCommand(e));
     void this.pollAll();
     this.pollTimer = setInterval(() => void this.pollAll(), this.pollIntervalMs);
     this.pollTimer.unref?.();
+  }
+
+  private onCommand(event: DeskOSEvent): void {
+    const cmd = (event.payload ?? {}) as {
+      target?: string;
+      on?: boolean;
+      brightness?: number;
+      color?: [number, number, number] | string;
+      effect?: number;
+      mode?: RgbMode;
+    };
+    const ids = !cmd.target || cmd.target === 'all' ? this.wledDevices().map((d) => d.id) : [cmd.target];
+    for (const id of ids) {
+      if (cmd.mode) this.setMode(id, cmd.mode);
+      if (cmd.on !== undefined || cmd.brightness !== undefined || cmd.color !== undefined || cmd.effect !== undefined) {
+        void this.control(id, { on: cmd.on, brightness: cmd.brightness, color: cmd.color, effect: cmd.effect }).catch(() => undefined);
+      }
+    }
   }
 
   stop(): void {

@@ -51,6 +51,20 @@ CREATE TABLE IF NOT EXISTS notifications (
   timestamp INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS layouts (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  icon TEXT,
+  view TEXT,
+  actions TEXT NOT NULL,
+  createdAt INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_device_data_device_ts ON device_data(deviceId, timestamp);
 CREATE INDEX IF NOT EXISTS idx_logs_ts ON logs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_notifications_ts ON notifications(timestamp);

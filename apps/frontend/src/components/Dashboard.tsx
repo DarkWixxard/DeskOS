@@ -8,6 +8,8 @@ import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
 import { RgbView } from '@/components/RgbView';
+import { AutomationsView } from '@/components/AutomationsView';
+import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
 import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
@@ -358,7 +360,9 @@ export function Dashboard() {
 
         {activeView === 'rgb' && <RgbView />}
 
-        {activeView !== 'oszi' && activeView !== 'logs' && activeView !== 'rgb' && !MONITOR_VIEWS.includes(activeView) && (
+        {activeView === 'automations' && <AutomationsView />}
+
+        {activeView !== 'oszi' && activeView !== 'logs' && activeView !== 'rgb' && activeView !== 'automations' && !MONITOR_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">
@@ -375,6 +379,9 @@ export function Dashboard() {
               {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
             </div>
           </div>
+
+          {/* Layout / profile switcher */}
+          <LayoutBar />
 
           {/* System Overview */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

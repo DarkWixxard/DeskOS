@@ -135,7 +135,9 @@ export class PersistenceService {
         name: row.name,
         trigger: safeParse<AutomationRule['trigger']>(row.trigger, {
           type: 'threshold',
-          condition: { field: 'cpu', operator: 'gt', value: 100 },
+          field: 'cpu',
+          operator: 'gt',
+          value: 100,
         }),
         actions: safeParse<AutomationRule['actions']>(row.actions, []),
         enabled: !!row.enabled,

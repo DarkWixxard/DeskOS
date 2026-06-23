@@ -9,6 +9,7 @@ import { createDatabaseService } from './services/DatabaseService';
 import { createPersistenceService } from './services/PersistenceService';
 import { createNotificationService } from './services/NotificationService';
 import { wledService } from './services/WledService';
+import { createLayoutService } from './services/LayoutService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -52,9 +53,10 @@ const notifications = createNotificationService({
   eventSystem,
   deviceManager,
 });
+const layout = createLayoutService(database);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications });
+setupRoutes(app, { persistence, notifications, layout });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -84,6 +86,11 @@ async function bootstrap(): Promise<void> {
     wledService.attach();
     console.log('✅ WLED/RGB engine attached');
 
+    // Layout / profile system.
+    await layout.restore();
+    await layout.seedDefaults();
+    console.log('✅ Layout profiles ready');
+
     // Start system monitoring
     systemMonitor.start();
     console.log('✅ System monitoring started');
@@ -103,14 +110,8 @@ async function bootstrap(): Promise<void> {
       automationEngine.addRule({
         id: 'default-cpu-high',
         name: 'CPU High Alert',
-        trigger: {
-          type: 'threshold',
-          condition: { field: 'cpu', operator: 'gt', value: 85 },
-        },
-        actions: [{
-          type: 'emit_event',
-          payload: { eventType: 'alert:cpu-high', priority: 'high', message: 'CPU-Auslastung über 85%' },
-        }],
+        trigger: { type: 'threshold', field: 'cpu', operator: 'gt', value: 85 },
+        actions: [{ type: 'emit_event', eventType: 'alert:cpu-high', priority: 'high', message: 'CPU-Auslastung über 85%' }],
         enabled: true,
         cooldownMs: 60000,
       });
@@ -118,14 +119,8 @@ async function bootstrap(): Promise<void> {
       automationEngine.addRule({
         id: 'default-ram-high',
         name: 'RAM High Alert',
-        trigger: {
-          type: 'threshold',
-          condition: { field: 'ram.percentage', operator: 'gt', value: 90 },
-        },
-        actions: [{
-          type: 'emit_event',
-          payload: { eventType: 'alert:ram-high', priority: 'high', message: 'RAM-Auslastung über 90%' },
-        }],
+        trigger: { type: 'threshold', field: 'ram.percentage', operator: 'gt', value: 90 },
+        actions: [{ type: 'emit_event', eventType: 'alert:ram-high', priority: 'high', message: 'RAM-Auslastung über 90%' }],
         enabled: true,
         cooldownMs: 60000,
       });
@@ -145,6 +140,7 @@ async function bootstrap(): Promise<void> {
       console.log('\n⏹️ Shutting down gracefully...');
       systemMonitor.stop();
       wledService.stop();
+      automationEngine.stop();
       persistence.stop();
       await database.close();
       server.close(() => {

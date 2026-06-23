@@ -8,11 +8,13 @@ import { wledService } from '../services/WledService';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
+import type { LayoutService } from '../services/LayoutService';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
   persistence?: PersistenceService;
   notifications?: NotificationService;
+  layout?: LayoutService;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -154,6 +156,40 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
 
   app.get('/api/wled/lights/:id/effects', async (req, res) => {
     res.json(await wledService.getEffects(req.params.id));
+  });
+
+  // ---- Layout / Profile System ----
+  app.get('/api/layouts', (req, res) => {
+    if (!deps.layout) return res.json({ profiles: [], activeId: null });
+    res.json({ profiles: deps.layout.list(), activeId: deps.layout.getActiveId() });
+  });
+
+  app.post('/api/layouts', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const { name, icon, view, actions } = req.body ?? {};
+    if (!name) return res.status(400).json({ error: 'name erforderlich' });
+    res.status(201).json(await deps.layout.create({ name, icon, view, actions: actions ?? [] }));
+  });
+
+  app.patch('/api/layouts/:id', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const updated = await deps.layout.update(req.params.id, req.body ?? {});
+    if (!updated) return res.status(404).json({ error: 'Profil nicht gefunden' });
+    res.json(updated);
+  });
+
+  app.delete('/api/layouts/:id', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const ok = await deps.layout.remove(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Profil nicht gefunden' });
+    res.json({ success: true, id: req.params.id });
+  });
+
+  app.post('/api/layouts/:id/activate', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const profile = await deps.layout.activate(req.params.id);
+    if (!profile) return res.status(404).json({ error: 'Profil nicht gefunden' });
+    res.json(profile);
   });
 
   // Dashboard summary
