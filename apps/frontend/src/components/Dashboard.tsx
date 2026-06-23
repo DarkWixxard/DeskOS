@@ -9,6 +9,7 @@ import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
 import { RgbView } from '@/components/RgbView';
 import { AutomationsView } from '@/components/AutomationsView';
+import { SensorView } from '@/components/SensorView';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -26,6 +27,8 @@ import {
 
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
+// All activeView values that replace the default dashboard with a full-page view.
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors'];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -362,7 +365,9 @@ export function Dashboard() {
 
         {activeView === 'automations' && <AutomationsView />}
 
-        {activeView !== 'oszi' && activeView !== 'logs' && activeView !== 'rgb' && activeView !== 'automations' && !MONITOR_VIEWS.includes(activeView) && (
+        {activeView === 'sensors' && <SensorView />}
+
+        {!FULL_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">

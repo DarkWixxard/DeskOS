@@ -5,6 +5,7 @@ import { eventSystem } from '../core/EventSystem';
 import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
 import { wledService } from '../services/WledService';
+import { mqttService } from '../services/MqttService';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
@@ -190,6 +191,26 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     const profile = await deps.layout.activate(req.params.id);
     if (!profile) return res.status(404).json({ error: 'Profil nicht gefunden' });
     res.json(profile);
+  });
+
+  // ---- Sensor Hub / MQTT nodes ----
+  app.get('/api/sensors', (req, res) => {
+    const nodes = deviceManager
+      .getAllDevices()
+      .filter((d) => (d.metadata as Record<string, unknown>)?.mqtt === true || d.capabilities.includes('sensor'));
+    res.json(
+      nodes.map((d) => ({
+        device: d,
+        latest: deviceManager.getDeviceData(d.id, 1)[0]?.data ?? null,
+        modules: (d.metadata as Record<string, unknown>)?.modules ?? [],
+      }))
+    );
+  });
+
+  // Send a command to an MQTT node (by backing device id).
+  app.post('/api/devices/:id/command', (req, res) => {
+    const sent = mqttService.sendCommandToDevice(req.params.id, req.body ?? {});
+    res.json({ sent });
   });
 
   // Dashboard summary

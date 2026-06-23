@@ -242,3 +242,16 @@ export interface LayoutProfile {
   view?: string; // dashboard view to switch to
   actions: AutomationAction[]; // the "scene" applied on activation
 }
+
+// --- ESP32 / MQTT nodes, Sensor Hub, Module Manager ---
+export interface NodeModule {
+  id: string;
+  type: string; // 'sensor' | 'led' | 'display' | 'audio' | 'macro' | ...
+  sensors?: string[]; // e.g. ['temperature','humidity','co2','light','noise']
+}
+
+export interface SensorNode {
+  device: Device;
+  latest: Record<string, number> | null;
+  modules: NodeModule[];
+}

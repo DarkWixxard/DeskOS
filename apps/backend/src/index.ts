@@ -9,6 +9,7 @@ import { createDatabaseService } from './services/DatabaseService';
 import { createPersistenceService } from './services/PersistenceService';
 import { createNotificationService } from './services/NotificationService';
 import { wledService } from './services/WledService';
+import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
@@ -91,6 +92,9 @@ async function bootstrap(): Promise<void> {
     await layout.seedDefaults();
     console.log('✅ Layout profiles ready');
 
+    // MQTT (ESP32 / sensor nodes) — embedded broker + client.
+    await mqttService.start();
+
     // Start system monitoring
     systemMonitor.start();
     console.log('✅ System monitoring started');
@@ -142,6 +146,7 @@ async function bootstrap(): Promise<void> {
       wledService.stop();
       automationEngine.stop();
       persistence.stop();
+      await mqttService.stop();
       await database.close();
       server.close(() => {
         console.log('✅ Server shut down');
