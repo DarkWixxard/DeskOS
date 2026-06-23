@@ -5,6 +5,11 @@ import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import { OverlayMenu } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
+import { MonitorView } from '@/components/MonitorView';
+import { LogView } from '@/components/LogView';
+import { RgbView } from '@/components/RgbView';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { DeviceDetail } from '@/components/DeviceDetail';
 import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
 import {
   LineChart,
@@ -16,6 +21,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+
+// activeView values handled by the dedicated Monitoring Center (MonitorView).
+const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -92,65 +100,6 @@ export function DeviceCard({ device }: { device: any }) {
         {device.capabilities.map((cap: string) => (
           <CapChip key={cap} label={cap} />
         ))}
-      </div>
-    </div>
-  );
-}
-
-export function DeviceDetailModal() {
-  const selectedDevice = useDashboardStore((state) => state.selectedDevice);
-  const selectDevice = useDashboardStore((state) => state.selectDevice);
-
-  if (!selectedDevice) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-      onClick={() => selectDevice(null)}
-    >
-      <div className="mx-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <Panel>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2
-              className="truncate font-mono text-lg font-bold tracking-wider text-accent"
-              style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
-            >
-              {selectedDevice.name}
-            </h2>
-            <button
-              type="button"
-              className="text-accent/60 transition-colors hover:text-accent text-xl leading-none"
-              onClick={() => selectDevice(null)}
-              aria-label="Schließen"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="holo-label">Typ</span>
-              <span className="font-mono capitalize text-white/85">{selectedDevice.type}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="holo-label">Status</span>
-              <StatusBadge status={selectedDevice.status} />
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="holo-label">Zuletzt gesehen</span>
-              <span className="font-mono text-white/85">
-                {new Date(selectedDevice.lastSeen).toLocaleString()}
-              </span>
-            </div>
-            <div>
-              <p className="holo-label mb-2">Fähigkeiten</p>
-              <div className="flex flex-wrap gap-1">
-                {selectedDevice.capabilities.map((cap: string) => (
-                  <CapChip key={cap} label={cap} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </Panel>
       </div>
     </div>
   );
@@ -336,19 +285,37 @@ export function MetricsHistoryChart() {
 }
 
 export function Header() {
+  const unreadCount = useDashboardStore((state) => state.unreadCount);
+  const setNotificationsOpen = useDashboardStore((state) => state.setNotificationsOpen);
+
   return (
     <header className="border-b border-accent/20 bg-darker/40 py-6 backdrop-blur">
-      <div className="container mx-auto flex items-center gap-3 px-4">
-        <HoloIcon name="grid" className="h-7 w-7 text-accent" />
-        <div>
-          <h1
-            className="font-mono text-3xl font-bold tracking-[0.3em] text-accent"
-            style={{ textShadow: '0 0 14px rgba(0,217,255,0.6)' }}
-          >
-            DESK<span className="text-white/90">OS</span>
-          </h1>
-          <p className="holo-label mt-0.5">Modular Monitoring &amp; Control System</p>
+      <div className="container mx-auto flex items-center justify-between gap-3 px-4">
+        <div className="flex items-center gap-3">
+          <HoloIcon name="grid" className="h-7 w-7 text-accent" />
+          <div>
+            <h1
+              className="font-mono text-3xl font-bold tracking-[0.3em] text-accent"
+              style={{ textShadow: '0 0 14px rgba(0,217,255,0.6)' }}
+            >
+              DESK<span className="text-white/90">OS</span>
+            </h1>
+            <p className="holo-label mt-0.5">Modular Monitoring &amp; Control System</p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setNotificationsOpen(true)}
+          className="relative flex h-10 w-10 items-center justify-center rounded-none border border-accent/30 text-accent transition-colors hover:bg-accent/10"
+          aria-label="Benachrichtigungen öffnen"
+        >
+          <HoloIcon name="bell" className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-bold text-white shadow-glow-sm">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
       </div>
     </header>
   );
@@ -385,7 +352,13 @@ export function Dashboard() {
 
         {activeView === 'oszi' && <OsziView />}
 
-        {activeView !== 'oszi' && (
+        {MONITOR_VIEWS.includes(activeView) && <MonitorView />}
+
+        {activeView === 'logs' && <LogView />}
+
+        {activeView === 'rgb' && <RgbView />}
+
+        {activeView !== 'oszi' && activeView !== 'logs' && activeView !== 'rgb' && !MONITOR_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">
@@ -472,8 +445,11 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Device Detail Modal */}
-      <DeviceDetailModal />
+      {/* Device Detail (tabbed) */}
+      <DeviceDetail />
+
+      {/* Notification Center (right-hand slide-over) */}
+      <NotificationCenter />
 
       {/* Holographic overlay launcher (toggle with ` / F2 or the core button) */}
       <OverlayMenu />

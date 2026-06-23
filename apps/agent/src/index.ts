@@ -5,6 +5,8 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
+import si from 'systeminformation';
+import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
 
 dotenv.config();
 
@@ -12,18 +14,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4001';
 const AGENT_NAME = process.env.AGENT_NAME || os.hostname();
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '1000');
 
-interface RemoteSystemMetrics {
-  cpu: number;
-  ram: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  uptime: number;
-  hostname: string;
-  platform: string;
-  timestamp: number;
-}
+// The agent reports the shared SystemMetrics shape (plus a capture timestamp).
+type RemoteSystemMetrics = SystemMetrics & { timestamp: number };
+
+const num = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 
 class RemoteAgent {
   private socket: Socket | null = null;
@@ -32,6 +27,14 @@ class RemoteAgent {
   private lastCpuTimes: { [key: string]: number } = {};
   private previousCpuData: any[] = [];
   private readonly agentInfoPath = path.join(os.homedir(), '.deskos-agent.json');
+
+  // Metric collection state (fast tier every poll, heavy metrics cached).
+  private lastCPUMeasure: { idle: number; total: number } | null = null;
+  private slowCache: Partial<RemoteSystemMetrics> = {};
+  private lastSlowAt = 0;
+  private collecting = false;
+  private lastMetrics: RemoteSystemMetrics | null = null;
+  private readonly slowIntervalMs = 5000;
 
   /**
    * Initialize agent
@@ -122,20 +125,21 @@ class RemoteAgent {
    */
   private startPolling(): void {
     if (this.pollInterval) clearInterval(this.pollInterval);
+    this.lastCPUMeasure = this.getCPUTimeDiff();
 
     this.pollInterval = setInterval(() => {
-      this.collectAndSendMetrics();
+      void this.collectAndSendMetrics();
     }, POLL_INTERVAL);
   }
 
   /**
    * Collect and send metrics
    */
-  private collectAndSendMetrics(): void {
+  private async collectAndSendMetrics(): Promise<void> {
     if (!this.socket) return;
 
     try {
-      const metrics = this.getSystemMetrics();
+      const metrics = await this.getSystemMetrics();
       this.socket.emit('metrics', {
         agentId: this.agentId,
         metrics,
@@ -146,49 +150,149 @@ class RemoteAgent {
   }
 
   /**
-   * Get system metrics
+   * Get system metrics (fast tier each poll, heavier metrics on a relaxed
+   * cadence). Mirrors the local SystemMonitor so remote PCs report the same
+   * rich shape; every probe is guarded so missing sensors never break it.
    */
-  private getSystemMetrics(): RemoteSystemMetrics {
-    const cpus = os.cpus();
-    const cpuUsage = this.calculateCPUUsage();
-    const memInfo = os.totalmem();
-    const memFree = os.freemem();
-    const memUsed = memInfo - memFree;
+  private async getSystemMetrics(): Promise<RemoteSystemMetrics> {
+    if (this.collecting && this.lastMetrics) return this.lastMetrics;
+    this.collecting = true;
+    try {
+      const cpuUsage = this.getCPUUsage();
+      const memTotal = os.totalmem();
+      const memUsed = memTotal - os.freemem();
+      const network = await this.getNetwork();
 
-    return {
-      cpu: cpuUsage,
-      ram: {
-        used: memUsed,
-        total: memInfo,
-        percentage: (memUsed / memInfo) * 100,
-      },
-      uptime: os.uptime(),
-      hostname: os.hostname(),
-      platform: os.platform(),
-      timestamp: Date.now(),
-    };
+      const now = Date.now();
+      if (now - this.lastSlowAt >= this.slowIntervalMs || this.lastSlowAt === 0) {
+        this.lastSlowAt = now;
+        this.slowCache = await this.collectSlowTier();
+      }
+
+      const metrics: RemoteSystemMetrics = {
+        cpu: cpuUsage,
+        cpuTempC: this.slowCache.cpuTempC,
+        cpuModel: this.slowCache.cpuModel,
+        cpuCores: this.slowCache.cpuCores ?? os.cpus().length,
+        ram: { used: memUsed, total: memTotal, percentage: (memUsed / memTotal) * 100 },
+        disk: this.slowCache.disks?.[0]
+          ? {
+              used: this.slowCache.disks[0].used,
+              total: this.slowCache.disks[0].total,
+              percentage: this.slowCache.disks[0].percentage,
+            }
+          : undefined,
+        disks: this.slowCache.disks,
+        gpus: this.slowCache.gpus,
+        network,
+        processes: this.slowCache.processes,
+        uptime: os.uptime(),
+        hostname: os.hostname(),
+        platform: os.platform(),
+        timestamp: Date.now(),
+      };
+      this.lastMetrics = metrics;
+      return metrics;
+    } finally {
+      this.collecting = false;
+    }
   }
 
-  /**
-   * Calculate CPU usage (simplified)
-   */
-  private calculateCPUUsage(): number {
+  private async collectSlowTier(): Promise<Partial<RemoteSystemMetrics>> {
+    const out: Partial<RemoteSystemMetrics> = {};
+    await Promise.all([
+      si.cpuTemperature().then((t) => {
+        const main = num(t.main);
+        if (main !== undefined && main > 0) out.cpuTempC = Math.round(main);
+      }).catch(() => undefined),
+      si.cpu().then((c) => {
+        out.cpuModel = `${c.manufacturer ?? ''} ${c.brand ?? ''}`.trim() || undefined;
+        out.cpuCores = num(c.cores);
+      }).catch(() => undefined),
+      si.graphics().then((g) => {
+        const gpus: GpuMetrics[] = (g.controllers ?? [])
+          .map((c) => ({
+            model: c.model,
+            vendor: c.vendor,
+            load: num(c.utilizationGpu),
+            tempC: num(c.temperatureGpu),
+            memUsed: num(c.memoryUsed) !== undefined ? (c.memoryUsed as number) * 1024 * 1024 : undefined,
+            memTotal: num(c.memoryTotal) !== undefined ? (c.memoryTotal as number) * 1024 * 1024 : undefined,
+          }))
+          .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
+        if (gpus.length) out.gpus = gpus;
+      }).catch(() => undefined),
+      si.fsSize().then((list) => {
+        const disks: DiskMetrics[] = (list ?? [])
+          .filter((d) => num(d.size) !== undefined && (d.size as number) > 0)
+          .map((d) => ({
+            fs: d.fs,
+            mount: d.mount,
+            type: d.type,
+            used: d.used,
+            total: d.size,
+            percentage: num(d.use) ?? (d.size ? (d.used / d.size) * 100 : 0),
+          }));
+        if (disks.length) out.disks = disks;
+      }).catch(() => undefined),
+      si.processes().then((p) => {
+        const top: ProcessInfo[] = [...(p.list ?? [])]
+          .sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))
+          .slice(0, 8)
+          .map((x) => ({
+            pid: x.pid,
+            name: x.name,
+            cpu: Math.round((x.cpu ?? 0) * 10) / 10,
+            memBytes: typeof x.memRss === 'number' ? x.memRss * 1024 : undefined,
+          }));
+        out.processes = { count: num(p.all), top };
+      }).catch(() => undefined),
+    ]);
+    return out;
+  }
+
+  private async getNetwork(): Promise<NetworkMetrics | undefined> {
+    try {
+      const stats = await si.networkStats();
+      const primary = stats?.[0];
+      if (!primary) return undefined;
+      return {
+        iface: primary.iface,
+        rxSec: Math.max(0, num(primary.rx_sec) ?? 0),
+        txSec: Math.max(0, num(primary.tx_sec) ?? 0),
+        rxBytes: num(primary.rx_bytes),
+        txBytes: num(primary.tx_bytes),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getCPUTimeDiff(): { idle: number; total: number } {
     const cpus = os.cpus();
     let totalIdle = 0;
     let totalTick = 0;
-
-    cpus.forEach(cpu => {
+    cpus.forEach((cpu) => {
       for (const type in cpu.times) {
         totalTick += cpu.times[type as keyof typeof cpu.times];
       }
       totalIdle += cpu.times.idle;
     });
+    return { idle: totalIdle, total: totalTick };
+  }
 
-    const idle = totalIdle / cpus.length;
-    const total = totalTick / cpus.length;
-    const usage = 100 - ~~(100 * idle / total);
-
-    return Math.max(0, Math.min(100, usage));
+  /** Current CPU usage based on a delta measurement between polls. */
+  private getCPUUsage(): number {
+    const current = this.getCPUTimeDiff();
+    if (!this.lastCPUMeasure) {
+      this.lastCPUMeasure = current;
+      return 0;
+    }
+    const idleDiff = current.idle - this.lastCPUMeasure.idle;
+    const totalDiff = current.total - this.lastCPUMeasure.total;
+    this.lastCPUMeasure = current;
+    if (totalDiff === 0) return 0;
+    return Math.max(0, Math.min(100, 100 - ~~((100 * idleDiff) / totalDiff)));
   }
 
   /**
@@ -201,10 +305,16 @@ class RemoteAgent {
       case 'ping':
         this.socket?.emit('pong', { agentId: this.agentId });
         break;
-      case 'get-metrics':
-        const metrics = this.getSystemMetrics();
-        this.socket?.emit('metrics-response', { agentId: this.agentId, metrics });
+      case 'get-metrics': {
+        if (this.lastMetrics) {
+          this.socket?.emit('metrics-response', { agentId: this.agentId, metrics: this.lastMetrics });
+        } else {
+          void this.getSystemMetrics().then((m) =>
+            this.socket?.emit('metrics-response', { agentId: this.agentId, metrics: m })
+          );
+        }
         break;
+      }
       case 'restart':
         console.log('Restarting agent...');
         process.exit(0);

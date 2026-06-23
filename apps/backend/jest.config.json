@@ -4,6 +4,9 @@
   "roots": ["<rootDir>"],
   "testMatch": ["**/__tests__/**/*.test.ts"],
   "moduleFileExtensions": ["ts", "js", "json"],
+  "moduleNameMapper": {
+    "^@shared/(.*)$": "<rootDir>/../../packages/shared/dist/$1"
+  },
   "collectCoverageFrom": [
     "src/**/*.ts",
     "!src/**/*.d.ts",

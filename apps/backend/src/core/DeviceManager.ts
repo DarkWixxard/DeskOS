@@ -1,22 +1,11 @@
 // Device Manager - Verwaltet alle Geräte
 import { v4 as uuidv4 } from 'uuid';
 import { eventSystem } from './EventSystem';
+import type { Device, DeviceData } from '@shared/types';
 
-export interface Device {
-  id: string;
-  type: 'local' | 'remote' | 'esp32' | 'sensor';
-  name: string;
-  status: 'online' | 'offline' | 'error';
-  lastSeen: number;
-  metadata: Record<string, unknown>;
-  capabilities: string[];
-}
-
-export interface DeviceData {
-  deviceId: string;
-  timestamp: number;
-  data: Record<string, unknown>;
-}
+// Canonical definitions live in @shared/types; re-exported here for backwards
+// compatibility with existing `import { Device } from './DeviceManager'` callers.
+export type { Device, DeviceData };
 
 export class DeviceManager {
   private devices: Map<string, Device> = new Map();
@@ -47,6 +36,20 @@ export class DeviceManager {
 
     eventSystem.emit('device:registered', device, 'device-manager');
 
+    return device;
+  }
+
+  /**
+   * Load a previously persisted device back into memory (e.g. on startup).
+   * Does not emit `device:registered` so it is not re-persisted, and keeps the
+   * stored id/status as-is (restored devices come back as `offline`).
+   */
+  loadDevice(device: Device): Device {
+    this.devices.set(device.id, device);
+    if (!this.deviceData.has(device.id)) {
+      this.deviceData.set(device.id, []);
+    }
+    eventSystem.emit('device:loaded', { deviceId: device.id }, 'device-manager');
     return device;
   }
 
@@ -107,6 +110,24 @@ export class DeviceManager {
     device.lastSeen = Date.now();
 
     eventSystem.emit(`device:${deviceId}:data`, data, 'device-manager');
+  }
+
+  /**
+   * Update editable device fields (name/metadata) and persist via event.
+   */
+  updateDevice(
+    deviceId: string,
+    patch: { name?: string; metadata?: Record<string, unknown> }
+  ): Device | null {
+    const device = this.devices.get(deviceId);
+    if (!device) return null;
+
+    if (typeof patch.name === 'string' && patch.name.trim()) device.name = patch.name.trim();
+    if (patch.metadata !== undefined) device.metadata = patch.metadata;
+    device.lastSeen = Date.now();
+
+    eventSystem.emit('device:updated', device, 'device-manager');
+    return device;
   }
 
   /**

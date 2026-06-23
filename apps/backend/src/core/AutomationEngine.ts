@@ -40,11 +40,36 @@ export class AutomationEngine {
   addRule(rule: Omit<AutomationRule, 'lastFired'>): AutomationRule {
     const fullRule: AutomationRule = { ...rule, lastFired: 0 };
     this.rules.set(rule.id, fullRule);
+    eventSystem.emit('automation:added', fullRule, 'automation-engine');
     return fullRule;
   }
 
+  /**
+   * Load a persisted rule back into memory without emitting (used on startup
+   * restore so the rule is not immediately written back to the database).
+   */
+  loadRule(rule: AutomationRule): AutomationRule {
+    this.rules.set(rule.id, rule);
+    return rule;
+  }
+
   removeRule(ruleId: string): boolean {
-    return this.rules.delete(ruleId);
+    const removed = this.rules.delete(ruleId);
+    if (removed) {
+      eventSystem.emit('automation:removed', { id: ruleId }, 'automation-engine');
+    }
+    return removed;
+  }
+
+  /**
+   * Enable or disable a rule and persist the change.
+   */
+  setEnabled(ruleId: string, enabled: boolean): AutomationRule | null {
+    const rule = this.rules.get(ruleId);
+    if (!rule) return null;
+    rule.enabled = enabled;
+    eventSystem.emit('automation:updated', rule, 'automation-engine');
+    return rule;
   }
 
   getRule(ruleId: string): AutomationRule | null {

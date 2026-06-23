@@ -3,30 +3,27 @@ import { deviceManager } from '../core/DeviceManager';
 import { eventSystem } from '../core/EventSystem';
 import * as os from 'os';
 import * as fs from 'fs';
+import si from 'systeminformation';
+import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
 
-export interface SystemMetrics {
-  [key: string]: unknown;
-  cpu: number;
-  ram: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  disk?: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
-  uptime: number;
-  hostname: string;
-  platform: string;
-}
+// Canonical definition lives in @shared/types; re-exported for existing callers.
+export type { SystemMetrics };
+
+const num = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 
 export class SystemMonitor {
   private monitorInterval: NodeJS.Timeout | null = null;
   private localDeviceId: string | null = null;
-  private updateInterval = 1000; // 1 second
+  private updateInterval = 1000; // 1 second (fast tier)
+  private slowIntervalMs = 5000; // heavier metrics (gpu/temp/disks/processes)
   private lastCPUMeasure: { idle: number; total: number } | null = null;
+
+  // Cache of the heavy ("slow tier") metrics, merged into every snapshot.
+  private slowCache: Partial<SystemMetrics> = {};
+  private lastSlowAt = 0;
+  private collecting = false;
+  private lastMetrics: SystemMetrics | null = null;
 
   /**
    * Start monitoring
@@ -37,12 +34,13 @@ export class SystemMonitor {
       return;
     }
 
-    // Register local device if not already registered
+    // Register local device, reusing a persisted entry (matched by name + type)
+    // so restarts don't accumulate duplicate "local" devices.
     if (!this.localDeviceId) {
-      const device = deviceManager.registerDevice(
+      const device = deviceManager.registerOrUpdateDevice(
         'local',
         os.hostname(),
-        ['cpu', 'ram', 'disk', 'uptime', 'network'],
+        ['cpu', 'ram', 'disk', 'gpu', 'network', 'temperature', 'processes', 'uptime'],
         { os: os.platform(), arch: os.arch() }
       );
       this.localDeviceId = device.id;
@@ -52,7 +50,7 @@ export class SystemMonitor {
     this.lastCPUMeasure = this.getCPUTimeDiff();
 
     this.monitorInterval = setInterval(() => {
-      this.collectMetrics();
+      void this.collectMetrics();
     }, this.updateInterval);
 
     eventSystem.emit('monitor:started', { deviceId: this.localDeviceId }, 'system-monitor');
@@ -70,38 +68,155 @@ export class SystemMonitor {
   }
 
   /**
-   * Collect system metrics
+   * Collect system metrics (async: fast tier every tick, slow tier cached).
    */
-  private collectMetrics(): void {
-    if (!this.localDeviceId) return;
+  private async collectMetrics(): Promise<void> {
+    if (!this.localDeviceId || this.collecting) return;
+    this.collecting = true;
 
     try {
       const cpuUsage = this.getCPUUsage();
-      const memInfo = os.totalmem();
-      const memFree = os.freemem();
-      const memUsed = memInfo - memFree;
+      const memTotal = os.totalmem();
+      const memUsed = memTotal - os.freemem();
 
+      // Fast tier: network throughput (systeminformation keeps internal state,
+      // so rates become meaningful after the first sample).
+      const network = await this.getNetwork();
+
+      // Slow tier: refresh the heavier metrics on a relaxed cadence.
+      const now = Date.now();
+      if (now - this.lastSlowAt >= this.slowIntervalMs || this.lastSlowAt === 0) {
+        this.lastSlowAt = now;
+        this.slowCache = await this.collectSlowTier();
+      }
+
+      const primaryDisk = this.getDiskUsage();
       const metrics: SystemMetrics = {
         cpu: cpuUsage,
-        ram: {
-          used: memUsed,
-          total: memInfo,
-          percentage: (memUsed / memInfo) * 100
-        },
-        disk: this.getDiskUsage(),
+        cpuTempC: this.slowCache.cpuTempC,
+        cpuModel: this.slowCache.cpuModel,
+        cpuCores: this.slowCache.cpuCores ?? os.cpus().length,
+        ram: { used: memUsed, total: memTotal, percentage: (memUsed / memTotal) * 100 },
+        disk: this.slowCache.disks?.[0]
+          ? {
+              used: this.slowCache.disks[0].used,
+              total: this.slowCache.disks[0].total,
+              percentage: this.slowCache.disks[0].percentage,
+            }
+          : primaryDisk,
+        disks: this.slowCache.disks,
+        gpus: this.slowCache.gpus,
+        fansRpm: this.slowCache.fansRpm,
+        network,
+        processes: this.slowCache.processes,
         uptime: os.uptime(),
         hostname: os.hostname(),
-        platform: os.platform()
+        platform: os.platform(),
       };
 
+      this.lastMetrics = metrics;
       deviceManager.recordData(this.localDeviceId, metrics);
     } catch (error) {
       console.error('Error collecting metrics:', error);
+    } finally {
+      this.collecting = false;
     }
   }
 
   /**
-   * Get disk usage for the root filesystem
+   * Heavier metrics gathered on a relaxed cadence. Every probe is guarded so a
+   * single unavailable sensor (e.g. no GPU/temperature in a VM) never breaks the
+   * whole snapshot.
+   */
+  private async collectSlowTier(): Promise<Partial<SystemMetrics>> {
+    const out: Partial<SystemMetrics> = {};
+
+    await Promise.all([
+      si
+        .cpuTemperature()
+        .then((t) => {
+          const main = num(t.main);
+          if (main !== undefined && main > 0) out.cpuTempC = Math.round(main);
+        })
+        .catch(() => undefined),
+      si
+        .cpu()
+        .then((c) => {
+          out.cpuModel = `${c.manufacturer ?? ''} ${c.brand ?? ''}`.trim() || undefined;
+          out.cpuCores = num(c.cores);
+        })
+        .catch(() => undefined),
+      si
+        .graphics()
+        .then((g) => {
+          const gpus: GpuMetrics[] = (g.controllers ?? [])
+            .map((c) => ({
+              model: c.model,
+              vendor: c.vendor,
+              load: num(c.utilizationGpu),
+              tempC: num(c.temperatureGpu),
+              memUsed: num(c.memoryUsed) !== undefined ? (c.memoryUsed as number) * 1024 * 1024 : undefined,
+              memTotal: num(c.memoryTotal) !== undefined ? (c.memoryTotal as number) * 1024 * 1024 : undefined,
+            }))
+            .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
+          if (gpus.length) out.gpus = gpus;
+        })
+        .catch(() => undefined),
+      si
+        .fsSize()
+        .then((list) => {
+          const disks: DiskMetrics[] = (list ?? [])
+            .filter((d) => num(d.size) !== undefined && (d.size as number) > 0)
+            .map((d) => ({
+              fs: d.fs,
+              mount: d.mount,
+              type: d.type,
+              used: d.used,
+              total: d.size,
+              percentage: num(d.use) ?? (d.size ? (d.used / d.size) * 100 : 0),
+            }));
+          if (disks.length) out.disks = disks;
+        })
+        .catch(() => undefined),
+      si
+        .processes()
+        .then((p) => {
+          const top: ProcessInfo[] = [...(p.list ?? [])]
+            .sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))
+            .slice(0, 8)
+            .map((x) => ({
+              pid: x.pid,
+              name: x.name,
+              cpu: Math.round((x.cpu ?? 0) * 10) / 10,
+              memBytes: typeof x.memRss === 'number' ? x.memRss * 1024 : undefined,
+            }));
+          out.processes = { count: num(p.all), top };
+        })
+        .catch(() => undefined),
+    ]);
+
+    return out;
+  }
+
+  private async getNetwork(): Promise<NetworkMetrics | undefined> {
+    try {
+      const stats = await si.networkStats();
+      const primary = stats?.[0];
+      if (!primary) return undefined;
+      return {
+        iface: primary.iface,
+        rxSec: Math.max(0, num(primary.rx_sec) ?? 0),
+        txSec: Math.max(0, num(primary.tx_sec) ?? 0),
+        rxBytes: num(primary.rx_bytes),
+        txBytes: num(primary.tx_bytes),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Get disk usage for the root filesystem (os-level fallback).
    */
   private getDiskUsage(): SystemMetrics['disk'] {
     try {
@@ -158,25 +273,22 @@ export class SystemMonitor {
   }
 
   /**
-   * Get current metrics
+   * Get current metrics (last collected snapshot, or an os-only fallback before
+   * the first async collection completes).
    */
   getCurrentMetrics(): SystemMetrics {
-    const cpuUsage = this.getCPUUsage();
-    const memInfo = os.totalmem();
-    const memFree = os.freemem();
-    const memUsed = memInfo - memFree;
+    if (this.lastMetrics) return this.lastMetrics;
 
+    const memTotal = os.totalmem();
+    const memUsed = memTotal - os.freemem();
     return {
-      cpu: cpuUsage,
-      ram: {
-        used: memUsed,
-        total: memInfo,
-        percentage: (memUsed / memInfo) * 100
-      },
+      cpu: this.getCPUUsage(),
+      cpuCores: os.cpus().length,
+      ram: { used: memUsed, total: memTotal, percentage: (memUsed / memTotal) * 100 },
       disk: this.getDiskUsage(),
       uptime: os.uptime(),
       hostname: os.hostname(),
-      platform: os.platform()
+      platform: os.platform(),
     };
   }
 

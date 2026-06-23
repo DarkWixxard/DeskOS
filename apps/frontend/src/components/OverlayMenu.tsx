@@ -30,12 +30,12 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
     modules: [
       { id: 'overview', label: 'Overview', icon: 'grid' },
       { id: 'devices', label: 'Devices', icon: 'cpu', filter: 'all' },
-      { id: 'monitor', label: 'System Monitor', icon: 'activity' },
-      { id: 'metrics', label: 'Metrics', icon: 'chart' },
-      { id: 'events', label: 'Event Log', icon: 'list' },
+      { id: 'monitor', label: 'System Monitor', icon: 'activity', view: 'monitor' },
+      { id: 'metrics', label: 'Metrics', icon: 'chart', view: 'metrics' },
+      { id: 'events', label: 'Log Center', icon: 'list', view: 'logs' },
       { id: 'automations', label: 'Automations', icon: 'zap' },
-      { id: 'network', label: 'Network', icon: 'wifi' },
-      { id: 'storage', label: 'Storage', icon: 'database' },
+      { id: 'network', label: 'Network', icon: 'wifi', view: 'network' },
+      { id: 'storage', label: 'Storage', icon: 'database', view: 'storage' },
       { id: 'terminal', label: 'Terminal', icon: 'terminal' },
       { id: 'alerts', label: 'Alerts', icon: 'bell' },
       { id: 'api', label: 'API Console', icon: 'code' },
@@ -48,7 +48,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'remote', label: 'Remote PCs', icon: 'monitor', filter: 'remote' },
       { id: 'esp32', label: 'ESP32', icon: 'cpu', filter: 'esp32' },
       { id: 'sensors', label: 'Sensors', icon: 'thermometer', filter: 'sensor' },
-      { id: 'rgb', label: 'RGB / LED', icon: 'bulb' },
+      { id: 'rgb', label: 'RGB / LED', icon: 'bulb', view: 'rgb' },
       { id: 'displays', label: 'Displays', icon: 'monitor' },
       { id: 'audio', label: 'Audio', icon: 'speaker' },
       { id: 'power', label: 'Power', icon: 'power' },
@@ -82,6 +82,7 @@ export function OverlayMenu() {
   const wsConnected = useDashboardStore((s) => s.wsConnected);
   const setDeviceFilter = useDashboardStore((s) => s.setDeviceFilter);
   const setActiveView = useDashboardStore((s) => s.setActiveView);
+  const setNotificationsOpen = useDashboardStore((s) => s.setNotificationsOpen);
 
   // Derived, real data from the store
   const online = devices.filter((d) => d.status === 'online').length;
@@ -143,8 +144,16 @@ export function OverlayMenu() {
   }, [open]);
 
   const handleModule = (mod: ModuleDef) => {
+    // The Alerts tile opens the Notification Center slide-over.
+    if (mod.id === 'alerts') {
+      setNotificationsOpen(true);
+      setOpen(false);
+      return;
+    }
     if (mod.filter) setDeviceFilter(mod.filter);
-    if (mod.view) setActiveView(mod.view);
+    // Tiles without an explicit view return to the main dashboard, so picking a
+    // filter tile never leaves you stuck inside a sub-view (oszi/monitor/…).
+    setActiveView(mod.view ?? 'dashboard');
     setOpen(false);
   };
 

@@ -12,7 +12,7 @@
         "./src/*"
       ],
       "@shared/*": [
-        "../../packages/shared/src/*"
+        "../../packages/shared/dist/*"
       ]
     },
     "moduleResolution": "bundler",
