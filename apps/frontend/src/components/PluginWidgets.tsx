@@ -50,7 +50,7 @@ function SystemSummaryWidget() {
 
 function PlaceholderWidget({ plugin }: { plugin: PluginInstance }) {
   const setActiveView = useDashboardStore((s) => s.setActiveView);
-  const configured = plugin.requiresAuth && Object.keys(plugin.settings ?? {}).length > 0;
+  const configured = plugin.configured;
   return (
     <Panel title={plugin.name}>
       <div className="flex flex-col items-center gap-2 py-5 text-center">

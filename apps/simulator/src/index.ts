@@ -45,6 +45,8 @@ console.log(`🤖 DeskOS ESP32 Simulator "${NAME}" (${NODE_ID}) -> ${BROKER}`);
 
 const client = mqtt.connect(BROKER, {
   reconnectPeriod: 3000,
+  username: process.env.MQTT_USERNAME,
+  password: process.env.MQTT_PASSWORD,
   will: { topic: `${base}/status`, payload: 'offline', retain: true, qos: 0 },
 });
 

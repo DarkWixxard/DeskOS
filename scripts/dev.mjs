@@ -69,4 +69,6 @@ start(['run', 'dev', '--workspace=apps/backend'], {
 });
 start(['run', 'dev', '--workspace=apps/frontend', '--', '-p', FRONTEND_PORT], {
   NEXT_PUBLIC_BACKEND_PORT: BACKEND_PORT,
+  // Shared-Token (falls gesetzt) ans Frontend durchreichen, damit es API+WS authentifiziert.
+  NEXT_PUBLIC_DESKOS_TOKEN: process.env.DESKOS_TOKEN || '',
 });

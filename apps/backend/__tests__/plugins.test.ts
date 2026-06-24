@@ -29,7 +29,9 @@ describe('PluginRegistry', () => {
     await reg.setEnabled('spotify', true);
     await reg.updateSettings('spotify', { clientId: 'abc' });
     expect(reg.get('spotify')!.enabled).toBe(true);
-    expect(reg.get('spotify')!.settings.clientId).toBe('abc');
+    // Secrets werden nie zurückgegeben – nur das configured-Flag.
+    expect(reg.get('spotify')!.configured).toBe(true);
+    expect(reg.get('spotify')!.settings).toEqual({});
 
     await db.close();
 
@@ -40,7 +42,7 @@ describe('PluginRegistry', () => {
     const restored = reg2.get('spotify')!;
     expect(restored.installed).toBe(true);
     expect(restored.enabled).toBe(true);
-    expect(restored.settings.clientId).toBe('abc');
+    expect(restored.configured).toBe(true); // Secret persistiert, aber maskiert
 
     // Enabling requires the plugin to be installed.
     await reg2.uninstall('spotify');

@@ -156,18 +156,28 @@ export class PluginRegistry {
     }
   }
 
+  // Niemals gespeicherte Secret-Werte über die API zurückgeben – nur ob etwas
+  // hinterlegt ist (configured). settings bleibt leer.
+  private toPublic(manifest: PluginManifest, s: PluginState): PluginInstance {
+    return {
+      ...manifest,
+      installed: s.installed,
+      enabled: s.enabled,
+      configured: Object.keys(s.settings).length > 0,
+      settings: {},
+    };
+  }
+
   list(): PluginInstance[] {
-    return CATALOG.map((manifest) => {
-      const s = this.state.get(manifest.id) ?? { installed: false, enabled: false, settings: {} };
-      return { ...manifest, installed: s.installed, enabled: s.enabled, settings: s.settings };
-    });
+    return CATALOG.map((manifest) =>
+      this.toPublic(manifest, this.state.get(manifest.id) ?? { installed: false, enabled: false, settings: {} })
+    );
   }
 
   get(id: string): PluginInstance | null {
     const manifest = CATALOG.find((m) => m.id === id);
     if (!manifest) return null;
-    const s = this.state.get(id) ?? { installed: false, enabled: false, settings: {} };
-    return { ...manifest, installed: s.installed, enabled: s.enabled, settings: s.settings };
+    return this.toPublic(manifest, this.state.get(id) ?? { installed: false, enabled: false, settings: {} });
   }
 
   async install(id: string): Promise<PluginInstance | null> {
@@ -183,7 +193,13 @@ export class PluginRegistry {
   }
 
   async updateSettings(id: string, settings: Record<string, string>): Promise<PluginInstance | null> {
-    return this.mutate(id, (s) => ({ ...s, settings: { ...s.settings, ...settings } }));
+    // Leerwerte ignorieren, damit ein erneutes Speichern ohne Eingabe die
+    // hinterlegten Secrets nicht überschreibt.
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(settings)) {
+      if (typeof v === 'string' && v.trim() !== '') clean[k] = v;
+    }
+    return this.mutate(id, (s) => ({ ...s, settings: { ...s.settings, ...clean } }));
   }
 
   private async mutate(id: string, fn: (s: PluginState) => PluginState): Promise<PluginInstance | null> {

@@ -26,3 +26,31 @@ export function getApiBaseUrl(): string {
   }
   return `http://localhost:${port}`;
 }
+
+/** Shared-Token (LAN-Geheimnis), beim Build über NEXT_PUBLIC_DESKOS_TOKEN eingebacken. */
+export function getAuthToken(): string | undefined {
+  const t = process.env.NEXT_PUBLIC_DESKOS_TOKEN;
+  return t && t.length ? t : undefined;
+}
+
+// Patcht window.fetch einmalig, sodass alle Requests an das Backend automatisch
+// den Authorization-Header tragen – so muss kein einzelner fetch-Aufruf angefasst
+// werden. Ohne Token passiert nichts (rückwärtskompatibel).
+let authFetchInstalled = false;
+export function installAuthFetch(): void {
+  if (authFetchInstalled || typeof window === 'undefined') return;
+  authFetchInstalled = true;
+  const token = getAuthToken();
+  if (!token) return;
+  const base = getApiBaseUrl();
+  const orig = window.fetch.bind(window);
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (url.startsWith(base)) {
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+      return orig(input, { ...init, headers });
+    }
+    return orig(input as RequestInfo | URL, init);
+  };
+}

@@ -281,5 +281,8 @@ export interface PluginManifest {
 export interface PluginInstance extends PluginManifest {
   installed: boolean;
   enabled: boolean;
+  // true, wenn Zugangsdaten hinterlegt sind. Die Werte selbst werden aus
+  // Sicherheitsgründen nicht über die API zurückgegeben (settings bleibt leer).
+  configured: boolean;
   settings: Record<string, string>;
 }

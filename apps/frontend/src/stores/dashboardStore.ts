@@ -1,7 +1,7 @@
 // Store for application state using Zustand
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
-import { getApiBaseUrl } from '@/lib/api';
+import { getApiBaseUrl, getAuthToken, installAuthFetch } from '@/lib/api';
 import type {
   Device,
   SystemMetrics,
@@ -132,10 +132,11 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   plugins: [],
 
   connectWebSocket: () => {
+    installAuthFetch();
     const apiUrl = getApiBaseUrl();
 
     console.log('Connecting to backend API URL:', apiUrl);
-    const socket = io(apiUrl);
+    const socket = io(apiUrl, { auth: { token: getAuthToken() } });
 
     socket.on('connect', () => {
       console.log('Connected to WebSocket');

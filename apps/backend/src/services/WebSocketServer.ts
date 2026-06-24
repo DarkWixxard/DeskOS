@@ -4,6 +4,15 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { eventSystem, DeskOSEvent } from '../core/EventSystem';
 import { deviceManager } from '../core/DeviceManager';
 import { systemMonitor } from './SystemMonitor';
+import { socketAuth } from '../api/auth';
+
+const corsOriginsEnv = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+// '*' = alles · Allowlist = nur diese · sonst Anfrage-Origin spiegeln (LAN-freundlich).
+const socketCorsOrigin: '*' | string[] | boolean = corsOriginsEnv.includes('*')
+  ? '*'
+  : corsOriginsEnv.length
+    ? corsOriginsEnv
+    : true;
 
 export class WebSocketServer {
   private io: SocketIOServer;
@@ -14,11 +23,14 @@ export class WebSocketServer {
   constructor(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: '*',
+        origin: socketCorsOrigin,
         methods: ['GET', 'POST']
       },
       maxHttpBufferSize: 1e6
     });
+
+    // Token-Auth beim Verbindungsaufbau (aktiv, sobald DESKOS_TOKEN gesetzt ist).
+    this.io.use(socketAuth);
 
     this.setupHandlers();
 
@@ -79,8 +91,15 @@ export class WebSocketServer {
     this.io.on('connection', (socket: Socket) => {
       console.log(`Client connected: ${socket.id}`);
 
+      // Per-Connection: Unsubscribe-Funktion des '*'-Event-Abos (gegen Listener-Leak).
+      let eventsUnsub: (() => void) | null = null;
+
       socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`);
+        if (eventsUnsub) {
+          eventsUnsub();
+          eventsUnsub = null;
+        }
         // If this socket belonged to a registered agent, mark device offline
         const deviceId = this.agentSocketToDevice.get(socket.id);
         if (deviceId) {
@@ -188,7 +207,8 @@ export class WebSocketServer {
 
       // Listen to all events and broadcast
       socket.on('subscribe:events', () => {
-        eventSystem.on('*', (event: DeskOSEvent) => {
+        if (eventsUnsub) return; // bereits abonniert -> kein zweiter Listener
+        eventsUnsub = eventSystem.on('*', (event: DeskOSEvent) => {
           socket.emit('event:new', event);
         });
         socket.emit('subscribed:events', {});

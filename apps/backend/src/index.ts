@@ -2,7 +2,10 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import http from 'http';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { setupRoutes } from './api/routes';
+import { requireToken, authEnabled } from './api/auth';
 import { createWebSocketServer } from './services/WebSocketServer';
 import { systemMonitor } from './services/SystemMonitor';
 import { createDatabaseService } from './services/DatabaseService';
@@ -30,16 +33,41 @@ const PLUGINS_DIR = path.join(__dirname, '..', '..', '..', 'plugins');
 const app = express();
 const server = http.createServer(app);
 
+// Security-Header (für eine getrennte Frontend-Origin lesbar halten).
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// CORS: ohne CORS_ORIGINS wird die Anfrage-Origin gespiegelt (LAN-freundlich);
+// mit Allowlist nur diese Origins; '*' = alles erlauben.
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const corsAllowAll = CORS_ORIGINS.includes('*');
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (corsAllowAll) {
+    res.header('Access-Control-Allow-Origin', '*');
+  } else if (origin && (CORS_ORIGINS.length === 0 || CORS_ORIGINS.includes(origin))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-deskos-token');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
 
-// Enable CORS for development
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
+// Rate-Limit auf die API (bremst Missbrauch / Token-Brute-Force).
+app.use('/api', rateLimit({
+  windowMs: 60_000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+
+// Token-Auth (aktiv, sobald DESKOS_TOKEN gesetzt ist).
+app.use(requireToken);
 
 // Initialize services
 const database = createDatabaseService(DATABASE_PATH);
@@ -76,6 +104,11 @@ async function bootstrap(): Promise<void> {
     console.log(`🚀 DeskOS Backend v0.1.0`);
     console.log(`📍 Environment: ${NODE_ENV}`);
     console.log(`📊 Database: ${DATABASE_PATH}`);
+    if (authEnabled()) {
+      console.log('🔒 Auth aktiv (DESKOS_TOKEN gesetzt)');
+    } else {
+      console.warn('⚠️  Auth DEAKTIVIERT — setze DESKOS_TOKEN, um API + WebSocket zu schützen.');
+    }
 
     // Restore persisted devices + automation rules, then attach live persistence
     // BEFORE anything starts emitting, so new state is written through to SQLite.

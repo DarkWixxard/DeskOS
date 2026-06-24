@@ -44,15 +44,33 @@ export class MqttService {
 
   private startBroker(port: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.broker = new Aedes();
+      const user = process.env.MQTT_USERNAME;
+      const pass = process.env.MQTT_PASSWORD ?? '';
+      this.broker = new Aedes({
+        // Ohne MQTT_USERNAME ist der Broker offen (Default: nur an localhost gebunden).
+        authenticate: (_client, username, password, cb) => {
+          if (!user) return cb(null, true);
+          const ok = username === user && (password ? password.toString() : '') === pass;
+          if (ok) return cb(null, true);
+          // returnCode 4 = "Bad username or password" (aedes AuthErrorCode-Enum).
+          const err = Object.assign(new Error('Auth error'), { returnCode: 4 });
+          cb(err as any, false);
+        },
+      });
       this.brokerServer = createServer(this.broker.handle);
       this.brokerServer.once('error', reject);
-      this.brokerServer.listen(port, () => resolve());
+      // Default-sicher: nur lokal erreichbar. Für echte LAN-Nodes MQTT_HOST=0.0.0.0 + Credentials.
+      const host = process.env.MQTT_HOST || '127.0.0.1';
+      this.brokerServer.listen(port, host, () => resolve());
     });
   }
 
   private connectClient(url: string): void {
-    this.client = mqtt.connect(url, { reconnectPeriod: 5000 });
+    this.client = mqtt.connect(url, {
+      reconnectPeriod: 5000,
+      username: process.env.MQTT_USERNAME,
+      password: process.env.MQTT_PASSWORD,
+    });
     this.client.on('connect', () => {
       console.log('📡 MQTT client connected');
       this.client!.subscribe([`${TOPIC_BASE}/+/announce`, `${TOPIC_BASE}/+/telemetry`, `${TOPIC_BASE}/+/status`]);

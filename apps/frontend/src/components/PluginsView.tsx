@@ -22,7 +22,8 @@ function PluginCard({ plugin }: { plugin: PluginInstance }) {
   const action = useDashboardStore((s) => s.pluginAction);
   const saveSettings = useDashboardStore((s) => s.updatePluginSettings);
   const [showSettings, setShowSettings] = useState(false);
-  const [draft, setDraft] = useState<Record<string, string>>(plugin.settings ?? {});
+  // Secrets werden nie zurückgegeben -> Formular startet leer; leere Felder bleiben unverändert.
+  const [draft, setDraft] = useState<Record<string, string>>({});
 
   return (
     <Panel className="relative flex flex-col">
@@ -87,6 +88,9 @@ function PluginCard({ plugin }: { plugin: PluginInstance }) {
 
       {showSettings && plugin.settingsSchema && (
         <div className="mt-3 space-y-2 border-t border-accent/15 pt-3">
+          {plugin.configured && (
+            <p className="text-[10px] text-accent/50">Zugangsdaten hinterlegt – Felder leer lassen, um sie zu behalten.</p>
+          )}
           {plugin.settingsSchema.map((f) => (
             <div key={f.key}>
               <label className="holo-label mb-1 block">{f.label}</label>
