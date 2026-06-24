@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS plugins (
+  id TEXT PRIMARY KEY,
+  installed INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  settings TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_device_data_device_ts ON device_data(deviceId, timestamp);
 CREATE INDEX IF NOT EXISTS idx_logs_ts ON logs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_notifications_ts ON notifications(timestamp);

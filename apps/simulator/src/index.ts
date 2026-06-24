@@ -48,9 +48,7 @@ const client = mqtt.connect(BROKER, {
   will: { topic: `${base}/status`, payload: 'offline', retain: true, qos: 0 },
 });
 
-client.on('connect', () => {
-  console.log('✅ Connected to MQTT broker');
-  client.publish(`${base}/status`, 'online', { retain: true });
+function announce() {
   client.publish(
     `${base}/announce`,
     JSON.stringify({
@@ -65,12 +63,40 @@ client.on('connect', () => {
     }),
     { retain: true }
   );
+}
+
+client.on('connect', () => {
+  console.log('✅ Connected to MQTT broker');
+  client.publish(`${base}/status`, 'online', { retain: true });
+  announce();
   client.subscribe(`${base}/cmd`);
 });
 
 client.on('message', (topic, payload) => {
-  if (topic === `${base}/cmd`) {
-    console.log('📥 Command received:', payload.toString());
+  if (topic !== `${base}/cmd`) return;
+  let cmd: any = {};
+  try {
+    cmd = JSON.parse(payload.toString());
+  } catch {
+    return;
+  }
+  console.log('📥 Command received:', cmd);
+  switch (cmd.action) {
+    case 'restart':
+      console.log('🔄 Neustart… (re-announce)');
+      setTimeout(announce, 500);
+      break;
+    case 'wifi':
+      console.log(`📶 WLAN gesetzt: SSID "${cmd.ssid}"`);
+      break;
+    case 'ota':
+      console.log(`⬆️  OTA-Update von ${cmd.url}`);
+      break;
+    case 'led':
+      console.log('💡 LED:', cmd.color);
+      break;
+    default:
+      break;
   }
 });
 

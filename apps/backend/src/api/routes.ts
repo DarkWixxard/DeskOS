@@ -10,12 +10,14 @@ import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
 import type { LayoutService } from '../services/LayoutService';
+import type { PluginRegistry } from '../services/PluginRegistry';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
   persistence?: PersistenceService;
   notifications?: NotificationService;
   layout?: LayoutService;
+  plugins?: PluginRegistry;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -207,11 +209,31 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     );
   });
 
-  // Send a command to an MQTT node (by backing device id).
+  // Send a command to an MQTT node (by backing device id). Also used by the
+  // Firmware Center for restart / wifi / ota actions.
   app.post('/api/devices/:id/command', (req, res) => {
     const sent = mqttService.sendCommandToDevice(req.params.id, req.body ?? {});
     res.json({ sent });
   });
+
+  // ---- Plugin System v2 / Marketplace ----
+  app.get('/api/plugins', (req, res) => {
+    res.json(deps.plugins ? deps.plugins.list() : []);
+  });
+
+  const pluginAction = (handler: (reg: PluginRegistry, id: string, body: any) => Promise<unknown>) =>
+    async (req: any, res: any) => {
+      if (!deps.plugins) return res.status(503).json({ error: 'Plugin-Registry nicht verfügbar' });
+      const result = await handler(deps.plugins, req.params.id, req.body ?? {});
+      if (!result) return res.status(404).json({ error: 'Plugin nicht gefunden' });
+      res.json(result);
+    };
+
+  app.post('/api/plugins/:id/install', pluginAction((reg, id) => reg.install(id)));
+  app.post('/api/plugins/:id/uninstall', pluginAction((reg, id) => reg.uninstall(id)));
+  app.post('/api/plugins/:id/enable', pluginAction((reg, id) => reg.setEnabled(id, true)));
+  app.post('/api/plugins/:id/disable', pluginAction((reg, id) => reg.setEnabled(id, false)));
+  app.patch('/api/plugins/:id/settings', pluginAction((reg, id, body) => reg.updateSettings(id, body)));
 
   // Dashboard summary
   app.get('/api/dashboard/summary', (req, res) => {

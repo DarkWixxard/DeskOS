@@ -13,6 +13,7 @@ import type {
   AutomationTrigger,
   AutomationAction,
   LayoutProfile,
+  PluginInstance,
 } from '@shared/types';
 
 // Canonical domain types live in @shared/types; re-exported so existing
@@ -27,6 +28,7 @@ export type {
   AutomationTrigger,
   AutomationAction,
   LayoutProfile,
+  PluginInstance,
 };
 export type DashboardEvent = DeskOSEvent;
 
@@ -67,6 +69,8 @@ interface DashboardStore {
   automations: AutomationRule[];
   layouts: LayoutProfile[];
   activeLayoutId: string | null;
+  // Plugins
+  plugins: PluginInstance[];
 
   // Actions
   connectWebSocket: () => void;
@@ -98,6 +102,9 @@ interface DashboardStore {
   toggleAutomation: (id: string, enabled: boolean) => Promise<void>;
   fetchLayouts: () => Promise<void>;
   activateLayout: (id: string) => Promise<void>;
+  fetchPlugins: () => Promise<void>;
+  pluginAction: (id: string, action: 'install' | 'uninstall' | 'enable' | 'disable') => Promise<void>;
+  updatePluginSettings: (id: string, settings: Record<string, string>) => Promise<void>;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -122,6 +129,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   automations: [],
   layouts: [],
   activeLayoutId: null,
+  plugins: [],
 
   connectWebSocket: () => {
     const apiUrl = getApiBaseUrl();
@@ -140,6 +148,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().fetchWledLights();
       get().fetchAutomations();
       get().fetchLayouts();
+      get().fetchPlugins();
     });
 
     socket.on('layout:set', (data: { profileId?: string; view?: string }) => {
@@ -475,6 +484,43 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       await fetch(`${getApiBaseUrl()}/api/layouts/${encodeURIComponent(id)}/activate`, { method: 'POST' });
     } catch (error) {
       console.error('Unable to activate layout:', error);
+    }
+  },
+
+  fetchPlugins: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/plugins`);
+      set({ plugins: (await res.json()) as PluginInstance[] });
+    } catch (error) {
+      console.error('Unable to fetch plugins:', error);
+    }
+  },
+
+  pluginAction: async (id, action) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/plugins/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+      if (res.ok) {
+        const updated = (await res.json()) as PluginInstance;
+        set({ plugins: get().plugins.map((p) => (p.id === id ? updated : p)) });
+      }
+    } catch (error) {
+      console.error(`Plugin ${action} failed:`, error);
+    }
+  },
+
+  updatePluginSettings: async (id, settings) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/plugins/${encodeURIComponent(id)}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      if (res.ok) {
+        const updated = (await res.json()) as PluginInstance;
+        set({ plugins: get().plugins.map((p) => (p.id === id ? updated : p)) });
+      }
+    } catch (error) {
+      console.error('Plugin settings update failed:', error);
     }
   },
 }));

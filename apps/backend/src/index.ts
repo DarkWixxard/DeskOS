@@ -11,6 +11,7 @@ import { createNotificationService } from './services/NotificationService';
 import { wledService } from './services/WledService';
 import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
+import { createPluginRegistry } from './services/PluginRegistry';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -55,9 +56,10 @@ const notifications = createNotificationService({
   deviceManager,
 });
 const layout = createLayoutService(database);
+const plugins = createPluginRegistry(database);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout });
+setupRoutes(app, { persistence, notifications, layout, plugins });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -91,6 +93,11 @@ async function bootstrap(): Promise<void> {
     await layout.restore();
     await layout.seedDefaults();
     console.log('✅ Layout profiles ready');
+
+    // Plugin registry / marketplace.
+    await plugins.restore();
+    await plugins.seedDefaults();
+    console.log('✅ Plugin registry ready');
 
     // MQTT (ESP32 / sensor nodes) — embedded broker + client.
     await mqttService.start();

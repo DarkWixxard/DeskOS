@@ -165,14 +165,14 @@ weil die Hardware bereits vorhanden ist.
 
 ---
 
-## 10. Status
+## 10. Status — ✅ Roadmap vollständig umgesetzt
 
-- [ ] **M0** – Fundament: Cleanup & Persistenz
-- [ ] **M1** – Monitoring Center (Tiefe)
-- [ ] **M2** – Device Center + Notification + Log Center
-- [ ] **M3** – RGB-Engine + WLED
-- [ ] **M4** – Automation-Engine v2 + Layout-System
-- [ ] **M5** – ESP32/MQTT + Sensor-Hub + Modul-Manager
-- [ ] **M6** – Firmware-Center + Plugin-System v2
+- [x] **M0** – Fundament: Cleanup & Persistenz
+- [x] **M1** – Monitoring Center (Tiefe)
+- [x] **M2** – Device Center + Notification + Log Center
+- [x] **M3** – RGB-Engine + WLED
+- [x] **M4** – Automation-Engine v2 + Layout-System
+- [x] **M5** – ESP32/MQTT + Sensor-Hub + Modul-Manager (+ Simulator)
+- [x] **M6** – Firmware-Center + Plugin-System v2 (Marketplace)
 
-*Dieses Dokument ist die lebende Roadmap – Meilensteine werden beim Abschluss abgehakt.*
+**v1.0** (M0–M2) · **v2.0** (M3–M4) · **v3.0** (M5–M6) – alle abgeschlossen.

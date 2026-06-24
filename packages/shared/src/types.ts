@@ -255,3 +255,31 @@ export interface SensorNode {
   latest: Record<string, number> | null;
   modules: NodeModule[];
 }
+
+// --- Plugin System v2 / Marketplace ---
+export type PluginCategory = 'system' | 'media' | 'communication' | 'streaming' | 'gaming' | 'smart-home';
+
+export interface PluginSettingField {
+  key: string;
+  label: string;
+  type: 'text' | 'password' | 'url';
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  description: string;
+  category: PluginCategory;
+  icon: string;
+  author?: string;
+  requiresAuth: boolean;
+  hasWidget: boolean;
+  builtin?: boolean;
+  settingsSchema?: PluginSettingField[];
+}
+
+export interface PluginInstance extends PluginManifest {
+  installed: boolean;
+  enabled: boolean;
+  settings: Record<string, string>;
+}

@@ -10,6 +10,8 @@ import { LogView } from '@/components/LogView';
 import { RgbView } from '@/components/RgbView';
 import { AutomationsView } from '@/components/AutomationsView';
 import { SensorView } from '@/components/SensorView';
+import { PluginsView } from '@/components/PluginsView';
+import { PluginWidgets } from '@/components/PluginWidgets';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -28,7 +30,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins'];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -367,6 +369,8 @@ export function Dashboard() {
 
         {activeView === 'sensors' && <SensorView />}
 
+        {activeView === 'plugins' && <PluginsView />}
+
         {!FULL_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
@@ -402,6 +406,9 @@ export function Dashboard() {
           <div className="mb-8">
             <MetricsHistoryChart />
           </div>
+
+          {/* Enabled plugin widgets */}
+          <PluginWidgets />
 
           {/* Devices Section */}
           <section>
