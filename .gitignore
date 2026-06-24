@@ -1,28 +1,58 @@
-// .gitignore
+# .gitignore — DeskOS
+
+# Abhängigkeiten & Build-Artefakte
 node_modules/
 dist/
 build/
+.next/
+out/
+*.tsbuildinfo
+
+# Umgebungsvariablen / Secrets — ALLE .env-Varianten ignorieren,
+# nur die *.example-Vorlagen bleiben im Repo.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Schlüssel, Zertifikate, Zugangsdaten (niemals einchecken)
+*.pem
+*.key
+*.crt
+*.cert
+*.cer
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_ed25519
+*.ppk
+secrets.json
+credentials.json
+*.secret
+
+# Datenbank (SQLite — enthält u. a. gespeicherte Plugin-Zugangsdaten)
 *.db
 *.db-shm
 *.db-wal
-.env
-.env.local
+
+# Editor & Betriebssystem
 .DS_Store
 .vscode/
 .idea/
+
+# Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
+
+# Sonstiges
 *.tgz
-.next/
-out/
-public/
+/public/
 .vercel/
 
-# TypeScript incremental build info
-*.tsbuildinfo
-
-# Python (services/)
+# Python (services/oszi)
 __pycache__/
 *.pyc
 .venv/
