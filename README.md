@@ -1,8 +1,10 @@
 # DeskOS – Modulares Monitoring & Steuerungssystem
 
-Ein vollständig modulares System zur Überwachung und Steuerung von lokalen PCs, Remote-PCs, ESP32-Controllern, Sensoren, Displays und LEDs – mit einem React-Dashboard, Echtzeit-WebSockets und einem erweiterbaren Plugin-System.
+Ein „**Betriebssystem für den Schreibtisch**": Überwachung und Steuerung von lokalen PCs,
+Remote-PCs, WLED-Lichtern, ESP32-/Sensor-Nodes, Automationen, Layout-Profilen und Plugins –
+mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-Marktplatz.
 
-**Status:** v0.1.0 – Phase 1 abgeschlossen und produktionsbereit
+**Status:** ✅ Roadmap **M0–M6** vollständig umgesetzt (v1.0–v3.0). Siehe [ROADMAP.md](./ROADMAP.md).
 
 ---
 
@@ -17,6 +19,7 @@ Ein vollständig modulares System zur Überwachung und Steuerung von lokalen PCs
 - [Umgebungsvariablen](#umgebungsvariablen)
 - [API-Referenz](#api-referenz)
 - [Plugin-System](#plugin-system)
+- [Tests](#tests)
 - [Deployment](#deployment)
 - [Dokumentation](#dokumentation)
 - [Roadmap](#roadmap)
@@ -26,63 +29,80 @@ Ein vollständig modulares System zur Überwachung und Steuerung von lokalen PCs
 
 ## Features
 
-**Backend**
-- REST-API mit Express.js
-- Echtzeit-WebSocket-Server (Socket.IO)
-- Event-getriebene Architektur (Pub/Sub-System)
-- Geräteverwaltung (lokal, remote, ESP32, Sensoren)
-- Lokales System-Monitoring (CPU, RAM, Disk, Uptime)
-- SQLite-Datenbankintegration
-- Plugin-System mit dynamischem Laden
-- Konfigurationsverwaltung via dotenv
-- Strukturiertes Logging (Winston)
+### 🖥️ Monitoring Center
+- Lokales **und** Multi-PC-Monitoring (über den `agent`-Workspace).
+- Tiefe Metriken via `systeminformation`: CPU (Last + Temperatur + Modell/Kerne), RAM,
+  **GPU(s)** (Last/Temp/VRAM), **pro-Disk**-Speicher, **Netzwerk-Durchsatz**, **Top-Prozesse**.
+- Zweistufige Erfassung (leichte Werte je Sekunde, schwere alle 5 s); `os`-Fallback wenn ein Sensor fehlt.
+- Frontend-Views **Übersicht / Metrics / Netzwerk / Speicher / Prozesse**, pro Gerät auswählbar (Recharts).
 
-**Frontend**
-- React + Next.js Dashboard
-- Echtzeit-Gerätemonitoring via WebSocket
-- Systemmetriken-Visualisierung (Recharts)
-- Event-Log-Anzeige
-- Geräte-Statusanzeigen und Detailansicht
-- Overlay-Menü (Kiosk-kompatibel)
-- Responsives Design mit Tailwind CSS
-- Zustand State Management
+### 🖧 Device Center
+- Geräte-Detailansicht mit Tabs **Infos / Einstellungen / Logs / Firmware**.
+- Umbenennen, Entfernen, Live-Metriken, Metadaten; Geräte aller Typen (local/remote/esp32/sensor).
 
-**Infrastruktur**
-- TypeScript in allen Schichten
-- Monorepo mit npm Workspaces
-- Docker & Docker Compose
-- Automatisierte Setup-Skripte (Windows/Linux/macOS)
-- Autostart & Kiosk-Modus (systemd/Windows Autostart)
-- Unit-Testing mit Jest
+### 🔔 Notification Center & 📜 Log Center
+- `NotificationService`: kuratierte Benachrichtigungen aus Events (Alarme, Statuswechsel …),
+  persistent, live per WebSocket, mit Gelesen-Status. Glocken-Button + Slide-over-Panel.
+- Durchsuch- und filterbares **Log Center** auf Basis persistierter Logs.
+
+### 🌈 RGB-Engine + WLED
+- `WledService`: Steuerung von WLED-Lichtern über die JSON-API (Power, Helligkeit, Farbe, Effekt) mit Timeout/Fehlerbehandlung.
+- Jedes Licht ist ein `Device` (Status-Polling); Modi pro Licht: **Manuell / Temperatur** (Farbe folgt CPU-Temp) **/ Alarm**.
+- RGB-Dashboard zum Hinzufügen/Steuern der Lichter. Zwei Lichter sind vorkonfiguriert (über `WLED_LIGHTS`).
+
+### ⚡ Automation-Engine v2 + 🗂️ Layout-Profile
+- Trigger: **Schwellwert · Event · Gerätestatus · Zeitplan**. Aktionen (entkoppelt über Event-Bus):
+  Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**.
+- **No-Code-Regelbuilder** im Frontend; Regeln persistent, mit Cooldown.
+- Layout-Profile (Gaming/Coding/Streaming/Work/Minimal): wenden per Knopfdruck eine **Szene** an (RGB) und wechseln die Ansicht.
+
+### 📡 ESP32 / MQTT, Sensor-Hub & Modul-Manager
+- `MqttService` mit **eingebettetem Broker** (aedes) – funktioniert out-of-the-box ohne externe Infrastruktur.
+- Topic-Schema `deskos/nodes/<id>/{announce,telemetry,status,cmd}`: Auto-Registrierung, Telemetrie, LWT-Status, Befehle.
+- **Sensor-Hub**: Sensor-Nodes mit Live-Messwerten (Temp/Feuchte/CO₂/Licht/Geräusch).
+- **Modul-Manager**: Module werden beim `announce` automatisch erfasst und angezeigt.
+- **ESP32-Simulator** (`apps/simulator`): testet die komplette MQTT-Strecke ohne Hardware.
+
+### 🔧 Firmware-Center & 🧩 Plugin-Marktplatz
+- Firmware-Center (im Geräte-Detail): **Neustart / WLAN-Konfig / OTA** für MQTT-Nodes; WLED verlinkt auf seine OTA-Web-UI.
+- Plugin-System v2 mit **Marktplatz**: funktionale Built-ins (Uhr, System-Übersicht) + Katalog
+  (Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue) mit Install/Aktivieren/Einstellungen, persistent.
+- Aktivierte Plugins rendern Widgets im Dashboard.
+
+### 🏗️ Infrastruktur
+- TypeScript in allen Schichten, Monorepo mit npm Workspaces, **eine** Typquelle (`packages/shared`).
+- **SQLite-Persistenz** für Geräte, Geräte-Daten (gedrosselt), Logs, Automationen, Layouts, Plugins, Notifications.
+- Event-getriebene Architektur (Pub/Sub), Docker & Docker Compose, Kiosk-/Autostart, Oszilloskop-Integration (Bonus).
+- Unit- & Integrationstests mit Jest (inkl. eingebettetem MQTT-Broker im Test).
 
 ---
 
 ## Architektur
 
 ```
-Browser / Dashboard (http://localhost:4000)
-              │
-              ▼
-      React Frontend
-     (Next.js + Zustand)
-              │
-              │  REST + WebSocket (Socket.IO)
-              ▼
-┌─────────────────────────────────────┐
-│    Node.js Backend (Express)        │
-│    http://localhost:4001            │
-├─────────────────────────────────────┤
-│  EventSystem  │  DeviceManager      │
-│  PluginSystem │  AutomationEngine   │
-│  SystemMonitor│  DatabaseService    │
-│  WebSocketServer │ REST API         │
-└──────────────┬──────────────────────┘
-               │
-     ┌─────────┼──────────┬───────────┐
-     ▼         ▼          ▼           ▼
-  Lokales   Remote-    ESP32-     MQTT-
-  System    Agents     Geräte     Broker
+        Browser / Dashboard (http://localhost:4000)
+                       │  REST + WebSocket (Socket.IO)
+                       ▼
+        ┌───────────────────────────────────────────────┐
+        │           Node.js Backend (Express)            │
+        │              http://localhost:4001             │
+        ├───────────────────────────────────────────────┤
+        │  EventSystem (Bus)  ·  DeviceManager           │
+        │  SystemMonitor      ·  PersistenceService (SQLite)
+        │  NotificationService·  AutomationEngine v2     │
+        │  ActionExecutor     ·  LayoutService           │
+        │  WledService        ·  MqttService (+ Broker)  │
+        │  PluginRegistry     ·  WebSocketServer         │
+        └───────┬───────────┬──────────┬────────┬────────┘
+                │           │          │        │
+        ┌───────▼──┐  ┌─────▼────┐ ┌───▼────┐ ┌─▼──────────┐
+        │ Lokales  │  │ Remote-  │ │ WLED   │ │ MQTT-Nodes │
+        │ System   │  │ Agents   │ │ (HTTP) │ │ (ESP32/Sim)│
+        └──────────┘  └──────────┘ └────────┘ └────────────┘
 ```
+
+Alle Domänen kommunizieren über den **Event-Bus**; Aktionen (Notify/WLED/Layout) werden als
+Bus-Events ausgeführt und von den jeweiligen Services verarbeitet – maximal entkoppelt.
 
 ---
 
@@ -90,88 +110,48 @@ Browser / Dashboard (http://localhost:4000)
 
 | Bereich | Technologie | Version |
 |---------|-------------|---------|
-| **Frontend** | React | 18+ |
-| | Next.js | 14+ |
-| | Tailwind CSS | 3.4+ |
-| | Zustand | 4.4+ |
-| | Recharts | 2.10+ |
-| | Framer Motion | 10.0+ |
-| | Socket.IO Client | 4.7+ |
-| | Axios | 1.6+ |
-| **Backend** | Node.js | 18+ |
-| | Express.js | 4.18+ |
-| | TypeScript | 5.0+ |
-| | Socket.IO | 4.7+ |
-| | MQTT | 5.0+ |
-| | SQLite3 | 5.1+ |
-| | Winston | 3.11+ |
+| **Frontend** | React / Next.js | 18+ / 14+ |
+| | Tailwind CSS · Zustand · Recharts · Framer Motion · Socket.IO Client | – |
+| **Backend** | Node.js · Express · TypeScript | 18+ / 4.18+ / 5.x |
+| | Socket.IO · SQLite3 · Winston | – |
+| | **systeminformation** (Metriken) | 5.x |
+| | **mqtt** (Client) · **aedes** (eingebetteter Broker) | 5.x / 0.51 |
+| **Tooling** | tsx · Jest + ts-jest · npm Workspaces | – |
 | **DevOps** | Docker / Docker Compose | Latest |
-| **Testing** | Jest + ts-jest | 29.0+ |
 
 ---
 
 ## Voraussetzungen
 
-- **Node.js** 18 oder neuer
-- **npm** 9 oder neuer
-- Optional: **Docker** & **Docker Compose** für Container-Deployment
+- **Node.js** 18 oder neuer · **npm** 9 oder neuer
+- Optional: **Docker** & **Docker Compose**
+- Ein MQTT-Broker ist **nicht** nötig – DeskOS startet selbst einen eingebetteten Broker.
 
 ---
 
 ## Schnellstart
 
-### Automatisch (empfohlen)
-
-**Linux / macOS:**
 ```bash
-./setup.sh
-```
-
-**Windows:**
-```bat
-setup.bat
-```
-
-Das Skript installiert alle Abhängigkeiten und legt die `.env`-Dateien aus den Beispielen an.
-
----
-
-### Manuell
-
-**1. Abhängigkeiten installieren**
-```bash
+# 1. Abhängigkeiten installieren
 npm install
-```
 
-**2. Umgebungsvariablen anlegen**
-```bash
-cp apps/backend/.env.example apps/backend/.env
-cp apps/frontend/.env.example apps/frontend/.env.local
-cp apps/agent/.env.example apps/agent/.env
-```
+# 2. Backend + Frontend gemeinsam starten (liest Ports zentral aus der Root-.env)
+npm run dev
+#   → Dashboard:  http://localhost:4000
+#   → Backend/API: http://localhost:4001  (inkl. eingebettetem MQTT-Broker)
 
-**3. Entwicklungsserver starten (3 Terminals)**
+# 3. Optional: virtueller ESP32-Sensor-Node (ohne Hardware)
+npm run dev --workspace=apps/simulator
 
-```bash
-# Terminal 1 – Backend (Port 4001)
-npm run dev --workspace=apps/backend
-
-# Terminal 2 – Frontend (Port 4000)
-npm run dev --workspace=apps/frontend
-
-# Terminal 3 – Agent (optional)
+# 4. Optional: Remote-PC-Agent auf einem zweiten Rechner
 npm run dev --workspace=apps/agent
 ```
 
-Das Dashboard ist dann unter **http://localhost:4000** erreichbar.
+Im Dashboard das Overlay-Menü mit der **`** -Taste (oder F2) öffnen → Monitor / RGB / Automationen /
+Sensoren / Plugins / Logs.
 
----
-
-### Docker
-
-```bash
-docker-compose up --build
-```
+**Automatisches Setup** (legt `.env`-Dateien an): `./setup.sh` (Linux/macOS) bzw. `setup.bat` (Windows).
+**Docker:** `docker-compose up --build`.
 
 ---
 
@@ -182,181 +162,120 @@ DeskOS/
 ├── apps/
 │   ├── backend/                  # Node.js + TypeScript Backend
 │   │   └── src/
-│   │       ├── core/             # EventSystem, DeviceManager, PluginSystem, AutomationEngine
-│   │       ├── services/         # SystemMonitor, DatabaseService, WebSocketServer, Logger, ConfigManager
-│   │       └── api/routes.ts     # REST-Endpoints
+│   │       ├── core/             # EventSystem, DeviceManager, AutomationEngine, ActionExecutor, PluginSystem
+│   │       ├── services/         # SystemMonitor, PersistenceService, NotificationService, WledService,
+│   │       │                     #   MqttService, LayoutService, PluginRegistry, DatabaseService, WebSocketServer
+│   │       └── api/routes.ts      # REST-Endpoints
 │   ├── frontend/                 # React + Next.js Dashboard
 │   │   └── src/
-│   │       ├── app/              # Next.js App Router (layout.tsx, page.tsx)
-│   │       ├── components/       # Dashboard, OverlayMenu
-│   │       └── stores/           # Zustand Store (dashboardStore.ts)
-│   └── agent/                    # Remote-PC-Agent
-│       └── src/index.ts
+│   │       ├── components/        # Dashboard, MonitorView, LogView, RgbView, AutomationsView,
+│   │       │                      #   SensorView, PluginsView, PluginWidgets, NotificationCenter,
+│   │       │                      #   DeviceDetail, LayoutBar, OverlayMenu, holo
+│   │       └── stores/            # Zustand Store (dashboardStore.ts)
+│   ├── agent/                    # Remote-PC-Agent (sendet Metriken via WebSocket)
+│   └── simulator/                # Virtueller ESP32-Sensor-/LED-Node (MQTT)
 ├── packages/
-│   └── shared/                   # Gemeinsame TypeScript-Typen
-│       └── src/types.ts          # Device, SystemMetrics, DeskOSEvent, PluginConfig, …
-├── plugins/
-│   ├── system-monitor/           # System-Monitoring-Plugin
-│   └── rgb-control/              # LED/RGB-Steuerungs-Plugin
-├── deploy/
-│   ├── linux/                    # install.sh, start-kiosk.sh
-│   └── windows/                  # install-autostart.ps1, start-kiosk.bat
-├── docker-compose.yml
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── setup.sh
-├── setup.bat
-└── package.json                  # Monorepo-Root mit npm Workspaces
+│   └── shared/                   # Einzige Typquelle (Device, SystemMetrics, WledLight, AutomationRule,
+│                                 #   LayoutProfile, SensorNode, PluginInstance, …)
+├── services/oszi/               # Oszilloskop-Service (Flask, Bonus)
+├── plugins/                     # Dir-basierte Backend-Plugins (system-monitor, rgb-control)
+├── deploy/                      # systemd / Windows-Autostart / Kiosk
+├── docker-compose.yml · Dockerfile.* · setup.sh · setup.bat
+└── package.json                 # Monorepo-Root (npm Workspaces)
 ```
 
 ---
 
 ## Umgebungsvariablen
 
-### Ports zentral ändern (`.env` im Projekt-Root)
-
-Alle Ports lassen sich an **einer** Stelle anpassen: `.env.example` nach `.env` kopieren
-und die Werte ändern. Standard ist bewusst der 4000er-Bereich (statt 3000/3001), um
-Konflikte mit anderen Anwendungen zu vermeiden.
+### Ports zentral (`.env` im Projekt-Root)
 
 | Variable | Standard | Dienst |
 |----------|----------|--------|
 | `FRONTEND_PORT` | `4000` | Web-Dashboard (Next.js) |
 | `BACKEND_PORT` | `4001` | API + WebSocket |
 | `OSZI_PORT` | `4002` | Oszi-Service (Flask) |
-| `MQTT_PORT` | `1883` | MQTT-Broker |
-
-`npm run dev`, `docker compose` und `setup.sh` lesen diese `.env` automatisch. Nach einer
-Port-Änderung in Produktion das Frontend neu bauen (`setup.sh`/Docker erledigen das),
-damit der Backend-Port ins Client-Bundle eingebacken wird.
+| `MQTT_PORT` | `1883` | (eingebetteter) MQTT-Broker |
 
 ### Backend (`apps/backend/.env`)
 
 | Variable | Standard | Beschreibung |
 |----------|----------|--------------|
-| `BACKEND_PORT` | `4001` | HTTP-Port des Backends (zentral über Root-`.env`) |
-| `NODE_ENV` | `development` | Umgebung (`development` / `production`) |
+| `BACKEND_PORT` | `4001` | HTTP-Port des Backends |
 | `DATABASE_PATH` | `./descos.db` | Pfad zur SQLite-Datenbank |
-| `MQTT_BROKER` | – | MQTT-Broker-URL (optional) |
-| `LOG_LEVEL` | `debug` | Log-Level (debug / info / warn / error) |
+| `MQTT_PORT` | `1883` | Port des eingebetteten Brokers |
+| `MQTT_BROKER` | – | externer Broker (wenn gesetzt, kein eigener) |
+| `MQTT_EMBEDDED` | `true` | eingebetteten Broker starten (`false` zum Deaktivieren) |
+| `WLED_LIGHTS` | *(2 Defaults)* | JSON-Array `[{"name":"…","ip":"…"}]`, beim ersten Start angelegt |
+| `LOG_LEVEL` | `debug` | Log-Level |
 
 ### Frontend (`apps/frontend/.env.local`)
-
-| Variable | Standard | Beschreibung |
-|----------|----------|--------------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:4001` | Backend-URL |
+`NEXT_PUBLIC_API_URL` – Backend-URL (Standard `http://localhost:4001`).
 
 ### Agent (`apps/agent/.env`)
+`BACKEND_URL`, `AGENT_NAME`, `POLL_INTERVAL`.
 
-| Variable | Standard | Beschreibung |
-|----------|----------|--------------|
-| `BACKEND_URL` | – | Adresse des Backends |
-| `AGENT_NAME` | – | Name dieses Agents |
-| `POLL_INTERVAL` | `1000` | Polling-Intervall in ms |
+### Simulator (`apps/simulator`)
+`MQTT_BROKER` (Standard `mqtt://localhost:1883`), `SIM_NODE_ID`, `SIM_NAME`, `SIM_INTERVAL`.
 
 ---
 
 ## API-Referenz
 
-**Base URL:** `http://localhost:4001/api`
+**Base URL:** `http://localhost:4001`
 
-### REST-Endpoints
+| Bereich | Endpoints |
+|---------|-----------|
+| **System** | `GET /health` · `GET /api/system/metrics` · `GET /api/dashboard/summary` |
+| **Geräte** | `GET /api/devices` · `GET /api/devices/:id` · `GET /api/devices/:id/data` · `PATCH /api/devices/:id` (umbenennen) · `DELETE /api/devices/:id` · `POST /api/devices/:id/command` (MQTT/Firmware) |
+| **Events / Logs** | `GET /api/events` · `GET /api/logs?level=&limit=` |
+| **Notifications** | `GET /api/notifications` · `GET /api/notifications/unread-count` · `POST /api/notifications/:id/read` · `POST /api/notifications/read-all` |
+| **Automationen** | `GET/POST /api/automations` · `PATCH/DELETE /api/automations/:id` |
+| **WLED / RGB** | `GET/POST /api/wled/lights` · `PATCH/DELETE /api/wled/lights/:id` · `POST /api/wled/lights/:id/state` · `POST /api/wled/lights/:id/mode` · `GET /api/wled/lights/:id/effects` |
+| **Layouts** | `GET /api/layouts` · `POST /api/layouts` · `PATCH/DELETE /api/layouts/:id` · `POST /api/layouts/:id/activate` |
+| **Sensoren** | `GET /api/sensors` |
+| **Plugins** | `GET /api/plugins` · `POST /api/plugins/:id/{install,uninstall,enable,disable}` · `PATCH /api/plugins/:id/settings` |
+| **Oszi** | `ALL /api/oszi/*` (Proxy zum Flask-Dienst) |
 
-| Methode | Endpoint | Beschreibung |
-|---------|----------|--------------|
-| GET | `/health` | Health Check |
-| GET | `/devices` | Alle Geräte auflisten |
-| GET | `/devices/:id` | Gerätedetails inkl. neuester Daten |
-| GET | `/devices/:id/data?limit=100` | Historische Gerätedaten |
-| GET | `/system/metrics` | Aktuelle Systemmetriken (CPU, RAM, Disk) |
-| GET | `/events?type=...&limit=50` | Event-Verlauf (optional gefiltert) |
-| GET | `/dashboard/summary` | Aggregierte Dashboard-Zusammenfassung |
+**WebSocket (Socket.IO), Server → Client:** `devices:list`, `device:update`, `event:new`,
+`notification:new`, `wled:update`, `layout:set`, `local:device:id`.
+**Client → Server:** `get:devices`, `subscribe:device`, `subscribe:events`, `register-agent`, `metrics`.
 
-### WebSocket-Events (Socket.IO)
-
-**Client → Server:**
-
-| Event | Beschreibung |
-|-------|--------------|
-| `subscribe:device` | Gerät abonnieren |
-| `get:devices` | Alle Geräte anfragen |
-| `get:device` | Einzelnes Gerät anfragen |
-| `get:event-history` | Event-Verlauf anfragen |
-| `subscribe:events` | Events abonnieren |
-
-**Server → Client:**
-
-| Event | Beschreibung |
-|-------|--------------|
-| `devices:list` | Liste aller Geräte |
-| `device:update` | Gerät-Update |
-| `device:details` | Gerätedetails |
-| `event:new` | Neues Event |
-| `event:history` | Event-Verlauf |
-| `error` | Fehlermeldung |
+Detaillierte Beispiele: [API.md](./API.md).
 
 ---
 
 ## Plugin-System
 
-Plugins liegen im `plugins/`-Verzeichnis und bestehen aus:
+DeskOS hat einen **Plugin-Marktplatz** (`PluginRegistry`): Plugins werden installiert, aktiviert
+und (falls nötig) mit Zugangsdaten konfiguriert – alles persistent. Funktionale Built-ins (Uhr,
+System-Übersicht) rendern echte Widgets; Katalog-Einträge wie Spotify/Discord/OBS/Steam/
+Home Assistant/Philips Hue sind als Framework angelegt und benötigen für die echte Anbindung
+deine API-Zugangsdaten.
 
-- **`plugin.json`** – Metadaten, Capabilities, Widget-Definitionen
-- **`backend.ts`** – Implementierung mit Zugriff auf `PluginContext`
+Zusätzlich existiert das ursprüngliche **dir-basierte Backend-Plugin-System** (`plugins/` mit
+`plugin.json` + `backend.ts`) für serverseitige Erweiterungen.
 
-```ts
-// Beispiel: Plugin-Initialisierung
-export async function init(context: PluginContext): Promise<void> {
-  const { eventSystem, config, logger } = context;
-  // Plugin-Logik hier
-}
+---
 
-export async function destroy(): Promise<void> {
-  // Aufräumen
-}
+## Tests
+
+```bash
+npm run test --workspace=apps/backend
 ```
 
-**Mitgelieferte Plugins:**
-
-| Plugin | Beschreibung |
-|--------|--------------|
-| `system-monitor` | Erweitertes System-Monitoring mit CPU-, RAM- und Netzwerk-Widget |
-| `rgb-control` | LED/RGB-Steuerung für Hardware-Integration |
+Jest-Suiten decken EventSystem, DeviceManager, Persistenz, Notifications, WLED (Mock-Server),
+Automation/Layout, MQTT (mit eingebettetem Broker) und die Plugin-Registry ab.
 
 ---
 
 ## Deployment
 
-### Linux / Raspberry Pi (systemd)
+- **Linux / Raspberry Pi (systemd):** `sudo ./deploy/linux/install.sh` → `descos-backend.service` + `descos-frontend.service`; Kiosk via `./deploy/linux/start-kiosk.sh`.
+- **Windows (Autostart):** `powershell -ExecutionPolicy Bypass -File deploy\windows\install-autostart.ps1`.
+- **Docker:** `docker-compose up -d`.
 
-Installiert Backend und Frontend als systemd-Dienste und richtet optionalen Chromium-Kiosk-Modus ein:
-
-```bash
-sudo ./deploy/linux/install.sh
-```
-
-Erstellt die Dienste `descos-backend.service` und `descos-frontend.service`.
-
-Kiosk-Browser manuell starten:
-```bash
-./deploy/linux/start-kiosk.sh
-```
-
-### Windows (Autostart)
-
-Legt eine Verknüpfung im Windows-Autostart-Ordner an und startet Chrome/Edge im Kiosk-Modus:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File deploy\windows\install-autostart.ps1
-```
-
-### Docker
-
-```bash
-docker-compose up -d
-```
-
-Weitere Details zu Autologin, Troubleshooting und Produktivkonfiguration: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md)
+Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCALE.md](./TAILSCALE.md).
 
 ---
 
@@ -364,31 +283,26 @@ Weitere Details zu Autologin, Troubleshooting und Produktivkonfiguration: [DEPLO
 
 | Datei | Inhalt |
 |-------|--------|
-| [QUICKSTART.md](./QUICKSTART.md) | 5-Minuten-Setup-Anleitung mit Troubleshooting |
-| [API.md](./API.md) | Vollständige API-Referenz mit Beispielen |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Produktions-Deployment-Anleitung |
-| [KIOSK.md](./KIOSK.md) | Autostart & Kiosk-Modus (Linux/Windows) |
-| [INDEX.md](./INDEX.md) | Vollständige Projektstruktur & Übersicht |
-| [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie & Roadmap |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Beitragsrichtlinien |
+| [ROADMAP.md](./ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
+| [QUICKSTART.md](./QUICKSTART.md) | Schnellstart & Troubleshooting |
+| [API.md](./API.md) | API-Beispiele |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) | Produktion / Kiosk |
+| [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie |
 
 ---
 
 ## Roadmap
 
-Die vollständige Roadmap inkl. Machbarkeit, Ist-Zustand und Detailaufgaben steht in
-**[ROADMAP.md](./ROADMAP.md)**. Kurzüberblick der Meilensteine:
+✅ **Vollständig umgesetzt** – siehe [ROADMAP.md](./ROADMAP.md).
 
-| Meilenstein | Version | Thema |
-|-------------|---------|-------|
-| ✅ Basis | v0.1.0 | Core-System, Backend, Frontend, Multi-PC-Monitoring (Ansatz), Oszi |
-| 🔜 M0 | v1.0 | Fundament: Typen-Cleanup & SQLite-Persistenz anschließen |
-| 🔜 M1 | v1.0 | Monitoring-Tiefe: GPU, Temperaturen, Lüfter, Netz, Prozesse (`systeminformation`) |
-| 🔜 M2 | v1.0 | Device Center (Detailansicht) + Notification- & Log-Center |
-| 🔜 M3 | v2.0 | RGB-Engine + WLED-Steuerung (Ambient + Zimmerlicht) |
-| 🔜 M4 | v2.0 | Automation-Engine v2 + Layout-/Profil-System |
-| 🔜 M5 | v3.0 | ESP32/MQTT + Sensor-Hub + Modul-Manager (inkl. Simulator) |
-| 🔜 M6 | v3.0 | Firmware-Center + Plugin-System v2 (Spotify, Discord, OBS, Hue …) |
+| Stufe | Meilensteine | Inhalt |
+|-------|--------------|--------|
+| ✅ **v1.0** | M0 · M1 · M2 | Persistenz · Monitoring-Tiefe · Device-/Notification-/Log-Center |
+| ✅ **v2.0** | M3 · M4 | RGB/WLED · Automation v2 + Layout-Profile |
+| ✅ **v3.0** | M5 · M6 | ESP32/MQTT + Sensor-Hub + Simulator · Firmware + Plugin-Marktplatz |
+
+**Nächste Ausbaustufen (offen):** echte Anbindung der Credential-Plugins (Spotify/Hue/…),
+ESP32-Firmware-Sketch (PlatformIO) für echte Hardware, optionaler „Musikmodus".
 
 ---
 
