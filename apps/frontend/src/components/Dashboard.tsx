@@ -8,6 +8,11 @@ import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
 import { RgbView } from '@/components/RgbView';
+import { AutomationsView } from '@/components/AutomationsView';
+import { SensorView } from '@/components/SensorView';
+import { PluginsView } from '@/components/PluginsView';
+import { PluginWidgets } from '@/components/PluginWidgets';
+import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
 import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
@@ -24,6 +29,8 @@ import {
 
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
+// All activeView values that replace the default dashboard with a full-page view.
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins'];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -358,7 +365,13 @@ export function Dashboard() {
 
         {activeView === 'rgb' && <RgbView />}
 
-        {activeView !== 'oszi' && activeView !== 'logs' && activeView !== 'rgb' && !MONITOR_VIEWS.includes(activeView) && (
+        {activeView === 'automations' && <AutomationsView />}
+
+        {activeView === 'sensors' && <SensorView />}
+
+        {activeView === 'plugins' && <PluginsView />}
+
+        {!FULL_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           <div className="mb-6 flex items-center justify-between">
@@ -376,6 +389,9 @@ export function Dashboard() {
             </div>
           </div>
 
+          {/* Layout / profile switcher */}
+          <LayoutBar />
+
           {/* System Overview */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div className="lg:col-span-2">
@@ -390,6 +406,9 @@ export function Dashboard() {
           <div className="mb-8">
             <MetricsHistoryChart />
           </div>
+
+          {/* Enabled plugin widgets */}
+          <PluginWidgets />
 
           {/* Devices Section */}
           <section>

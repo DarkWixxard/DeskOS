@@ -2,11 +2,34 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { getApiBaseUrl } from '@/lib/api';
-import type { Device, SystemMetrics, DeskOSEvent, DeskNotification, WledLight, RgbMode } from '@shared/types';
+import type {
+  Device,
+  SystemMetrics,
+  DeskOSEvent,
+  DeskNotification,
+  WledLight,
+  RgbMode,
+  AutomationRule,
+  AutomationTrigger,
+  AutomationAction,
+  LayoutProfile,
+  PluginInstance,
+} from '@shared/types';
 
 // Canonical domain types live in @shared/types; re-exported so existing
 // component imports keep working from a single source of truth.
-export type { Device, SystemMetrics, DeskNotification, WledLight, RgbMode };
+export type {
+  Device,
+  SystemMetrics,
+  DeskNotification,
+  WledLight,
+  RgbMode,
+  AutomationRule,
+  AutomationTrigger,
+  AutomationAction,
+  LayoutProfile,
+  PluginInstance,
+};
 export type DashboardEvent = DeskOSEvent;
 
 export interface WledControl {
@@ -42,6 +65,12 @@ interface DashboardStore {
   notificationsOpen: boolean;
   // WLED / RGB
   wledLights: WledLight[];
+  // Automations + Layout profiles
+  automations: AutomationRule[];
+  layouts: LayoutProfile[];
+  activeLayoutId: string | null;
+  // Plugins
+  plugins: PluginInstance[];
 
   // Actions
   connectWebSocket: () => void;
@@ -67,6 +96,15 @@ interface DashboardStore {
   addWledLight: (name: string, ip: string) => Promise<boolean>;
   updateWledLight: (id: string, patch: { name?: string; ip?: string }) => Promise<void>;
   removeWledLight: (id: string) => Promise<void>;
+  fetchAutomations: () => Promise<void>;
+  createAutomation: (rule: Omit<AutomationRule, 'lastFired'>) => Promise<boolean>;
+  deleteAutomation: (id: string) => Promise<void>;
+  toggleAutomation: (id: string, enabled: boolean) => Promise<void>;
+  fetchLayouts: () => Promise<void>;
+  activateLayout: (id: string) => Promise<void>;
+  fetchPlugins: () => Promise<void>;
+  pluginAction: (id: string, action: 'install' | 'uninstall' | 'enable' | 'disable') => Promise<void>;
+  updatePluginSettings: (id: string, settings: Record<string, string>) => Promise<void>;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -88,6 +126,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   unreadCount: 0,
   notificationsOpen: false,
   wledLights: [],
+  automations: [],
+  layouts: [],
+  activeLayoutId: null,
+  plugins: [],
 
   connectWebSocket: () => {
     const apiUrl = getApiBaseUrl();
@@ -104,6 +146,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       socket.emit('subscribe:events');
       get().fetchNotifications();
       get().fetchWledLights();
+      get().fetchAutomations();
+      get().fetchLayouts();
+      get().fetchPlugins();
+    });
+
+    socket.on('layout:set', (data: { profileId?: string; view?: string }) => {
+      const patch: Partial<DashboardStore> = { activeLayoutId: data.profileId ?? null };
+      if (data.view) patch.activeView = data.view;
+      set(patch);
     });
 
     socket.on('notification:new', (n: DeskNotification) => {
@@ -367,6 +418,109 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       set({ wledLights: get().wledLights.filter((l) => l.id !== id) });
     } catch (error) {
       console.error('WLED remove failed:', error);
+    }
+  },
+
+  fetchAutomations: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/automations`);
+      set({ automations: (await res.json()) as AutomationRule[] });
+    } catch (error) {
+      console.error('Unable to fetch automations:', error);
+    }
+  },
+
+  createAutomation: async (rule) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/automations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rule),
+      });
+      if (!res.ok) return false;
+      await get().fetchAutomations();
+      return true;
+    } catch (error) {
+      console.error('Unable to create automation:', error);
+      return false;
+    }
+  },
+
+  deleteAutomation: async (id: string) => {
+    try {
+      await fetch(`${getApiBaseUrl()}/api/automations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      set({ automations: get().automations.filter((a) => a.id !== id) });
+    } catch (error) {
+      console.error('Unable to delete automation:', error);
+    }
+  },
+
+  toggleAutomation: async (id: string, enabled: boolean) => {
+    set({ automations: get().automations.map((a) => (a.id === id ? { ...a, enabled } : a)) });
+    try {
+      await fetch(`${getApiBaseUrl()}/api/automations/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+    } catch (error) {
+      console.error('Unable to toggle automation:', error);
+    }
+  },
+
+  fetchLayouts: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/layouts`);
+      const data = await res.json();
+      set({ layouts: data.profiles ?? [], activeLayoutId: data.activeId ?? null });
+    } catch (error) {
+      console.error('Unable to fetch layouts:', error);
+    }
+  },
+
+  activateLayout: async (id: string) => {
+    set({ activeLayoutId: id });
+    try {
+      await fetch(`${getApiBaseUrl()}/api/layouts/${encodeURIComponent(id)}/activate`, { method: 'POST' });
+    } catch (error) {
+      console.error('Unable to activate layout:', error);
+    }
+  },
+
+  fetchPlugins: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/plugins`);
+      set({ plugins: (await res.json()) as PluginInstance[] });
+    } catch (error) {
+      console.error('Unable to fetch plugins:', error);
+    }
+  },
+
+  pluginAction: async (id, action) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/plugins/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+      if (res.ok) {
+        const updated = (await res.json()) as PluginInstance;
+        set({ plugins: get().plugins.map((p) => (p.id === id ? updated : p)) });
+      }
+    } catch (error) {
+      console.error(`Plugin ${action} failed:`, error);
+    }
+  },
+
+  updatePluginSettings: async (id, settings) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/plugins/${encodeURIComponent(id)}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      if (res.ok) {
+        const updated = (await res.json()) as PluginInstance;
+        set({ plugins: get().plugins.map((p) => (p.id === id ? updated : p)) });
+      }
+    } catch (error) {
+      console.error('Plugin settings update failed:', error);
     }
   },
 }));

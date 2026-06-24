@@ -59,6 +59,26 @@ export class NotificationService {
 
   attach(): void {
     this.eventSystem.on('*', (event) => this.onEvent(event));
+    // Direct notifications pushed by automations / layout actions.
+    this.eventSystem.on('notification:push', (event) => this.onPush(event));
+  }
+
+  private onPush(event: DeskOSEvent): void {
+    const p = (event.payload ?? {}) as { title?: string; message?: string; level?: NotificationLevel; deviceId?: string };
+    if (!p.title && !p.message) return;
+    const notification: DeskNotification = {
+      id: uuidv4(),
+      level: p.level ?? 'info',
+      title: p.title ?? 'Hinweis',
+      message: p.message ?? '',
+      source: event.source,
+      eventType: 'notification:push',
+      deviceId: p.deviceId,
+      read: false,
+      timestamp: event.timestamp,
+    };
+    void this.save(notification).catch((err) => console.error('[notifications] push save failed:', err));
+    this.eventSystem.emit('notification:new', notification, 'notification-service');
   }
 
   private onEvent(event: DeskOSEvent): void {

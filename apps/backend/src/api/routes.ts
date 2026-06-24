@@ -5,14 +5,19 @@ import { eventSystem } from '../core/EventSystem';
 import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
 import { wledService } from '../services/WledService';
+import { mqttService } from '../services/MqttService';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
+import type { LayoutService } from '../services/LayoutService';
+import type { PluginRegistry } from '../services/PluginRegistry';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
   persistence?: PersistenceService;
   notifications?: NotificationService;
+  layout?: LayoutService;
+  plugins?: PluginRegistry;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -155,6 +160,80 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   app.get('/api/wled/lights/:id/effects', async (req, res) => {
     res.json(await wledService.getEffects(req.params.id));
   });
+
+  // ---- Layout / Profile System ----
+  app.get('/api/layouts', (req, res) => {
+    if (!deps.layout) return res.json({ profiles: [], activeId: null });
+    res.json({ profiles: deps.layout.list(), activeId: deps.layout.getActiveId() });
+  });
+
+  app.post('/api/layouts', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const { name, icon, view, actions } = req.body ?? {};
+    if (!name) return res.status(400).json({ error: 'name erforderlich' });
+    res.status(201).json(await deps.layout.create({ name, icon, view, actions: actions ?? [] }));
+  });
+
+  app.patch('/api/layouts/:id', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const updated = await deps.layout.update(req.params.id, req.body ?? {});
+    if (!updated) return res.status(404).json({ error: 'Profil nicht gefunden' });
+    res.json(updated);
+  });
+
+  app.delete('/api/layouts/:id', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const ok = await deps.layout.remove(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Profil nicht gefunden' });
+    res.json({ success: true, id: req.params.id });
+  });
+
+  app.post('/api/layouts/:id/activate', async (req, res) => {
+    if (!deps.layout) return res.status(503).json({ error: 'Layout-Service nicht verfügbar' });
+    const profile = await deps.layout.activate(req.params.id);
+    if (!profile) return res.status(404).json({ error: 'Profil nicht gefunden' });
+    res.json(profile);
+  });
+
+  // ---- Sensor Hub / MQTT nodes ----
+  app.get('/api/sensors', (req, res) => {
+    const nodes = deviceManager
+      .getAllDevices()
+      .filter((d) => (d.metadata as Record<string, unknown>)?.mqtt === true || d.capabilities.includes('sensor'));
+    res.json(
+      nodes.map((d) => ({
+        device: d,
+        latest: deviceManager.getDeviceData(d.id, 1)[0]?.data ?? null,
+        modules: (d.metadata as Record<string, unknown>)?.modules ?? [],
+      }))
+    );
+  });
+
+  // Send a command to an MQTT node (by backing device id). Also used by the
+  // Firmware Center for restart / wifi / ota actions.
+  app.post('/api/devices/:id/command', (req, res) => {
+    const sent = mqttService.sendCommandToDevice(req.params.id, req.body ?? {});
+    res.json({ sent });
+  });
+
+  // ---- Plugin System v2 / Marketplace ----
+  app.get('/api/plugins', (req, res) => {
+    res.json(deps.plugins ? deps.plugins.list() : []);
+  });
+
+  const pluginAction = (handler: (reg: PluginRegistry, id: string, body: any) => Promise<unknown>) =>
+    async (req: any, res: any) => {
+      if (!deps.plugins) return res.status(503).json({ error: 'Plugin-Registry nicht verfügbar' });
+      const result = await handler(deps.plugins, req.params.id, req.body ?? {});
+      if (!result) return res.status(404).json({ error: 'Plugin nicht gefunden' });
+      res.json(result);
+    };
+
+  app.post('/api/plugins/:id/install', pluginAction((reg, id) => reg.install(id)));
+  app.post('/api/plugins/:id/uninstall', pluginAction((reg, id) => reg.uninstall(id)));
+  app.post('/api/plugins/:id/enable', pluginAction((reg, id) => reg.setEnabled(id, true)));
+  app.post('/api/plugins/:id/disable', pluginAction((reg, id) => reg.setEnabled(id, false)));
+  app.patch('/api/plugins/:id/settings', pluginAction((reg, id, body) => reg.updateSettings(id, body)));
 
   // Dashboard summary
   app.get('/api/dashboard/summary', (req, res) => {

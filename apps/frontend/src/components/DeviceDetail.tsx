@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
-import { useDashboardStore } from '@/stores/dashboardStore';
+import { useDashboardStore, type Device } from '@/stores/dashboardStore';
 import { Panel, HoloCorners, HoloIcon } from '@/components/holo';
+import { getApiBaseUrl } from '@/lib/api';
 
 /* =========================================================================
    DeskOS Device Center – detail view (M2)
@@ -219,16 +220,88 @@ export function DeviceDetail() {
               </div>
             )}
 
-            {tab === 'firmware' && (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <HoloIcon name="plug" className="h-8 w-8 text-accent/40" />
-                <p className="text-[12px] text-accent/50">Firmware-Verwaltung folgt mit ESP32 / WLED (M6).</p>
-                <p className="text-[11px] text-accent/30">Neustart · WLAN-Konfig · OTA-Updates</p>
-              </div>
-            )}
+            {tab === 'firmware' && <FirmwareTab device={device} />}
           </div>
         </Panel>
       </div>
+    </div>
+  );
+}
+
+function FirmwareTab({ device }: { device: Device }) {
+  const meta = (device.metadata ?? {}) as Record<string, unknown>;
+  const isMqtt = meta.mqtt === true;
+  const isWled = meta.kind === 'wled';
+  const ip = String(meta.ip ?? '');
+
+  const [ssid, setSsid] = useState('');
+  const [password, setPassword] = useState('');
+  const [otaUrl, setOtaUrl] = useState('');
+  const [status, setStatus] = useState('');
+
+  const send = async (cmd: Record<string, unknown>, label: string) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/devices/${encodeURIComponent(device.id)}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cmd),
+      });
+      const body = await res.json();
+      setStatus(body?.sent ? `${label}: gesendet ✓` : `${label}: Node nicht erreichbar`);
+    } catch {
+      setStatus(`${label}: Fehler`);
+    }
+  };
+
+  const inputCls = 'w-full rounded-none border border-accent/30 bg-darker/60 px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent';
+  const btnCls = 'rounded-none border border-accent/40 px-3 py-1.5 text-[11px] uppercase tracking-wider text-accent transition-colors hover:bg-accent/10';
+
+  if (isWled) {
+    return (
+      <div className="space-y-3 py-2">
+        <p className="text-[12px] text-accent/60">WLED-Updates laufen über die eigene Web-Oberfläche.</p>
+        <a href={ip ? `http://${ip}/update` : '#'} target="_blank" rel="noreferrer" className={clsx(btnCls, 'inline-block')}>
+          OTA-Update öffnen ({ip})
+        </a>
+      </div>
+    );
+  }
+
+  if (!isMqtt) {
+    return <p className="py-8 text-center text-[12px] text-accent/40">Firmware-Verwaltung für diesen Gerätetyp nicht verfügbar.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="holo-label mb-1.5">Steuerung</p>
+        <button type="button" onClick={() => send({ action: 'restart' }, 'Neustart')} className={btnCls}>
+          <HoloIcon name="refresh" className="inline h-3.5 w-3.5" /> Neustart
+        </button>
+      </div>
+
+      <div className="border-t border-accent/15 pt-3">
+        <p className="holo-label mb-1.5">WLAN konfigurieren</p>
+        <div className="space-y-2">
+          <input value={ssid} onChange={(e) => setSsid(e.target.value)} placeholder="SSID" className={inputCls} />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Passwort" className={inputCls} />
+          <button type="button" disabled={!ssid} onClick={() => send({ action: 'wifi', ssid, password }, 'WLAN')} className={clsx(btnCls, 'disabled:opacity-30')}>
+            Senden
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-accent/15 pt-3">
+        <p className="holo-label mb-1.5">OTA-Update</p>
+        <div className="space-y-2">
+          <input value={otaUrl} onChange={(e) => setOtaUrl(e.target.value)} placeholder="Firmware-URL (.bin)" className={inputCls} />
+          <button type="button" disabled={!otaUrl} onClick={() => send({ action: 'ota', url: otaUrl }, 'OTA')} className={clsx(btnCls, 'disabled:opacity-30')}>
+            Update starten
+          </button>
+        </div>
+      </div>
+
+      {status && <p className="text-[11px] text-accent/70">{status}</p>}
     </div>
   );
 }
