@@ -24,10 +24,16 @@ export class MqttService {
   private brokerServer?: Server;
   private client?: MqttClient;
   private readonly nodeToDevice = new Map<string, string>();
+  // Last logged client-error message — used to avoid flooding the console with
+  // identical reconnect errors while no broker is reachable.
+  private lastClientError?: string;
 
   async start(): Promise<void> {
     const port = Number(process.env.MQTT_PORT) || 1883;
-    const url = process.env.MQTT_BROKER || `mqtt://localhost:${port}`;
+    // Default to the IPv4 loopback (not "localhost") for the embedded broker:
+    // on Windows "localhost" can resolve to ::1 while the broker binds IPv4,
+    // which makes every local connect attempt fail and spam reconnect errors.
+    const url = process.env.MQTT_BROKER || `mqtt://127.0.0.1:${port}`;
 
     // Embed a broker unless an external one is explicitly configured.
     if (process.env.MQTT_EMBEDDED !== 'false' && !process.env.MQTT_BROKER) {
@@ -47,18 +53,32 @@ export class MqttService {
       this.broker = new Aedes();
       this.brokerServer = createServer(this.broker.handle);
       this.brokerServer.once('error', reject);
-      this.brokerServer.listen(port, () => resolve());
+      // Bind IPv4 all-interfaces so both the local 127.0.0.1 client and external
+      // ESP32/sensor nodes on the LAN can reach the broker.
+      this.brokerServer.listen(port, '0.0.0.0', () => resolve());
     });
   }
 
   private connectClient(url: string): void {
     this.client = mqtt.connect(url, { reconnectPeriod: 5000 });
     this.client.on('connect', () => {
+      this.lastClientError = undefined;
       console.log('📡 MQTT client connected');
       this.client!.subscribe([`${TOPIC_BASE}/+/announce`, `${TOPIC_BASE}/+/telemetry`, `${TOPIC_BASE}/+/status`]);
     });
     this.client.on('message', (topic, payload) => this.handleMessage(topic, payload));
-    this.client.on('error', (err) => console.warn('⚠️ MQTT client error:', err.message));
+    this.client.on('error', (err) => {
+      // MQTT is optional (ESP32 / sensor nodes). With reconnectPeriod set, a
+      // missing broker would otherwise log the same error every few seconds, so
+      // only surface a given error once — until it changes or we reconnect.
+      const msg = (err && (err.message || (err as NodeJS.ErrnoException).code)) || String(err);
+      if (msg !== this.lastClientError) {
+        this.lastClientError = msg;
+        console.warn(
+          `⚠️ MQTT not reachable (${url}): ${msg} — ESP32/sensor features stay disabled until a broker is available. Safe to ignore if you don't use MQTT nodes.`
+        );
+      }
+    });
   }
 
   /** Parse and dispatch an incoming node message. Public for unit testing. */

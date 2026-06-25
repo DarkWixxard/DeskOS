@@ -1,5 +1,6 @@
 // Plugin System - Extensible Architecture
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { eventSystem } from '../core/EventSystem';
 
 export interface PluginConfig {
@@ -53,7 +54,10 @@ export class PluginSystem {
       ? backendRef
       : path.join(pluginDir, backendRef);
 
-    const module = await import(backendPath);
+    // Convert the absolute path to a file:// URL before importing. On Windows a
+    // bare path like "S:\\plugins\\x\\backend.ts" makes the ESM loader read the
+    // drive letter as a URL scheme (ERR_UNSUPPORTED_ESM_URL_SCHEME).
+    const module = await import(pathToFileURL(backendPath).href);
     return {
       initialize: module.initialize,
       destroy: module.destroy,
