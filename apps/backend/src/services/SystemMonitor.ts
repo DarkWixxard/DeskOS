@@ -3,8 +3,35 @@ import { deviceManager } from '../core/DeviceManager';
 import { eventSystem } from '../core/EventSystem';
 import * as os from 'os';
 import * as fs from 'fs';
-import si from 'systeminformation';
+// `systeminformation` powers the extended ("slow tier") metrics: GPU, CPU
+// temperature, per-disk usage, processes and network throughput. It is treated
+// as an OPTIONAL dependency and loaded lazily — if it is missing (e.g. a stale
+// or incomplete `npm install`), the backend keeps running and serves the
+// os-level core metrics (CPU%, RAM, disk, uptime) instead of crashing on boot.
+import type Si from 'systeminformation';
 import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
+
+let siLoader: Promise<Si | null> | undefined;
+let siWarned = false;
+
+function loadSi(): Promise<Si | null> {
+  if (!siLoader) {
+    siLoader = import('systeminformation')
+      .then((mod) => (mod as { default?: Si }).default ?? (mod as unknown as Si))
+      .catch(() => {
+        if (!siWarned) {
+          siWarned = true;
+          console.warn(
+            '[SystemMonitor] Optional dependency "systeminformation" is not installed — ' +
+              'extended metrics (GPU, temperature, per-disk, processes, network) are disabled. ' +
+              'Run `npm install` from the repo ROOT to enable them.'
+          );
+        }
+        return null;
+      });
+  }
+  return siLoader;
+}
 
 // Canonical definition lives in @shared/types; re-exported for existing callers.
 export type { SystemMetrics };
@@ -131,22 +158,25 @@ export class SystemMonitor {
   private async collectSlowTier(): Promise<Partial<SystemMetrics>> {
     const out: Partial<SystemMetrics> = {};
 
+    const s = await loadSi();
+    if (!s) return out;
+
     await Promise.all([
-      si
+      s
         .cpuTemperature()
         .then((t) => {
           const main = num(t.main);
           if (main !== undefined && main > 0) out.cpuTempC = Math.round(main);
         })
         .catch(() => undefined),
-      si
+      s
         .cpu()
         .then((c) => {
           out.cpuModel = `${c.manufacturer ?? ''} ${c.brand ?? ''}`.trim() || undefined;
           out.cpuCores = num(c.cores);
         })
         .catch(() => undefined),
-      si
+      s
         .graphics()
         .then((g) => {
           const gpus: GpuMetrics[] = (g.controllers ?? [])
@@ -162,7 +192,7 @@ export class SystemMonitor {
           if (gpus.length) out.gpus = gpus;
         })
         .catch(() => undefined),
-      si
+      s
         .fsSize()
         .then((list) => {
           const disks: DiskMetrics[] = (list ?? [])
@@ -178,7 +208,7 @@ export class SystemMonitor {
           if (disks.length) out.disks = disks;
         })
         .catch(() => undefined),
-      si
+      s
         .processes()
         .then((p) => {
           const top: ProcessInfo[] = [...(p.list ?? [])]
@@ -199,8 +229,10 @@ export class SystemMonitor {
   }
 
   private async getNetwork(): Promise<NetworkMetrics | undefined> {
+    const s = await loadSi();
+    if (!s) return undefined;
     try {
-      const stats = await si.networkStats();
+      const stats = await s.networkStats();
       const primary = stats?.[0];
       if (!primary) return undefined;
       return {
