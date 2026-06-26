@@ -6,7 +6,7 @@
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@shared/*": ["../../packages/shared/dist/*"]
     }
   },
