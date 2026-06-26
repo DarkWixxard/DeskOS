@@ -285,6 +285,7 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 |-------|--------|
 | [ROADMAP.md](./ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
 | [QUICKSTART.md](./QUICKSTART.md) | Schnellstart & Troubleshooting |
+| [MENU.md](./MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
 | [API.md](./API.md) | API-Beispiele |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) | Produktion / Kiosk |
 | [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie |
