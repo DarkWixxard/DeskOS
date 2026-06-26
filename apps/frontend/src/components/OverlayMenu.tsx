@@ -10,9 +10,12 @@ import { getBackendPort } from '@/lib/api';
 /* =========================================================================
    DeskOS Overlay Menu — holographic "mobiGlas" style launcher.
 
-   Toggle with the floating core button (bottom-right), the backtick key
-   ( ` ) or F2. While open: Esc / the core button closes it, ArrowLeft /
-   ArrowRight (or Q / E) switch grid pages.
+   Toggle with the floating core button (bottom-right), Ctrl/Cmd + K, the
+   backtick key ( ` ) or F2. Ctrl/Cmd + K is the recommended shortcut: it is
+   layout independent (the backtick is a dead key on e.g. German QWERTZ and
+   never fires a clean keydown) and works even while a field is focused.
+   While open: Esc / the core button closes it, ArrowLeft / ArrowRight
+   (or Q / E) switch grid pages.
    ========================================================================= */
 
 /* ------------------------------ Modules -------------------------------- */
@@ -111,13 +114,24 @@ export function OverlayMenu() {
           el.tagName === 'SELECT' ||
           el.isContentEditable);
 
+      // Ctrl/Cmd + K — universal toggle. Works on every keyboard layout and
+      // even while typing in a field, so it is the reliable "open menu" command.
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setOpen((o) => !o);
+        return;
+      }
+
       if (e.key === 'Escape') {
         if (open) setOpen(false);
         return;
       }
       if (typing) return;
 
-      if (e.key === '`' || e.key === 'F2') {
+      // Backtick / F2. `e.code === 'Backquote'` also matches layouts (e.g.
+      // German QWERTZ) where that physical key is a dead key and never yields
+      // a '`' character via e.key.
+      if (e.key === '`' || e.code === 'Backquote' || e.key === 'F2') {
         e.preventDefault();
         setOpen((o) => !o);
         return;
@@ -177,7 +191,7 @@ export function OverlayMenu() {
           className="group fixed bottom-6 right-6 z-40 flex items-center gap-3"
         >
           <span className="hidden rounded bg-darker/80 px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-accent/80 ring-1 ring-accent/30 backdrop-blur sm:block">
-            Menu · <span className="text-accent/50">`</span>
+            Menu · <span className="text-accent/50">Ctrl K</span>
           </span>
           <span className="relative flex h-14 w-14 items-center justify-center">
             <span className="animate-holo-spin absolute inset-0 rounded-full border border-dashed border-accent/40" />
@@ -437,7 +451,7 @@ export function OverlayMenu() {
                   <span><span className="text-accent">Esc</span> Exit</span>
                   <span><span className="text-accent">Q</span> Grid Left</span>
                   <span><span className="text-accent">E</span> Grid Right</span>
-                  <span><span className="text-accent">`</span> Toggle</span>
+                  <span><span className="text-accent">Ctrl K</span> · <span className="text-accent">F2</span> Toggle</span>
                 </div>
 
                 <div className="flex items-center gap-4">

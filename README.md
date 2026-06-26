@@ -147,8 +147,8 @@ npm run dev --workspace=apps/simulator
 npm run dev --workspace=apps/agent
 ```
 
-Im Dashboard das Overlay-Menü mit der **`** -Taste (oder F2) öffnen → Monitor / RGB / Automationen /
-Sensoren / Plugins / Logs.
+Im Dashboard das Overlay-Menü mit **Strg + K** (bzw. ⌘ + K auf Mac) öffnen – alternativ mit der
+**`** -Taste oder **F2** → Monitor / RGB / Automationen / Sensoren / Plugins / Logs.
 
 **Automatisches Setup** (legt `.env`-Dateien an): `./setup.sh` (Linux/macOS) bzw. `setup.bat` (Windows).
 **Docker:** `docker-compose up --build`.
