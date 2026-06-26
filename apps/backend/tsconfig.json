@@ -3,12 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
-    "ignoreDeprecations": "5.0",
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@shared/*": ["../../packages/shared/dist/*"]
     }
   },

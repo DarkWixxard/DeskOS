@@ -4,15 +4,12 @@
     "lib": ["dom", "dom.iterable", "es2020"],
     "jsx": "preserve",
     "jsxImportSource": "react",
-    "baseUrl": ".",
-    "ignoreDeprecations": "5.0",
-    "rootDir": "./src",
     "paths": {
       "@/*": [
         "./src/*"
       ],
       "@shared/*": [
-        "../../packages/shared/dist/*"
+        "../../packages/shared/src/*"
       ]
     },
     "moduleResolution": "bundler",

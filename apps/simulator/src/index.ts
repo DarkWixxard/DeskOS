@@ -15,7 +15,9 @@ import mqtt from 'mqtt';
 
 dotenv.config();
 
-const BROKER = process.env.MQTT_BROKER || `mqtt://localhost:${process.env.MQTT_PORT || 1883}`;
+// IPv4-Loopback (nicht "localhost"): unter Windows löst "localhost" oft zu ::1
+// auf, während der eingebettete Broker IPv4 bindet -> Verbindung scheitert.
+const BROKER = process.env.MQTT_BROKER || `mqtt://127.0.0.1:${process.env.MQTT_PORT || 1883}`;
 const NODE_ID = process.env.SIM_NODE_ID || 'esp32-sim-1';
 const NAME = process.env.SIM_NAME || 'ESP32 Sensor Node';
 const INTERVAL = parseInt(process.env.SIM_INTERVAL || '2000');
@@ -50,6 +52,9 @@ const client = mqtt.connect(BROKER, {
   will: { topic: `${base}/status`, payload: 'offline', retain: true, qos: 0 },
 });
 
+// Letzter geloggter Verbindungsfehler – verhindert Spam im 3s-Reconnect-Takt.
+let lastClientError: string | undefined;
+
 function announce() {
   client.publish(
     `${base}/announce`,
@@ -68,6 +73,7 @@ function announce() {
 }
 
 client.on('connect', () => {
+  lastClientError = undefined;
   console.log('✅ Connected to MQTT broker');
   client.publish(`${base}/status`, 'online', { retain: true });
   announce();
@@ -102,7 +108,15 @@ client.on('message', (topic, payload) => {
   }
 });
 
-client.on('error', (err) => console.error('❌ MQTT error:', err.message));
+client.on('error', (err) => {
+  const msg = (err && (err.message || (err as NodeJS.ErrnoException).code)) || String(err);
+  if (msg === lastClientError) return;
+  lastClientError = msg;
+  console.error(
+    `❌ MQTT error: ${msg} — Broker erreichbar? Der Broker steckt im Backend (eingebetteter aedes). ` +
+      `Dafür muss das Backend laufen und in dessen .env darf KEIN MQTT_BROKER gesetzt sein.`
+  );
+});
 
 const timer = setInterval(() => {
   if (client.connected) client.publish(`${base}/telemetry`, JSON.stringify(drift()));
