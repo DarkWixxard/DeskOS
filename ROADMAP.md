@@ -129,7 +129,7 @@ Beschreibungen dokumentieren den jeweils **gelieferten** Umfang.
 ### ✅ M6 – Firmware-Center + Plugin-System v2 + „Marktplatz"  · *v3.0*
 - Firmware-Center: Neustart, WLAN-Konfig, OTA-Push (WLED-OTA + eigene Nodes).
 - Plugin-SDK: Frontend-Widget-Plugins + Backend-Plugins, Manifest v2.
-- Echte Plugins: Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue.
+- Echte Plugins: **Spotify ✅ voll angebunden** (OAuth + Now Playing + Wiedergabesteuerung, siehe [SPOTIFY.md](./SPOTIFY.md)); Discord, OBS, Steam, Home Assistant, Philips Hue als Framework vorbereitet.
 
 ---
 

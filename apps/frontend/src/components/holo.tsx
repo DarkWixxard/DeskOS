@@ -149,6 +149,25 @@ export const ICON_PATHS: Record<string, ReactNode> = {
       <path d="M7.5 15h9" />
     </>
   ),
+  play: <polygon points="7 4 20 12 7 20 7 4" />,
+  pause: (
+    <>
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </>
+  ),
+  'skip-forward': (
+    <>
+      <polygon points="5 4 15 12 5 20 5 4" />
+      <line x1="19" y1="5" x2="19" y2="19" />
+    </>
+  ),
+  'skip-back': (
+    <>
+      <polygon points="19 4 9 12 19 20 19 4" />
+      <line x1="5" y1="5" x2="5" y2="19" />
+    </>
+  ),
 };
 
 export function HoloIcon({ name, className }: { name: string; className?: string }) {

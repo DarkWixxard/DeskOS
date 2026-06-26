@@ -286,3 +286,24 @@ export interface PluginInstance extends PluginManifest {
   configured: boolean;
   settings: Record<string, string>;
 }
+
+// --- Spotify (Media-Plugin) ---
+// Verbindungsstatus des Spotify-Plugins. Enthält keine Secrets – nur ob
+// Client-ID/Secret hinterlegt sind und ob bereits ein OAuth-Login besteht.
+export interface SpotifyStatus {
+  hasCredentials: boolean; // Client ID + Secret vorhanden
+  connected: boolean; // gültiger Refresh-Token vorhanden (Login erfolgt)
+  redirectUri: string; // muss exakt so in der Spotify-App eingetragen sein
+}
+
+// Aktuell laufender Titel (Now Playing) aus der Spotify Web API.
+export interface SpotifyTrack {
+  isPlaying: boolean;
+  title: string;
+  artists: string; // zusammengeführte Künstlernamen
+  album: string;
+  albumArt: string | null; // Cover-URL (größtes Bild)
+  durationMs: number;
+  progressMs: number;
+  trackUrl: string | null; // Link zum Track in Spotify
+}

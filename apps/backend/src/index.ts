@@ -15,6 +15,7 @@ import { wledService } from './services/WledService';
 import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
 import { createPluginRegistry } from './services/PluginRegistry';
+import { createSpotifyService } from './services/SpotifyService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -85,9 +86,10 @@ const notifications = createNotificationService({
 });
 const layout = createLayoutService(database);
 const plugins = createPluginRegistry(database);
+const spotify = createSpotifyService(plugins);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout, plugins });
+setupRoutes(app, { persistence, notifications, layout, plugins, spotify });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -131,6 +133,10 @@ async function bootstrap(): Promise<void> {
     await plugins.restore();
     await plugins.seedDefaults();
     console.log('✅ Plugin registry ready');
+
+    // Spotify: persistierten Refresh-Token (falls vorhanden) laden.
+    spotify.restore();
+    console.log('✅ Spotify service ready');
 
     // MQTT (ESP32 / sensor nodes) — embedded broker + client.
     await mqttService.start();

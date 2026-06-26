@@ -202,6 +202,28 @@ export class PluginRegistry {
     return this.mutate(id, (s) => ({ ...s, settings: { ...s.settings, ...clean } }));
   }
 
+  // ---- interner Zugriff (NICHT über die API!) ----
+  // Services wie der SpotifyService brauchen die echten Secrets (Client-Secret,
+  // Refresh-Token). Diese Werte werden bewusst nie über list()/get() bzw. die
+  // REST-API herausgegeben (siehe toPublic) – nur serverseitig.
+
+  /** Rohe Settings inkl. Secrets (Kopie). Nur serverseitig verwenden. */
+  getSettings(id: string): Record<string, string> {
+    return { ...(this.state.get(id)?.settings ?? {}) };
+  }
+
+  /** Einzelne Settings-Schlüssel entfernen (z. B. Refresh-Token beim Trennen). */
+  async clearSettings(id: string, keys: string[]): Promise<void> {
+    const current = this.state.get(id);
+    if (!current) return;
+    const settings = { ...current.settings };
+    for (const key of keys) delete settings[key];
+    const next = { ...current, settings };
+    this.state.set(id, next);
+    await this.persist(id, next);
+    eventSystem.emit('plugin:state-changed', { id, ...next }, 'plugin-registry');
+  }
+
   private async mutate(id: string, fn: (s: PluginState) => PluginState): Promise<PluginInstance | null> {
     if (!CATALOG.some((m) => m.id === id)) return null;
     const current = this.state.get(id) ?? { installed: false, enabled: false, settings: {} };
