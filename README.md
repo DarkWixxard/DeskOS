@@ -147,8 +147,8 @@ npm run dev --workspace=apps/simulator
 npm run dev --workspace=apps/agent
 ```
 
-Im Dashboard das Overlay-Menü mit der **`** -Taste (oder F2) öffnen → Monitor / RGB / Automationen /
-Sensoren / Plugins / Logs.
+Im Dashboard das Overlay-Menü mit **Strg + K** (bzw. ⌘ + K auf Mac) öffnen – alternativ mit der
+**`** -Taste oder **F2** → Monitor / RGB / Automationen / Sensoren / Plugins / Logs.
 
 **Automatisches Setup** (legt `.env`-Dateien an): `./setup.sh` (Linux/macOS) bzw. `setup.bat` (Windows).
 **Docker:** `docker-compose up --build`.
@@ -285,6 +285,7 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 |-------|--------|
 | [ROADMAP.md](./ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
 | [QUICKSTART.md](./QUICKSTART.md) | Schnellstart & Troubleshooting |
+| [MENU.md](./MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
 | [API.md](./API.md) | API-Beispiele |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) | Produktion / Kiosk |
 | [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie |

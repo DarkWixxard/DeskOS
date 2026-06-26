@@ -470,7 +470,7 @@ export function Dashboard() {
       {/* Notification Center (right-hand slide-over) */}
       <NotificationCenter />
 
-      {/* Holographic overlay launcher (toggle with ` / F2 or the core button) */}
+      {/* Holographic overlay launcher (toggle with Ctrl/Cmd+K, ` / F2 or the core button) */}
       <OverlayMenu />
     </main>
   );
