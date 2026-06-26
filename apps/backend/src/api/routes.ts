@@ -11,6 +11,7 @@ import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
 import type { LayoutService } from '../services/LayoutService';
 import type { PluginRegistry } from '../services/PluginRegistry';
+import type { SpotifyService, PlaybackAction } from '../services/SpotifyService';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
@@ -18,6 +19,7 @@ export interface RouteDeps {
   notifications?: NotificationService;
   layout?: LayoutService;
   plugins?: PluginRegistry;
+  spotify?: SpotifyService;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -235,6 +237,58 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   app.post('/api/plugins/:id/disable', pluginAction((reg, id) => reg.setEnabled(id, false)));
   app.patch('/api/plugins/:id/settings', pluginAction((reg, id, body) => reg.updateSettings(id, body)));
 
+  // ---- Spotify (Media-Plugin) ----
+  const spotifyUnavailable = (res: any) => res.status(503).json({ error: 'Spotify-Service nicht verfügbar' });
+
+  app.get('/api/spotify/status', (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    res.json(deps.spotify.getStatus());
+  });
+
+  // Liefert die Spotify-Login-URL; das Frontend öffnet sie in einem Popup.
+  app.get('/api/spotify/login', (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    try {
+      res.json({ url: deps.spotify.getAuthUrl() });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // OAuth-Redirect-Ziel (Browser-Navigation, ohne Token – siehe auth.ts).
+  app.get('/api/spotify/callback', async (req, res) => {
+    if (!deps.spotify) return res.status(503).send(spotifyCallbackHtml('Spotify-Service nicht verfügbar.', false));
+    const { code, state, error } = req.query as Record<string, string | undefined>;
+    if (error) return res.status(400).send(spotifyCallbackHtml(`Login abgebrochen: ${error}`, false));
+    if (!code || !state) return res.status(400).send(spotifyCallbackHtml('Fehlende Parameter im Callback.', false));
+    try {
+      await deps.spotify.handleCallback(code, state);
+      res.send(spotifyCallbackHtml('Spotify verbunden! Du kannst dieses Fenster schließen.', true));
+    } catch (err) {
+      res.status(400).send(spotifyCallbackHtml(err instanceof Error ? err.message : 'Login fehlgeschlagen.', false));
+    }
+  });
+
+  app.get('/api/spotify/now-playing', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    res.json(await deps.spotify.getNowPlaying());
+  });
+
+  app.post('/api/spotify/control/:action', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    const action = req.params.action as PlaybackAction;
+    if (!['play', 'pause', 'next', 'previous'].includes(action)) {
+      return res.status(400).json({ error: 'Ungültige Aktion' });
+    }
+    res.json({ ok: await deps.spotify.control(action) });
+  });
+
+  app.post('/api/spotify/disconnect', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    await deps.spotify.disconnect();
+    res.json({ ok: true });
+  });
+
   // Dashboard summary
   app.get('/api/dashboard/summary', (req, res) => {
     const devices = deviceManager.getAllDevices();
@@ -340,4 +394,32 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
   });
+}
+
+// Kleine, eigenständige HTML-Seite für den Spotify-OAuth-Callback (Popup).
+// Meldet das Ergebnis per postMessage an das Dashboard und schließt sich dann.
+function spotifyCallbackHtml(message: string, success: boolean): string {
+  const accent = success ? '#00ff88' : '#ff0055';
+  const safe = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>DeskOS · Spotify</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;background:#05070d;
+    color:#cfe9ff;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .card{max-width:420px;padding:28px 32px;border:1px solid ${accent}55;background:#0a0f1a;
+    text-align:center;box-shadow:0 0 24px ${accent}33}
+  .dot{width:14px;height:14px;border-radius:50%;background:${accent};margin:0 auto 14px;
+    box-shadow:0 0 12px ${accent}}
+  p{margin:0;font-size:14px;line-height:1.5}
+  small{display:block;margin-top:14px;color:#6e8299}
+</style></head>
+<body><div class="card"><div class="dot"></div><p>${safe}</p>
+<small>DeskOS · Spotify</small></div>
+<script>
+  try { if (window.opener) window.opener.postMessage({ type: 'deskos:spotify', connected: ${success} }, '*'); } catch (e) {}
+  ${success ? 'setTimeout(function(){ window.close(); }, 2200);' : ''}
+</script>
+</body></html>`;
 }

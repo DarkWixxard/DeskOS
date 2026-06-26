@@ -67,6 +67,8 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 - Firmware-Center (im Geräte-Detail): **Neustart / WLAN-Konfig / OTA** für MQTT-Nodes; WLED verlinkt auf seine OTA-Web-UI.
 - Plugin-System v2 mit **Marktplatz**: funktionale Built-ins (Uhr, System-Übersicht) + Katalog
   (Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue) mit Install/Aktivieren/Einstellungen, persistent.
+- **Spotify-Plugin voll funktionsfähig**: OAuth-Login, „Now Playing"-Anzeige (Cover/Titel/Fortschritt)
+  und Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API – Einrichtung in [SPOTIFY.md](./SPOTIFY.md).
 - Aktivierte Plugins rendern Widgets im Dashboard.
 
 ### 🏗️ Infrastruktur
@@ -235,6 +237,7 @@ DeskOS/
 | **Layouts** | `GET /api/layouts` · `POST /api/layouts` · `PATCH/DELETE /api/layouts/:id` · `POST /api/layouts/:id/activate` |
 | **Sensoren** | `GET /api/sensors` |
 | **Plugins** | `GET /api/plugins` · `POST /api/plugins/:id/{install,uninstall,enable,disable}` · `PATCH /api/plugins/:id/settings` |
+| **Spotify** | `GET /api/spotify/{status,login,callback,now-playing}` · `POST /api/spotify/control/:action` · `POST /api/spotify/disconnect` |
 | **Oszi** | `ALL /api/oszi/*` (Proxy zum Flask-Dienst) |
 
 **WebSocket (Socket.IO), Server → Client:** `devices:list`, `device:update`, `event:new`,
@@ -252,6 +255,11 @@ und (falls nötig) mit Zugangsdaten konfiguriert – alles persistent. Funktiona
 System-Übersicht) rendern echte Widgets; Katalog-Einträge wie Spotify/Discord/OBS/Steam/
 Home Assistant/Philips Hue sind als Framework angelegt und benötigen für die echte Anbindung
 deine API-Zugangsdaten.
+
+Das **Spotify-Plugin** ist bereits vollständig angebunden (OAuth, Now Playing,
+Wiedergabesteuerung) – Schritt-für-Schritt-Anleitung in [SPOTIFY.md](./SPOTIFY.md).
+Die übrigen Katalog-Einträge (Discord/OBS/Steam/Home Assistant/Hue) sind als
+Framework angelegt und benötigen für die echte Anbindung deine API-Zugangsdaten.
 
 Zusätzlich existiert das ursprüngliche **dir-basierte Backend-Plugin-System** (`plugins/` mit
 `plugin.json` + `backend.ts`) für serverseitige Erweiterungen.
@@ -286,6 +294,7 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 | [ROADMAP.md](./ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
 | [QUICKSTART.md](./QUICKSTART.md) | Schnellstart & Troubleshooting |
 | [MENU.md](./MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
+| [SPOTIFY.md](./SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
 | [API.md](./API.md) | API-Beispiele |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) | Produktion / Kiosk |
 | [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie |
@@ -302,7 +311,8 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 | ✅ **v2.0** | M3 · M4 | RGB/WLED · Automation v2 + Layout-Profile |
 | ✅ **v3.0** | M5 · M6 | ESP32/MQTT + Sensor-Hub + Simulator · Firmware + Plugin-Marktplatz |
 
-**Nächste Ausbaustufen (offen):** echte Anbindung der Credential-Plugins (Spotify/Hue/…),
+**Nächste Ausbaustufen (offen):** echte Anbindung weiterer Credential-Plugins (Discord/Hue/…)
+— **Spotify ist bereits live** (siehe [SPOTIFY.md](./SPOTIFY.md)) —,
 ESP32-Firmware-Sketch (PlatformIO) für echte Hardware, optionaler „Musikmodus".
 
 ---

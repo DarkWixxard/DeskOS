@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- 🎵 **Spotify-Plugin voll angebunden**: OAuth-2.0-Login (Authorization-Code-Flow),
+  „Now Playing"-Widget (Cover, Titel, Interpret, Fortschritt) und
+  Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API.
+  Backend-`SpotifyService` mit automatischem Token-Refresh; Refresh-Token
+  persistent gespeichert. Neue Endpunkte unter `/api/spotify/*`. Einrichtung
+  dokumentiert in [SPOTIFY.md](./SPOTIFY.md).
+
 ## [0.1.0] - 2024-01-15
 
 ### Added
