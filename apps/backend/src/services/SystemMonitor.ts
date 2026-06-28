@@ -8,8 +8,12 @@ import * as fs from 'fs';
 // as an OPTIONAL dependency and loaded lazily — if it is missing (e.g. a stale
 // or incomplete `npm install`), the backend keeps running and serves the
 // os-level core metrics (CPU%, RAM, disk, uptime) instead of crashing on boot.
-import type Si from 'systeminformation';
 import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
+
+// `systeminformation` is a CommonJS module (`export = si`). Importing its default
+// gives a *namespace*, which TypeScript cannot use as a type. A `typeof import()`
+// type query yields the module's value-side type, which is what we need here.
+type Si = typeof import('systeminformation');
 
 let siLoader: Promise<Si | null> | undefined;
 let siWarned = false;
@@ -17,7 +21,7 @@ let siWarned = false;
 function loadSi(): Promise<Si | null> {
   if (!siLoader) {
     siLoader = import('systeminformation')
-      .then((mod) => (mod as { default?: Si }).default ?? (mod as unknown as Si))
+      .then((mod) => (mod as unknown as { default?: Si }).default ?? mod)
       .catch(() => {
         if (!siWarned) {
           siWarned = true;
