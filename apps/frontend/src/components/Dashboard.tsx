@@ -36,6 +36,8 @@ const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sen
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
 export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
+  { id: 'backendLink', label: 'Backend-Verbindung' },
+  { id: 'layoutBar', label: 'Layout-Leiste' },
   { id: 'metrics', label: 'System-Metriken' },
   { id: 'events', label: 'Events' },
   { id: 'moduleStatus', label: 'Modul-Status (LEDs)' },
@@ -556,23 +558,25 @@ export function Dashboard() {
         {!FULL_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
-          <div className="mb-6 flex items-center justify-between">
-            <span className="holo-label">Backend Link</span>
-            <div
-              className={clsx(
-                'flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ring-1 backdrop-blur',
-                wsConnected
-                  ? 'bg-success/10 text-success ring-success/40'
-                  : 'bg-danger/10 text-danger ring-danger/40'
-              )}
-            >
-              <span className={clsx('h-2 w-2 rounded-full', wsConnected ? 'bg-success' : 'bg-danger')} />
-              {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
+          {shows('backendLink') && (
+            <div className="mb-6 flex items-center justify-between">
+              <span className="holo-label">Backend Link</span>
+              <div
+                className={clsx(
+                  'flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ring-1 backdrop-blur',
+                  wsConnected
+                    ? 'bg-success/10 text-success ring-success/40'
+                    : 'bg-danger/10 text-danger ring-danger/40'
+                )}
+              >
+                <span className={clsx('h-2 w-2 rounded-full', wsConnected ? 'bg-success' : 'bg-danger')} />
+                {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Layout / profile switcher */}
-          <LayoutBar />
+          {shows('layoutBar') && <LayoutBar />}
 
           {/* System Overview */}
           {(shows('metrics') || shows('events')) && (
