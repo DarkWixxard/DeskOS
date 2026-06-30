@@ -36,6 +36,7 @@ const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sen
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
 export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
+  { id: 'header', label: 'Kopfzeile (DESKOS / Glocke)' },
   { id: 'backendLink', label: 'Backend-Verbindung' },
   { id: 'layoutBar', label: 'Layout-Leiste' },
   { id: 'metrics', label: 'System-Metriken' },
@@ -535,7 +536,7 @@ export function Dashboard() {
 
       {/* Content (the constant holo flicker lives here, not on the modal/overlay) */}
       <div className="animate-holo-flicker relative z-10">
-        <Header />
+        {shows('header') && <Header />}
 
         {activeView === 'oszi' && <OsziView />}
 
