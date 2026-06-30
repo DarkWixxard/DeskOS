@@ -1,9 +1,9 @@
 'use client';
 
 import { useDashboardStore } from '@/stores/dashboardStore';
-import { useEffect, type MouseEvent } from 'react';
+import { useEffect, type ComponentType, type MouseEvent } from 'react';
 import clsx from 'clsx';
-import { OverlayMenu, MENU_ITEMS, ALWAYS_VISIBLE_MENU_ID } from '@/components/OverlayMenu';
+import { OverlayMenu } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
@@ -45,6 +45,17 @@ export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
   { id: 'history', label: 'Metrics-Verlauf' },
   { id: 'plugins', label: 'Plugin-Widgets' },
   { id: 'devices', label: 'Geräte' },
+];
+
+// Module views the user can pull onto the dashboard from the Anzeige view. Each
+// view is self-contained (brings its own container), so it renders as an extra
+// dashboard section. Hidden by default — the user opts a module in.
+export const EMBEDDABLE_MODULES: { id: string; label: string; Component: ComponentType }[] = [
+  { id: 'sensors', label: 'Sensor Hub', Component: SensorView },
+  { id: 'rgb', label: 'RGB / LED', Component: RgbView },
+  { id: 'automations', label: 'Automations', Component: AutomationsView },
+  { id: 'logs', label: 'Log Center', Component: LogView },
+  { id: 'oszi', label: 'Oszi', Component: OsziView },
 ];
 
 // Cyan field styling shared by the device search box and filter dropdown.
@@ -218,8 +229,8 @@ export function StatusLedView() {
 export function DashboardSettingsView() {
   const dashboardWidgets = useDashboardStore((state) => state.dashboardWidgets);
   const toggleDashboardWidget = useDashboardStore((state) => state.toggleDashboardWidget);
-  const menuVisibility = useDashboardStore((state) => state.menuVisibility);
-  const toggleMenuItem = useDashboardStore((state) => state.toggleMenuItem);
+  const dashboardModules = useDashboardStore((state) => state.dashboardModules);
+  const toggleDashboardModule = useDashboardStore((state) => state.toggleDashboardModule);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -254,24 +265,21 @@ export function DashboardSettingsView() {
           </ul>
         </Panel>
 
-        <Panel title="Menüpunkte">
+        <Panel title="Module auf dem Dashboard">
           <p className="mb-2 text-[11px] text-accent/50">
-            Schalte einzelne Einträge im Overlay-Menü ein oder aus. „Anzeige" bleibt immer sichtbar.
+            Hole einzelne Module direkt aufs Dashboard – ihr Inhalt erscheint dann als zusätzlicher
+            Abschnitt. Die Module bleiben weiterhin auch über das Menü erreichbar.
           </p>
           <ul className="divide-y divide-accent/10">
-            {MENU_ITEMS.map((item) => {
-              const locked = item.id === ALWAYS_VISIBLE_MENU_ID;
-              const visible = locked || menuVisibility[item.id] !== false;
+            {EMBEDDABLE_MODULES.map((mod) => {
+              const shown = dashboardModules[mod.id] === true;
               return (
-                <li key={item.id} className="flex items-center justify-between py-2.5">
-                  <span className={clsx('font-mono text-sm', locked ? 'text-accent/40' : 'text-white/90')}>
-                    {item.label}
-                    {locked && <span className="ml-2 text-[10px] uppercase tracking-wider text-accent/40">fix</span>}
-                  </span>
+                <li key={mod.id} className="flex items-center justify-between py-2.5">
+                  <span className="font-mono text-sm text-white/90">{mod.label}</span>
                   <HoloSwitch
-                    checked={visible}
-                    onChange={() => !locked && toggleMenuItem(item.id)}
-                    label={item.label}
+                    checked={shown}
+                    onChange={() => toggleDashboardModule(mod.id)}
+                    label={mod.label}
                   />
                 </li>
               );
@@ -514,19 +522,24 @@ export function Dashboard() {
     activeView,
     dashboardWidgets,
     hydrateDashboardWidgets,
+    dashboardModules,
+    hydrateDashboardModules,
   } = useDashboardStore();
 
   // A section is visible unless it was explicitly switched off in the Anzeige view.
   const shows = (id: string) => dashboardWidgets[id] !== false;
+  // Extra module views the user pulled onto the dashboard (opt-in, default off).
+  const enabledModules = EMBEDDABLE_MODULES.filter((m) => dashboardModules[m.id] === true);
 
   useEffect(() => {
     connectWebSocket();
     return () => disconnectWebSocket();
   }, []);
 
-  // Apply the saved section visibility after mount (avoids an SSR hydration mismatch).
+  // Apply the saved section/module visibility after mount (avoids an SSR hydration mismatch).
   useEffect(() => {
     hydrateDashboardWidgets();
+    hydrateDashboardModules();
   }, []);
 
   return (
@@ -557,6 +570,7 @@ export function Dashboard() {
         {activeView === 'display' && <DashboardSettingsView />}
 
         {!FULL_VIEWS.includes(activeView) && (
+        <>
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
           {shows('backendLink') && (
@@ -665,6 +679,12 @@ export function Dashboard() {
           </section>
           )}
         </div>
+
+        {/* Module views pulled onto the dashboard via the Anzeige view */}
+        {enabledModules.map(({ id, Component }) => (
+          <Component key={id} />
+        ))}
+        </>
         )}
       </div>
 
