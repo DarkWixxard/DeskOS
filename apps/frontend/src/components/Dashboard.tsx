@@ -15,7 +15,7 @@ import { PluginWidgets } from '@/components/PluginWidgets';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
-import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge, StatusLed } from '@/components/holo';
+import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge, StatusLed, HoloSwitch } from '@/components/holo';
 import { timeAgo } from '@/lib/time';
 import {
   LineChart,
@@ -31,7 +31,18 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status', 'display'];
+
+// Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
+// is the key stored in dashboardWidgets; a missing id counts as visible.
+export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
+  { id: 'metrics', label: 'System-Metriken' },
+  { id: 'events', label: 'Events' },
+  { id: 'moduleStatus', label: 'Modul-Status (LEDs)' },
+  { id: 'history', label: 'Metrics-Verlauf' },
+  { id: 'plugins', label: 'Plugin-Widgets' },
+  { id: 'devices', label: 'Geräte' },
+];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -195,6 +206,47 @@ export function StatusLedView() {
         </h2>
       </div>
       <ModuleStatusPanel title="Alle Module" />
+    </div>
+  );
+}
+
+// "Anzeige" view: a list of switches that show/hide each dashboard section.
+// State lives in the store (persisted to localStorage), so choices survive reloads.
+export function DashboardSettingsView() {
+  const dashboardWidgets = useDashboardStore((state) => state.dashboardWidgets);
+  const toggleDashboardWidget = useDashboardStore((state) => state.toggleDashboardWidget);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-4 flex items-center gap-2">
+        <HoloIcon name="layers" className="h-5 w-5 text-accent" />
+        <h2
+          className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
+          style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
+        >
+          Dashboard-Anzeige
+        </h2>
+      </div>
+      <Panel title="Sichtbare Bereiche" className="max-w-xl">
+        <p className="mb-2 text-[11px] text-accent/50">
+          Wähle, welche Bereiche auf dem Dashboard erscheinen. Die Auswahl wird lokal gespeichert.
+        </p>
+        <ul className="divide-y divide-accent/10">
+          {DASHBOARD_WIDGETS.map((widget) => {
+            const visible = dashboardWidgets[widget.id] !== false;
+            return (
+              <li key={widget.id} className="flex items-center justify-between py-2.5">
+                <span className="font-mono text-sm text-white/90">{widget.label}</span>
+                <HoloSwitch
+                  checked={visible}
+                  onChange={() => toggleDashboardWidget(widget.id)}
+                  label={widget.label}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
     </div>
   );
 }
@@ -428,11 +480,21 @@ export function Dashboard() {
     setDeviceFilter,
     setSearchQuery,
     activeView,
+    dashboardWidgets,
+    hydrateDashboardWidgets,
   } = useDashboardStore();
+
+  // A section is visible unless it was explicitly switched off in the Anzeige view.
+  const shows = (id: string) => dashboardWidgets[id] !== false;
 
   useEffect(() => {
     connectWebSocket();
     return () => disconnectWebSocket();
+  }, []);
+
+  // Apply the saved section visibility after mount (avoids an SSR hydration mismatch).
+  useEffect(() => {
+    hydrateDashboardWidgets();
   }, []);
 
   return (
@@ -460,6 +522,8 @@ export function Dashboard() {
 
         {activeView === 'status' && <StatusLedView />}
 
+        {activeView === 'display' && <DashboardSettingsView />}
+
         {!FULL_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
@@ -482,29 +546,40 @@ export function Dashboard() {
           <LayoutBar />
 
           {/* System Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div className="lg:col-span-2">
-              <SystemMetricsWidget />
+          {(shows('metrics') || shows('events')) && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              {shows('metrics') && (
+                <div className={shows('events') ? 'lg:col-span-2' : 'lg:col-span-3'}>
+                  <SystemMetricsWidget />
+                </div>
+              )}
+              {shows('events') && (
+                <div className={shows('metrics') ? '' : 'lg:col-span-3'}>
+                  <EventsWidget events={events} />
+                </div>
+              )}
             </div>
-            <div>
-              <EventsWidget events={events} />
-            </div>
-          </div>
+          )}
 
           {/* Module status overview (LEDs) */}
-          <div className="mb-6">
-            <ModuleStatusPanel />
-          </div>
+          {shows('moduleStatus') && (
+            <div className="mb-6">
+              <ModuleStatusPanel />
+            </div>
+          )}
 
           {/* Metrics History Chart */}
-          <div className="mb-8">
-            <MetricsHistoryChart />
-          </div>
+          {shows('history') && (
+            <div className="mb-8">
+              <MetricsHistoryChart />
+            </div>
+          )}
 
           {/* Enabled plugin widgets */}
-          <PluginWidgets />
+          {shows('plugins') && <PluginWidgets />}
 
           {/* Devices Section */}
+          {shows('devices') && (
           <section>
             <div className="mb-4 flex items-center gap-2">
               <HoloIcon name="cpu" className="h-5 w-5 text-accent" />
@@ -554,6 +629,7 @@ export function Dashboard() {
               </div>
             )}
           </section>
+          )}
         </div>
         )}
       </div>
