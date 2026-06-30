@@ -15,7 +15,8 @@ import { PluginWidgets } from '@/components/PluginWidgets';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
-import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge } from '@/components/holo';
+import { Panel, HoloCorners, HoloIcon, StatBar, RadialGauge, StatusLed } from '@/components/holo';
+import { timeAgo } from '@/lib/time';
 import {
   LineChart,
   Line,
@@ -30,7 +31,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status'];
 
 // Cyan field styling shared by the device search box and filter dropdown.
 const holoField =
@@ -108,6 +109,92 @@ export function DeviceCard({ device }: { device: any }) {
           <CapChip key={cap} label={cap} />
         ))}
       </div>
+    </div>
+  );
+}
+
+// Small color-key shown in the Module-Status header (matches the sketch's legend).
+function StatusLegend() {
+  return (
+    <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider text-accent/60">
+      <span className="flex items-center gap-1.5">
+        <StatusLed status="online" size={8} />
+        Online
+      </span>
+      <span className="flex items-center gap-1.5">
+        <StatusLed status="error" size={8} />
+        Error
+      </span>
+      <span className="flex items-center gap-1.5">
+        <StatusLed status="offline" size={8} />
+        Offline
+      </span>
+    </div>
+  );
+}
+
+// Consolidated "at a glance" overview: one panel listing every module/device as a
+// row with a status LED, name, status text and how long ago it was last seen.
+// Complements the individual DeviceCard tiles below. Reads `devices` straight from
+// the store, so the LEDs update live as device:update events arrive over the socket.
+export function ModuleStatusPanel({ title = 'Modul-Status' }: { title?: string }) {
+  const devices = useDashboardStore((state) => state.devices);
+
+  return (
+    <Panel title={title} className="h-full" badge={<StatusLegend />}>
+      {devices.length === 0 ? (
+        <div className="py-8 text-center text-sm text-accent/40">Keine Module verbunden</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="holo-label text-left">
+                <th className="w-8 py-1.5 pr-3 font-normal" aria-label="LED" />
+                <th className="py-1.5 pr-3 font-normal">Modul</th>
+                <th className="py-1.5 pr-3 font-normal">Status</th>
+                <th className="py-1.5 text-right font-normal">Last Seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((device) => (
+                <tr key={device.id} className="border-t border-accent/10">
+                  <td className="py-2 pr-3">
+                    <StatusLed status={device.status} />
+                  </td>
+                  <td className="py-2 pr-3">
+                    <div className="truncate font-mono text-white">{device.name}</div>
+                    <div className="holo-label mt-0.5">{device.type}</div>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <StatusBadge status={device.status} />
+                  </td>
+                  <td className="whitespace-nowrap py-2 text-right font-mono text-[11px] text-accent/60">
+                    {timeAgo(device.lastSeen)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+// Full-page version reached from the "Power / Status" overlay tile.
+export function StatusLedView() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-4 flex items-center gap-2">
+        <HoloIcon name="power" className="h-5 w-5 text-accent" />
+        <h2
+          className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
+          style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
+        >
+          Modul-Status
+        </h2>
+      </div>
+      <ModuleStatusPanel title="Alle Module" />
     </div>
   );
 }
@@ -371,6 +458,8 @@ export function Dashboard() {
 
         {activeView === 'plugins' && <PluginsView />}
 
+        {activeView === 'status' && <StatusLedView />}
+
         {!FULL_VIEWS.includes(activeView) && (
         <div className="container mx-auto px-4 py-8">
           {/* Connection Status */}
@@ -400,6 +489,11 @@ export function Dashboard() {
             <div>
               <EventsWidget events={events} />
             </div>
+          </div>
+
+          {/* Module status overview (LEDs) */}
+          <div className="mb-6">
+            <ModuleStatusPanel />
           </div>
 
           {/* Metrics History Chart */}
