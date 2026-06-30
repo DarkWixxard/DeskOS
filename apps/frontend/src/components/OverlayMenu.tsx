@@ -54,7 +54,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'rgb', label: 'RGB / LED', icon: 'bulb', view: 'rgb' },
       { id: 'displays', label: 'Displays', icon: 'monitor' },
       { id: 'audio', label: 'Audio', icon: 'speaker' },
-      { id: 'power', label: 'Power', icon: 'power' },
+      { id: 'power', label: 'Power / Status', icon: 'power', view: 'status' },
       { id: 'cameras', label: 'Cameras', icon: 'camera' },
       { id: 'security', label: 'Security', icon: 'shield' },
       { id: 'scenes', label: 'Scenes', icon: 'layers' },

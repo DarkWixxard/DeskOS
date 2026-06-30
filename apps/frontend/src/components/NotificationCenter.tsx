@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import { useDashboardStore, type DeskNotification } from '@/stores/dashboardStore';
 import { HoloIcon, HoloCorners } from '@/components/holo';
+import { timeAgo } from '@/lib/time';
 
 /* =========================================================================
    DeskOS Notification Center (M2)
@@ -19,16 +20,6 @@ const LEVEL_STYLES: Record<DeskNotification['level'], { border: string; text: st
   warn: { border: 'border-warning', text: 'text-warning', icon: 'zap' },
   error: { border: 'border-danger', text: 'text-danger', icon: 'bell' },
 };
-
-function timeAgo(ts: number): string {
-  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  if (s < 60) return `vor ${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `vor ${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `vor ${h}h`;
-  return new Date(ts).toLocaleDateString();
-}
 
 function NotificationRow({ n }: { n: DeskNotification }) {
   const markRead = useDashboardStore((s) => s.markNotificationRead);

@@ -292,6 +292,35 @@ export function RadialGauge({ value, label }: { value: number; label: string }) 
   );
 }
 
+// Status "LED": a small glowing dot whose color follows a device/module status.
+// online → green, error → amber, offline (or anything else) → red. Online LEDs
+// gently pulse (holoPulse) like a live indicator. Pure presentation: the caller
+// decides what status to pass in.
+const LED_COLORS: Record<string, string> = {
+  online: '#00ff88', // success
+  error: '#ffa500', // warning
+  offline: '#ff0055', // danger
+};
+
+export function StatusLed({ status, size = 12 }: { status: string; size?: number }) {
+  const color = LED_COLORS[status] ?? LED_COLORS.offline;
+  const live = status === 'online';
+  return (
+    <span
+      className={clsx('inline-block shrink-0 rounded-full', live && 'animate-holo-pulse')}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: color,
+        boxShadow: `0 0 7px ${color}, 0 0 2px ${color}`,
+      }}
+      role="img"
+      aria-label={status}
+      title={status}
+    />
+  );
+}
+
 // Compact label / value / progress-bar row used in the status grids.
 export function StatBar({ label, value, percent }: { label: string; value: string; percent?: number }) {
   const p = percent != null ? Math.max(0, Math.min(100, percent)) : null;
