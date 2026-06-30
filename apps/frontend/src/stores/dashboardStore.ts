@@ -73,8 +73,9 @@ interface DashboardStore {
   plugins: PluginInstance[];
   // Per-section dashboard visibility (id -> shown). Missing id defaults to visible.
   dashboardWidgets: Record<string, boolean>;
-  // Per-tile overlay-menu visibility (id -> shown). Missing id defaults to visible.
-  menuVisibility: Record<string, boolean>;
+  // Extra module views embedded on the dashboard (id -> shown). Missing id defaults
+  // to hidden — the user opts a module in.
+  dashboardModules: Record<string, boolean>;
 
   // Actions
   connectWebSocket: () => void;
@@ -84,8 +85,8 @@ interface DashboardStore {
   hydrateDashboardWidgets: () => void;
   toggleDashboardWidget: (id: string) => void;
   setDashboardWidget: (id: string, visible: boolean) => void;
-  hydrateMenuVisibility: () => void;
-  toggleMenuItem: (id: string) => void;
+  hydrateDashboardModules: () => void;
+  toggleDashboardModule: (id: string) => void;
   setActiveView: (view: string) => void;
   setDevices: (devices: Device[]) => void;
   selectDevice: (device: Device | null) => void;
@@ -120,7 +121,7 @@ interface DashboardStore {
 // localStorage. Guarded for SSR (the store module can be evaluated on the server,
 // where there is no window/localStorage).
 const WIDGET_STORAGE_KEY = 'deskos.dashboardWidgets';
-const MENU_STORAGE_KEY = 'deskos.menuVisibility';
+const MODULES_STORAGE_KEY = 'deskos.dashboardModules';
 
 function loadVisibility(key: string): Record<string, boolean> {
   if (typeof window === 'undefined') return {};
@@ -165,9 +166,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   activeLayoutId: null,
   plugins: [],
   // Start empty (all visible) so server and first client render match; the saved
-  // selection is applied after mount via hydrateDashboardWidgets()/hydrateMenuVisibility().
+  // selection is applied after mount via hydrateDashboardWidgets()/hydrateDashboardModules().
   dashboardWidgets: {},
-  menuVisibility: {},
+  dashboardModules: {},
 
   connectWebSocket: () => {
     installAuthFetch();
@@ -291,12 +292,13 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     saveVisibility(WIDGET_STORAGE_KEY, next);
     set({ dashboardWidgets: next });
   },
-  hydrateMenuVisibility: () => set({ menuVisibility: loadVisibility(MENU_STORAGE_KEY) }),
-  toggleMenuItem: (id: string) => {
-    const current = get().menuVisibility[id] !== false;
-    const next = { ...get().menuVisibility, [id]: !current };
-    saveVisibility(MENU_STORAGE_KEY, next);
-    set({ menuVisibility: next });
+  hydrateDashboardModules: () => set({ dashboardModules: loadVisibility(MODULES_STORAGE_KEY) }),
+  toggleDashboardModule: (id: string) => {
+    // Missing id counts as hidden, so the first toggle shows it.
+    const current = get().dashboardModules[id] === true;
+    const next = { ...get().dashboardModules, [id]: !current };
+    saveVisibility(MODULES_STORAGE_KEY, next);
+    set({ dashboardModules: next });
   },
   selectDevice: (device: Device | null) => set({ selectedDevice: device }),
   updateEvents: (events: DashboardEvent[]) => set({ events }),
