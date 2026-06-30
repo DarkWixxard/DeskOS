@@ -73,6 +73,8 @@ interface DashboardStore {
   plugins: PluginInstance[];
   // Per-section dashboard visibility (id -> shown). Missing id defaults to visible.
   dashboardWidgets: Record<string, boolean>;
+  // Per-tile overlay-menu visibility (id -> shown). Missing id defaults to visible.
+  menuVisibility: Record<string, boolean>;
 
   // Actions
   connectWebSocket: () => void;
@@ -82,6 +84,8 @@ interface DashboardStore {
   hydrateDashboardWidgets: () => void;
   toggleDashboardWidget: (id: string) => void;
   setDashboardWidget: (id: string, visible: boolean) => void;
+  hydrateMenuVisibility: () => void;
+  toggleMenuItem: (id: string) => void;
   setActiveView: (view: string) => void;
   setDevices: (devices: Device[]) => void;
   selectDevice: (device: Device | null) => void;
@@ -112,25 +116,26 @@ interface DashboardStore {
   updatePluginSettings: (id: string, settings: Record<string, string>) => Promise<void>;
 }
 
-// Dashboard section visibility persists across reloads in localStorage. Guarded
-// for SSR (the store module can be evaluated on the server, where there is no
-// window/localStorage).
+// Visibility maps (dashboard sections, menu tiles) persist across reloads in
+// localStorage. Guarded for SSR (the store module can be evaluated on the server,
+// where there is no window/localStorage).
 const WIDGET_STORAGE_KEY = 'deskos.dashboardWidgets';
+const MENU_STORAGE_KEY = 'deskos.menuVisibility';
 
-function loadWidgetVisibility(): Record<string, boolean> {
+function loadVisibility(key: string): Record<string, boolean> {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = window.localStorage.getItem(WIDGET_STORAGE_KEY);
+    const raw = window.localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
   } catch {
     return {};
   }
 }
 
-function saveWidgetVisibility(value: Record<string, boolean>): void {
+function saveVisibility(key: string, value: Record<string, boolean>): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(value));
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* ignore quota / privacy-mode errors */
   }
@@ -159,9 +164,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   layouts: [],
   activeLayoutId: null,
   plugins: [],
-  // Starts empty (all visible) so server and first client render match; the saved
-  // selection is applied after mount via hydrateDashboardWidgets().
+  // Start empty (all visible) so server and first client render match; the saved
+  // selection is applied after mount via hydrateDashboardWidgets()/hydrateMenuVisibility().
   dashboardWidgets: {},
+  menuVisibility: {},
 
   connectWebSocket: () => {
     installAuthFetch();
@@ -272,18 +278,25 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor') => set({ deviceFilter: filter }),
   setSearchQuery: (query: string) => set({ searchQuery: query }),
   setActiveView: (view: string) => set({ activeView: view }),
-  hydrateDashboardWidgets: () => set({ dashboardWidgets: loadWidgetVisibility() }),
+  hydrateDashboardWidgets: () => set({ dashboardWidgets: loadVisibility(WIDGET_STORAGE_KEY) }),
   toggleDashboardWidget: (id: string) => {
     // Missing id counts as visible, so the first toggle hides it.
     const current = get().dashboardWidgets[id] !== false;
     const next = { ...get().dashboardWidgets, [id]: !current };
-    saveWidgetVisibility(next);
+    saveVisibility(WIDGET_STORAGE_KEY, next);
     set({ dashboardWidgets: next });
   },
   setDashboardWidget: (id: string, visible: boolean) => {
     const next = { ...get().dashboardWidgets, [id]: visible };
-    saveWidgetVisibility(next);
+    saveVisibility(WIDGET_STORAGE_KEY, next);
     set({ dashboardWidgets: next });
+  },
+  hydrateMenuVisibility: () => set({ menuVisibility: loadVisibility(MENU_STORAGE_KEY) }),
+  toggleMenuItem: (id: string) => {
+    const current = get().menuVisibility[id] !== false;
+    const next = { ...get().menuVisibility, [id]: !current };
+    saveVisibility(MENU_STORAGE_KEY, next);
+    set({ menuVisibility: next });
   },
   selectDevice: (device: Device | null) => set({ selectedDevice: device }),
   updateEvents: (events: DashboardEvent[]) => set({ events }),

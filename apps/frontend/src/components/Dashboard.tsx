@@ -3,7 +3,7 @@
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEffect, type MouseEvent } from 'react';
 import clsx from 'clsx';
-import { OverlayMenu } from '@/components/OverlayMenu';
+import { OverlayMenu, MENU_ITEMS, ALWAYS_VISIBLE_MENU_ID } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
@@ -215,6 +215,8 @@ export function StatusLedView() {
 export function DashboardSettingsView() {
   const dashboardWidgets = useDashboardStore((state) => state.dashboardWidgets);
   const toggleDashboardWidget = useDashboardStore((state) => state.toggleDashboardWidget);
+  const menuVisibility = useDashboardStore((state) => state.menuVisibility);
+  const toggleMenuItem = useDashboardStore((state) => state.toggleMenuItem);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -227,26 +229,53 @@ export function DashboardSettingsView() {
           Dashboard-Anzeige
         </h2>
       </div>
-      <Panel title="Sichtbare Bereiche" className="max-w-xl">
-        <p className="mb-2 text-[11px] text-accent/50">
-          Wähle, welche Bereiche auf dem Dashboard erscheinen. Die Auswahl wird lokal gespeichert.
-        </p>
-        <ul className="divide-y divide-accent/10">
-          {DASHBOARD_WIDGETS.map((widget) => {
-            const visible = dashboardWidgets[widget.id] !== false;
-            return (
-              <li key={widget.id} className="flex items-center justify-between py-2.5">
-                <span className="font-mono text-sm text-white/90">{widget.label}</span>
-                <HoloSwitch
-                  checked={visible}
-                  onChange={() => toggleDashboardWidget(widget.id)}
-                  label={widget.label}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Panel title="Sichtbare Bereiche">
+          <p className="mb-2 text-[11px] text-accent/50">
+            Wähle, welche Bereiche auf dem Dashboard erscheinen. Die Auswahl wird lokal gespeichert.
+          </p>
+          <ul className="divide-y divide-accent/10">
+            {DASHBOARD_WIDGETS.map((widget) => {
+              const visible = dashboardWidgets[widget.id] !== false;
+              return (
+                <li key={widget.id} className="flex items-center justify-between py-2.5">
+                  <span className="font-mono text-sm text-white/90">{widget.label}</span>
+                  <HoloSwitch
+                    checked={visible}
+                    onChange={() => toggleDashboardWidget(widget.id)}
+                    label={widget.label}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+
+        <Panel title="Menüpunkte">
+          <p className="mb-2 text-[11px] text-accent/50">
+            Schalte einzelne Einträge im Overlay-Menü ein oder aus. „Anzeige" bleibt immer sichtbar.
+          </p>
+          <ul className="divide-y divide-accent/10">
+            {MENU_ITEMS.map((item) => {
+              const locked = item.id === ALWAYS_VISIBLE_MENU_ID;
+              const visible = locked || menuVisibility[item.id] !== false;
+              return (
+                <li key={item.id} className="flex items-center justify-between py-2.5">
+                  <span className={clsx('font-mono text-sm', locked ? 'text-accent/40' : 'text-white/90')}>
+                    {item.label}
+                    {locked && <span className="ml-2 text-[10px] uppercase tracking-wider text-accent/40">fix</span>}
+                  </span>
+                  <HoloSwitch
+                    checked={visible}
+                    onChange={() => !locked && toggleMenuItem(item.id)}
+                    label={item.label}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      </div>
     </div>
   );
 }

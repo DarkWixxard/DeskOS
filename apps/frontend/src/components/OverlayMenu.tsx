@@ -2,7 +2,7 @@
 
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { HoloIcon, Panel, Sparkline, RadialGauge, StatBar } from '@/components/holo';
 import { getBackendPort } from '@/lib/api';
@@ -66,6 +66,16 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
   },
 ];
 
+// The "Anzeige" tile is always shown so the user can never hide the very screen
+// that toggles menu visibility (and lock themselves out).
+export const ALWAYS_VISIBLE_MENU_ID = 'display';
+
+// Flat list of every overlay-menu tile (id + label), used by the Anzeige view to
+// render a visibility switch per menu entry.
+export const MENU_ITEMS: { id: string; label: string }[] = PAGES.flatMap((p) =>
+  p.modules.map((m) => ({ id: m.id, label: m.label }))
+);
+
 /* ------------------------------ Helpers -------------------------------- */
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -87,6 +97,19 @@ export function OverlayMenu() {
   const setDeviceFilter = useDashboardStore((s) => s.setDeviceFilter);
   const setActiveView = useDashboardStore((s) => s.setActiveView);
   const setNotificationsOpen = useDashboardStore((s) => s.setNotificationsOpen);
+  const menuVisibility = useDashboardStore((s) => s.menuVisibility);
+  const hydrateMenuVisibility = useDashboardStore((s) => s.hydrateMenuVisibility);
+
+  // Only render tiles the user hasn't switched off (the Anzeige tile always stays).
+  const visiblePages = PAGES.map((p) => ({
+    ...p,
+    modules: p.modules.filter(
+      (m) => m.id === ALWAYS_VISIBLE_MENU_ID || menuVisibility[m.id] !== false
+    ),
+  })).filter((p) => p.modules.length > 0);
+  // Latest page count for the keyboard handler, without re-binding its listener.
+  const pageCountRef = useRef(visiblePages.length);
+  pageCountRef.current = visiblePages.length;
 
   // Derived, real data from the store
   const online = devices.filter((d) => d.status === 'online').length;
@@ -103,6 +126,16 @@ export function OverlayMenu() {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Apply saved menu-tile visibility after mount (avoids an SSR hydration mismatch).
+  useEffect(() => {
+    hydrateMenuVisibility();
+  }, []);
+
+  // Keep the active page in range if hiding tiles removed a page.
+  useEffect(() => {
+    setPage((p) => Math.min(p, visiblePages.length - 1));
+  }, [visiblePages.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -139,7 +172,7 @@ export function OverlayMenu() {
       }
       if (!open) return;
       if (e.key === 'ArrowRight' || e.key === 'e' || e.key === 'E') {
-        setPage((p) => Math.min(p + 1, PAGES.length - 1));
+        setPage((p) => Math.min(p + 1, pageCountRef.current - 1));
       } else if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
         setPage((p) => Math.max(p - 1, 0));
       }
@@ -179,7 +212,7 @@ export function OverlayMenu() {
     ? now.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '--.--.----';
 
-  const activePage = PAGES[page];
+  const activePage = visiblePages[Math.min(page, visiblePages.length - 1)] ?? visiblePages[0];
 
   return (
     <>
@@ -365,7 +398,7 @@ export function OverlayMenu() {
 
                   {/* page dots */}
                   <div className="mt-4 flex items-center justify-center gap-2">
-                    {PAGES.map((p, i) => (
+                    {visiblePages.map((p, i) => (
                       <button
                         key={p.title}
                         type="button"
@@ -482,8 +515,8 @@ export function OverlayMenu() {
                   <button
                     type="button"
                     aria-label="Nächste Seite"
-                    onClick={() => setPage((p) => Math.min(p + 1, PAGES.length - 1))}
-                    disabled={page === PAGES.length - 1}
+                    onClick={() => setPage((p) => Math.min(p + 1, visiblePages.length - 1))}
+                    disabled={page >= visiblePages.length - 1}
                     className="text-accent/60 transition-colors hover:text-accent disabled:opacity-20"
                   >
                     <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
