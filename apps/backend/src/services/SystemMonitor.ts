@@ -125,10 +125,13 @@ async function readWindowsGpuAggregateMetrics(): Promise<Pick<GpuMetrics, 'load'
   ].join('; ');
 
   try {
+    // `Get-Counter`'s first hit on the "GPU Engine" counter set can take
+    // several seconds to enumerate (cold PowerShell start + perf-counter
+    // catalog build) — a short timeout kills it before it ever replies.
     const { stdout } = await execFileAsync(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-Command', script],
-      { timeout: 4000, windowsHide: true }
+      { timeout: 10000, windowsHide: true }
     );
     const parsed = JSON.parse(stdout.trim());
     const load = num(parsed.load);
@@ -140,13 +143,37 @@ async function readWindowsGpuAggregateMetrics(): Promise<Pick<GpuMetrics, 'load'
   } catch (error) {
     if (!winGpuWarned) {
       winGpuWarned = true;
-      console.warn(
-        '[SystemMonitor] Windows GPU performance-counter fallback failed — GPU load/VRAM will stay unavailable:',
-        error instanceof Error ? error.message : error
-      );
+      const err = error as NodeJS.ErrnoException & { stderr?: string; signal?: string; killed?: boolean };
+      console.warn('[SystemMonitor] Windows GPU performance-counter fallback failed — GPU load/VRAM will stay unavailable:', {
+        message: err.message,
+        stderr: err.stderr,
+        code: err.code,
+        signal: err.signal,
+        killed: err.killed,
+      });
     }
     return {};
   }
+}
+
+// The PowerShell round-trip above can take several seconds — running it
+// inline inside `collectSlowTier()` would block that whole Promise.all (and
+// therefore the 1s fast-tier CPU/RAM refresh, since `collectMetrics` awaits
+// it) for just as long. Instead it's kicked off in the background and the
+// slow tier always reads whatever was cached from the last completed run.
+let winGpuCache: Pick<GpuMetrics, 'load' | 'memUsed' | 'memTotal'> = {};
+let winGpuFetchInFlight = false;
+
+function refreshWindowsGpuCache(): void {
+  if (winGpuFetchInFlight) return;
+  winGpuFetchInFlight = true;
+  readWindowsGpuAggregateMetrics()
+    .then((result) => {
+      winGpuCache = result;
+    })
+    .finally(() => {
+      winGpuFetchInFlight = false;
+    });
 }
 
 export class SystemMonitor {
@@ -288,7 +315,7 @@ export class SystemMonitor {
         .catch(() => undefined),
       s
         .graphics()
-        .then(async (g) => {
+        .then((g) => {
           const gpus: GpuMetrics[] = (g.controllers ?? [])
             .map((c) => {
               const gpu: GpuMetrics = {
@@ -312,10 +339,10 @@ export class SystemMonitor {
             .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
 
           if (gpus.length === 1 && os.platform() === 'win32' && (gpus[0].load === undefined || gpus[0].memTotal === undefined)) {
-            const fallback = await readWindowsGpuAggregateMetrics();
-            gpus[0].load ??= fallback.load;
-            gpus[0].memUsed ??= fallback.memUsed;
-            gpus[0].memTotal ??= fallback.memTotal;
+            refreshWindowsGpuCache();
+            gpus[0].load ??= winGpuCache.load;
+            gpus[0].memUsed ??= winGpuCache.memUsed;
+            gpus[0].memTotal ??= winGpuCache.memTotal;
           }
 
           if (gpus.length) out.gpus = gpus;
