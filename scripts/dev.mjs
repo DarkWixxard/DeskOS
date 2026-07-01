@@ -53,6 +53,9 @@ function start(args, extraEnv) {
     stdio: 'inherit',
     cwd: rootDir,
     env: { ...process.env, ...extraEnv },
+    // Windows benötigt für .cmd-Dateien (npm.cmd) shell:true, sonst wirft
+    // Node >=18.20.2/20.12.2 wegen CVE-2024-27980 ein "spawn EINVAL".
+    shell: process.platform === 'win32',
   });
   // Endet ein Prozess, wird der andere ebenfalls beendet.
   child.on('exit', (code) => shutdown(code ?? 0));
