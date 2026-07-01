@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import { io, Socket } from 'socket.io-client';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
@@ -19,6 +20,53 @@ type RemoteSystemMetrics = SystemMetrics & { timestamp: number };
 
 const num = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+
+function readIntFile(p: string): number | undefined {
+  try {
+    const v = parseInt(fsSync.readFileSync(p, 'utf8').trim(), 10);
+    return Number.isFinite(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// `systeminformation` only fills in load/temperature/VRAM for NVIDIA GPUs
+// (via `nvidia-smi`) — AMD controllers are left with everything but
+// model/vendor undefined, which is what renders as "N/A" in the GPU panel.
+// The amdgpu kernel driver exposes the same data via sysfs, so read it
+// directly as a fallback, matching the controller by its PCI bus address.
+function readAmdSysfsGpuMetrics(busAddress: string): Pick<GpuMetrics, 'load' | 'tempC' | 'memUsed' | 'memTotal'> {
+  const result: Pick<GpuMetrics, 'load' | 'tempC' | 'memUsed' | 'memTotal'> = {};
+  try {
+    const drmRoot = '/sys/class/drm';
+    const cardDir = fsSync
+      .readdirSync(drmRoot)
+      .filter((n) => /^card\d+$/.test(n))
+      .find((c) => {
+        try {
+          return fsSync.realpathSync(path.join(drmRoot, c, 'device')).toLowerCase().endsWith(busAddress.toLowerCase());
+        } catch {
+          return false;
+        }
+      });
+    if (!cardDir) return result;
+
+    const deviceDir = path.join(drmRoot, cardDir, 'device');
+    result.load = readIntFile(path.join(deviceDir, 'gpu_busy_percent'));
+    result.memUsed = readIntFile(path.join(deviceDir, 'mem_info_vram_used'));
+    result.memTotal = readIntFile(path.join(deviceDir, 'mem_info_vram_total'));
+
+    const hwmonRoot = path.join(deviceDir, 'hwmon');
+    const hwmonDir = fsSync.readdirSync(hwmonRoot).find((n) => n.startsWith('hwmon'));
+    if (hwmonDir) {
+      const milliC = readIntFile(path.join(hwmonRoot, hwmonDir, 'temp1_input'));
+      if (milliC !== undefined) result.tempC = Math.round(milliC / 1000);
+    }
+  } catch {
+    // sysfs layout varies across kernel/driver versions — leave fields undefined.
+  }
+  return result;
+}
 
 class RemoteAgent {
   private socket: Socket | null = null;
@@ -211,14 +259,25 @@ class RemoteAgent {
       }).catch(() => undefined),
       si.graphics().then((g) => {
         const gpus: GpuMetrics[] = (g.controllers ?? [])
-          .map((c) => ({
-            model: c.model,
-            vendor: c.vendor,
-            load: num(c.utilizationGpu),
-            tempC: num(c.temperatureGpu),
-            memUsed: num(c.memoryUsed) !== undefined ? (c.memoryUsed as number) * 1024 * 1024 : undefined,
-            memTotal: num(c.memoryTotal) !== undefined ? (c.memoryTotal as number) * 1024 * 1024 : undefined,
-          }))
+          .map((c) => {
+            const gpu: GpuMetrics = {
+              model: c.model,
+              vendor: c.vendor,
+              load: num(c.utilizationGpu),
+              tempC: num(c.temperatureGpu),
+              memUsed: num(c.memoryUsed) !== undefined ? (c.memoryUsed as number) * 1024 * 1024 : undefined,
+              memTotal: num(c.memoryTotal) !== undefined ? (c.memoryTotal as number) * 1024 * 1024 : undefined,
+            };
+            const needsFallback = gpu.load === undefined || gpu.tempC === undefined || gpu.memTotal === undefined;
+            if (os.platform() === 'linux' && c.busAddress && needsFallback && /amd|ati|advanced micro devices/i.test(c.vendor ?? '')) {
+              const fallback = readAmdSysfsGpuMetrics(c.busAddress);
+              gpu.load ??= fallback.load;
+              gpu.tempC ??= fallback.tempC;
+              gpu.memUsed ??= fallback.memUsed;
+              gpu.memTotal ??= fallback.memTotal;
+            }
+            return gpu;
+          })
           .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
         if (gpus.length) out.gpus = gpus;
       }).catch(() => undefined),
