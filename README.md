@@ -69,6 +69,8 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
   (Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue) mit Install/Aktivieren/Einstellungen, persistent.
 - **Spotify-Plugin voll funktionsfähig**: OAuth-Login, „Now Playing"-Anzeige (Cover/Titel/Fortschritt)
   und Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API – Einrichtung in [SPOTIFY.md](./SPOTIFY.md).
+- **Discord-Plugin voll funktionsfähig**: OAuth-Login mit dem eigenen Discord-Konto
+  (kein Bot), zeigt Avatar & Anzeigename im Widget – Einrichtung in [DISCORD.md](./DISCORD.md).
 - Aktivierte Plugins rendern Widgets im Dashboard.
 
 ### 🏗️ Infrastruktur
@@ -258,7 +260,9 @@ deine API-Zugangsdaten.
 
 Das **Spotify-Plugin** ist bereits vollständig angebunden (OAuth, Now Playing,
 Wiedergabesteuerung) – Schritt-für-Schritt-Anleitung in [SPOTIFY.md](./SPOTIFY.md).
-Die übrigen Katalog-Einträge (Discord/OBS/Steam/Home Assistant/Hue) sind als
+Das **Discord-Plugin** ist ebenfalls vollständig angebunden (OAuth-Login mit dem
+eigenen Konto, kein Bot) – Schritt-für-Schritt-Anleitung in [DISCORD.md](./DISCORD.md).
+Die übrigen Katalog-Einträge (OBS/Steam/Home Assistant/Hue) sind als
 Framework angelegt und benötigen für die echte Anbindung deine API-Zugangsdaten.
 
 Zusätzlich existiert das ursprüngliche **dir-basierte Backend-Plugin-System** (`plugins/` mit
@@ -295,6 +299,7 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 | [QUICKSTART.md](./QUICKSTART.md) | Schnellstart & Troubleshooting |
 | [MENU.md](./MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
 | [SPOTIFY.md](./SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
+| [DISCORD.md](./DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
 | [API.md](./API.md) | API-Beispiele |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) | Produktion / Kiosk |
 | [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie |
@@ -311,9 +316,10 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 | ✅ **v2.0** | M3 · M4 | RGB/WLED · Automation v2 + Layout-Profile |
 | ✅ **v3.0** | M5 · M6 | ESP32/MQTT + Sensor-Hub + Simulator · Firmware + Plugin-Marktplatz |
 
-**Nächste Ausbaustufen (offen):** echte Anbindung weiterer Credential-Plugins (Discord/Hue/…)
-— **Spotify ist bereits live** (siehe [SPOTIFY.md](./SPOTIFY.md)) —,
-ESP32-Firmware-Sketch (PlatformIO) für echte Hardware, optionaler „Musikmodus".
+**Nächste Ausbaustufen (offen):** echte Anbindung weiterer Credential-Plugins (OBS/Steam/Hue/…)
+— **Spotify und Discord sind bereits live** (siehe [SPOTIFY.md](./SPOTIFY.md) und
+[DISCORD.md](./DISCORD.md)) —, ESP32-Firmware-Sketch (PlatformIO) für echte Hardware,
+optionaler „Musikmodus".
 
 ---
 

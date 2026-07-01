@@ -63,12 +63,15 @@ const CATALOG: PluginManifest[] = [
   {
     id: 'discord',
     name: 'Discord',
-    description: 'Status anzeigen & Mikrofon stummschalten.',
+    description: 'Discord-Konto verbinden & Profil anzeigen.',
     category: 'communication',
     icon: 'shield',
     requiresAuth: true,
     hasWidget: true,
-    settingsSchema: [{ key: 'token', label: 'Bot Token', type: 'password' }],
+    settingsSchema: [
+      { key: 'clientId', label: 'Client ID', type: 'text' },
+      { key: 'clientSecret', label: 'Client Secret', type: 'password' },
+    ],
   },
   {
     id: 'obs',

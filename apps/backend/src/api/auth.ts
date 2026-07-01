@@ -34,10 +34,10 @@ export function requireToken(req: Request, res: Response, next: NextFunction): v
   if (!authEnabled()) return next();
   if (req.method === 'OPTIONS') return next();
   if (req.path === '/health') return next();
-  // Spotify-OAuth-Redirect: kommt als Top-Level-Navigation aus dem Browser
-  // zurück und kann den Token nicht mitschicken. Der Flow ist über den
-  // CSRF-State abgesichert.
-  if (req.path === '/api/spotify/callback') return next();
+  // Spotify-/Discord-OAuth-Redirect: kommt als Top-Level-Navigation aus dem
+  // Browser zurück und kann den Token nicht mitschicken. Der Flow ist über
+  // den CSRF-State abgesichert.
+  if (req.path === '/api/spotify/callback' || req.path === '/api/discord/callback') return next();
   const token = tokenFromRequest(req);
   if (token && safeEqual(token, getToken())) return next();
   res.status(401).json({ error: 'Unauthorized' });

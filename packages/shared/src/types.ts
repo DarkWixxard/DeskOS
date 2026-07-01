@@ -307,3 +307,21 @@ export interface SpotifyTrack {
   progressMs: number;
   trackUrl: string | null; // Link zum Track in Spotify
 }
+
+// --- Discord (Communication-Plugin) ---
+// Verbindungsstatus des Discord-Plugins. Enthält keine Secrets – nur ob
+// Client-ID/Secret hinterlegt sind und ob bereits ein OAuth-Login (mit dem
+// eigenen Discord-Account, kein Bot) besteht.
+export interface DiscordStatus {
+  hasCredentials: boolean; // Client ID + Secret vorhanden
+  connected: boolean; // gültiger Refresh-Token vorhanden (Login erfolgt)
+  redirectUri: string; // muss exakt so in der Discord-App eingetragen sein
+}
+
+// Das verbundene Discord-Profil (aus /users/@me), zur Anzeige im Widget.
+export interface DiscordUser {
+  id: string;
+  username: string;
+  globalName: string | null; // Anzeigename, falls gesetzt
+  avatarUrl: string | null;
+}

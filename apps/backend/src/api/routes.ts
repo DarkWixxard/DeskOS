@@ -12,6 +12,7 @@ import type { NotificationService } from '../services/NotificationService';
 import type { LayoutService } from '../services/LayoutService';
 import type { PluginRegistry } from '../services/PluginRegistry';
 import type { SpotifyService, PlaybackAction } from '../services/SpotifyService';
+import type { DiscordService } from '../services/DiscordService';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
@@ -20,6 +21,7 @@ export interface RouteDeps {
   layout?: LayoutService;
   plugins?: PluginRegistry;
   spotify?: SpotifyService;
+  discord?: DiscordService;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -257,15 +259,15 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
 
   // OAuth-Redirect-Ziel (Browser-Navigation, ohne Token – siehe auth.ts).
   app.get('/api/spotify/callback', async (req, res) => {
-    if (!deps.spotify) return res.status(503).send(spotifyCallbackHtml('Spotify-Service nicht verfügbar.', false));
+    if (!deps.spotify) return res.status(503).send(oauthCallbackHtml('Spotify', 'Spotify-Service nicht verfügbar.', false, 'deskos:spotify'));
     const { code, state, error } = req.query as Record<string, string | undefined>;
-    if (error) return res.status(400).send(spotifyCallbackHtml(`Login abgebrochen: ${error}`, false));
-    if (!code || !state) return res.status(400).send(spotifyCallbackHtml('Fehlende Parameter im Callback.', false));
+    if (error) return res.status(400).send(oauthCallbackHtml('Spotify', `Login abgebrochen: ${error}`, false, 'deskos:spotify'));
+    if (!code || !state) return res.status(400).send(oauthCallbackHtml('Spotify', 'Fehlende Parameter im Callback.', false, 'deskos:spotify'));
     try {
       await deps.spotify.handleCallback(code, state);
-      res.send(spotifyCallbackHtml('Spotify verbunden! Du kannst dieses Fenster schließen.', true));
+      res.send(oauthCallbackHtml('Spotify', 'Spotify verbunden! Du kannst dieses Fenster schließen.', true, 'deskos:spotify'));
     } catch (err) {
-      res.status(400).send(spotifyCallbackHtml(err instanceof Error ? err.message : 'Login fehlgeschlagen.', false));
+      res.status(400).send(oauthCallbackHtml('Spotify', err instanceof Error ? err.message : 'Login fehlgeschlagen.', false, 'deskos:spotify'));
     }
   });
 
@@ -286,6 +288,50 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   app.post('/api/spotify/disconnect', async (req, res) => {
     if (!deps.spotify) return spotifyUnavailable(res);
     await deps.spotify.disconnect();
+    res.json({ ok: true });
+  });
+
+  // ---- Discord (Communication-Plugin) ----
+  // Verbindet das eigene Discord-KONTO per OAuth-Login (kein Bot-Token).
+  const discordUnavailable = (res: any) => res.status(503).json({ error: 'Discord-Service nicht verfügbar' });
+
+  app.get('/api/discord/status', (req, res) => {
+    if (!deps.discord) return discordUnavailable(res);
+    res.json(deps.discord.getStatus());
+  });
+
+  // Liefert die Discord-Login-URL; das Frontend öffnet sie in einem Popup.
+  app.get('/api/discord/login', (req, res) => {
+    if (!deps.discord) return discordUnavailable(res);
+    try {
+      res.json({ url: deps.discord.getAuthUrl() });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // OAuth-Redirect-Ziel (Browser-Navigation, ohne Token – siehe auth.ts).
+  app.get('/api/discord/callback', async (req, res) => {
+    if (!deps.discord) return res.status(503).send(oauthCallbackHtml('Discord', 'Discord-Service nicht verfügbar.', false, 'deskos:discord'));
+    const { code, state, error } = req.query as Record<string, string | undefined>;
+    if (error) return res.status(400).send(oauthCallbackHtml('Discord', `Login abgebrochen: ${error}`, false, 'deskos:discord'));
+    if (!code || !state) return res.status(400).send(oauthCallbackHtml('Discord', 'Fehlende Parameter im Callback.', false, 'deskos:discord'));
+    try {
+      await deps.discord.handleCallback(code, state);
+      res.send(oauthCallbackHtml('Discord', 'Discord-Konto verbunden! Du kannst dieses Fenster schließen.', true, 'deskos:discord'));
+    } catch (err) {
+      res.status(400).send(oauthCallbackHtml('Discord', err instanceof Error ? err.message : 'Login fehlgeschlagen.', false, 'deskos:discord'));
+    }
+  });
+
+  app.get('/api/discord/profile', async (req, res) => {
+    if (!deps.discord) return discordUnavailable(res);
+    res.json(await deps.discord.getProfile());
+  });
+
+  app.post('/api/discord/disconnect', async (req, res) => {
+    if (!deps.discord) return discordUnavailable(res);
+    await deps.discord.disconnect();
     res.json({ ok: true });
   });
 
@@ -396,13 +442,14 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   });
 }
 
-// Kleine, eigenständige HTML-Seite für den Spotify-OAuth-Callback (Popup).
-// Meldet das Ergebnis per postMessage an das Dashboard und schließt sich dann.
-function spotifyCallbackHtml(message: string, success: boolean): string {
+// Kleine, eigenständige HTML-Seite für OAuth-Callbacks (Popup), von
+// Spotify und Discord gemeinsam genutzt. Meldet das Ergebnis per
+// postMessage an das Dashboard und schließt sich dann.
+function oauthCallbackHtml(service: string, message: string, success: boolean, eventType: string): string {
   const accent = success ? '#00ff88' : '#ff0055';
   const safe = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><title>DeskOS · Spotify</title>
+<html lang="de"><head><meta charset="utf-8"><title>DeskOS · ${service}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   html,body{height:100%;margin:0}
@@ -416,9 +463,9 @@ function spotifyCallbackHtml(message: string, success: boolean): string {
   small{display:block;margin-top:14px;color:#6e8299}
 </style></head>
 <body><div class="card"><div class="dot"></div><p>${safe}</p>
-<small>DeskOS · Spotify</small></div>
+<small>DeskOS · ${service}</small></div>
 <script>
-  try { if (window.opener) window.opener.postMessage({ type: 'deskos:spotify', connected: ${success} }, '*'); } catch (e) {}
+  try { if (window.opener) window.opener.postMessage({ type: '${eventType}', connected: ${success} }, '*'); } catch (e) {}
   ${success ? 'setTimeout(function(){ window.close(); }, 2200);' : ''}
 </script>
 </body></html>`;
