@@ -6,6 +6,8 @@ import * as fsSync from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import si from 'systeminformation';
 import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
 
@@ -66,6 +68,46 @@ function readAmdSysfsGpuMetrics(busAddress: string): Pick<GpuMetrics, 'load' | '
     // sysfs layout varies across kernel/driver versions — leave fields undefined.
   }
   return result;
+}
+
+const execFileAsync = promisify(execFile);
+
+// On Windows, `systeminformation` has no `nvidia-smi`-equivalent for
+// non-NVIDIA vendors, so AMD/Intel controllers are left without load/VRAM.
+// Windows itself exposes both via the "GPU Engine" / "GPU Adapter Memory"
+// performance counters (the same source Task Manager's Performance tab
+// uses), available for any vendor since Windows 10 1803 — no admin rights or
+// vendor SDK required. There is no equivalent counter for temperature.
+// Only safe to apply when there is exactly one reported GPU, since the
+// counters aren't matched here to a specific adapter (no cross-vendor LUID
+// mapping without extra WMI calls).
+async function readWindowsGpuAggregateMetrics(): Promise<Pick<GpuMetrics, 'load' | 'memUsed' | 'memTotal'>> {
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$paths = @('\\GPU Engine(*engtype_3D)\\Utilization Percentage','\\GPU Adapter Memory(*)\\Dedicated Usage','\\GPU Adapter Memory(*)\\Dedicated Limit')",
+    '$samples = (Get-Counter -Counter $paths).CounterSamples',
+    "$load = ($samples | Where-Object { $_.Path -like '*engtype_3d*utilization percentage' } | Measure-Object -Property CookedValue -Sum).Sum",
+    "$used = ($samples | Where-Object { $_.Path -like '*dedicated usage' } | Measure-Object -Property CookedValue -Sum).Sum",
+    "$limit = ($samples | Where-Object { $_.Path -like '*dedicated limit' } | Measure-Object -Property CookedValue -Maximum).Maximum",
+    '[PSCustomObject]@{ load = $load; used = $used; limit = $limit } | ConvertTo-Json -Compress',
+  ].join('; ');
+
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { timeout: 4000, windowsHide: true }
+    );
+    const parsed = JSON.parse(stdout.trim());
+    const load = num(parsed.load);
+    return {
+      load: load !== undefined ? Math.min(100, Math.round(load)) : undefined,
+      memUsed: num(parsed.used),
+      memTotal: num(parsed.limit),
+    };
+  } catch {
+    return {};
+  }
 }
 
 class RemoteAgent {
@@ -257,7 +299,7 @@ class RemoteAgent {
         out.cpuModel = `${c.manufacturer ?? ''} ${c.brand ?? ''}`.trim() || undefined;
         out.cpuCores = num(c.cores);
       }).catch(() => undefined),
-      si.graphics().then((g) => {
+      si.graphics().then(async (g) => {
         const gpus: GpuMetrics[] = (g.controllers ?? [])
           .map((c) => {
             const gpu: GpuMetrics = {
@@ -279,6 +321,14 @@ class RemoteAgent {
             return gpu;
           })
           .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
+
+        if (gpus.length === 1 && os.platform() === 'win32' && (gpus[0].load === undefined || gpus[0].memTotal === undefined)) {
+          const fallback = await readWindowsGpuAggregateMetrics();
+          gpus[0].load ??= fallback.load;
+          gpus[0].memUsed ??= fallback.memUsed;
+          gpus[0].memTotal ??= fallback.memTotal;
+        }
+
         if (gpus.length) out.gpus = gpus;
       }).catch(() => undefined),
       si.fsSize().then((list) => {
