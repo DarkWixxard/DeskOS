@@ -104,14 +104,23 @@ const execFileAsync = promisify(execFile);
 // Only safe to apply when there is exactly one reported GPU, since the
 // counters aren't matched here to a specific adapter (no cross-vendor LUID
 // mapping without extra WMI calls).
+let winGpuWarned = false;
+
 async function readWindowsGpuAggregateMetrics(): Promise<Pick<GpuMetrics, 'load' | 'memUsed' | 'memTotal'>> {
+  // Each counter is queried independently: "GPU Engine" instances only exist
+  // while a process is actively using that engine, so a momentary miss there
+  // must not also wipe out the (usually stable) VRAM readings.
   const script = [
-    "$ErrorActionPreference = 'Stop'",
-    "$paths = @('\\GPU Engine(*engtype_3D)\\Utilization Percentage','\\GPU Adapter Memory(*)\\Dedicated Usage','\\GPU Adapter Memory(*)\\Dedicated Limit')",
-    '$samples = (Get-Counter -Counter $paths).CounterSamples',
-    "$load = ($samples | Where-Object { $_.Path -like '*engtype_3d*utilization percentage' } | Measure-Object -Property CookedValue -Sum).Sum",
-    "$used = ($samples | Where-Object { $_.Path -like '*dedicated usage' } | Measure-Object -Property CookedValue -Sum).Sum",
-    "$limit = ($samples | Where-Object { $_.Path -like '*dedicated limit' } | Measure-Object -Property CookedValue -Maximum).Maximum",
+    'function Sum($path, $stat) {',
+    '  try {',
+    '    $s = (Get-Counter -Counter $path -ErrorAction Stop).CounterSamples',
+    "    if ($stat -eq 'max') { return ($s | Measure-Object -Property CookedValue -Maximum).Maximum }",
+    '    return ($s | Measure-Object -Property CookedValue -Sum).Sum',
+    '  } catch { return $null }',
+    '}',
+    "$load = Sum '\\GPU Engine(*engtype_3D)\\Utilization Percentage' 'sum'",
+    "$used = Sum '\\GPU Adapter Memory(*)\\Dedicated Usage' 'sum'",
+    "$limit = Sum '\\GPU Adapter Memory(*)\\Dedicated Limit' 'max'",
     '[PSCustomObject]@{ load = $load; used = $used; limit = $limit } | ConvertTo-Json -Compress',
   ].join('; ');
 
@@ -128,7 +137,14 @@ async function readWindowsGpuAggregateMetrics(): Promise<Pick<GpuMetrics, 'load'
       memUsed: num(parsed.used),
       memTotal: num(parsed.limit),
     };
-  } catch {
+  } catch (error) {
+    if (!winGpuWarned) {
+      winGpuWarned = true;
+      console.warn(
+        '[SystemMonitor] Windows GPU performance-counter fallback failed — GPU load/VRAM will stay unavailable:',
+        error instanceof Error ? error.message : error
+      );
+    }
     return {};
   }
 }
