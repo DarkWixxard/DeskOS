@@ -62,7 +62,7 @@ function start(args, extraEnv) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
-console.log(`▶ DeskOS dev — Backend :${BACKEND_PORT}, Frontend :${FRONTEND_PORT}`);
+console.log(`▶ DeskOS dev — Backend :${BACKEND_PORT}, Frontend :${FRONTEND_PORT}, Simulator`);
 
 start(['run', 'dev', '--workspace=apps/backend'], {
   BACKEND_PORT,
@@ -72,3 +72,4 @@ start(['run', 'dev', '--workspace=apps/frontend', '--', '-p', FRONTEND_PORT], {
   // Shared-Token (falls gesetzt) ans Frontend durchreichen, damit es API+WS authentifiziert.
   NEXT_PUBLIC_DESKOS_TOKEN: process.env.DESKOS_TOKEN || '',
 });
+start(['run', 'dev', '--workspace=apps/simulator'], {});
