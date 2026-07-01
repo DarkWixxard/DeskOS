@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentType } from 're
 import { useDashboardStore, type PluginInstance } from '@/stores/dashboardStore';
 import { getApiBaseUrl } from '@/lib/api';
 import { Panel, HoloIcon, StatBar } from '@/components/holo';
-import type { SpotifyStatus, SpotifyTrack } from '@shared/types';
+import type { SpotifyStatus, SpotifyTrack, DiscordStatus, DiscordUser } from '@shared/types';
 
 /* =========================================================================
    DeskOS plugin widgets (M6)
@@ -300,10 +300,152 @@ function SpotifyWidget() {
   );
 }
 
+/* ----------------------------- Discord --------------------------------- */
+
+function DiscordWidget() {
+  const setActiveView = useDashboardStore((s) => s.setActiveView);
+  const base = getApiBaseUrl();
+  const [status, setStatus] = useState<DiscordStatus | null>(null);
+  const [profile, setProfile] = useState<DiscordUser | null>(null);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${base}/api/discord/status`);
+      if (res.ok) setStatus((await res.json()) as DiscordStatus);
+    } catch {
+      /* ignore */
+    }
+  }, [base]);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const res = await fetch(`${base}/api/discord/profile`);
+      const data = res.ok ? ((await res.json()) as DiscordUser | null) : null;
+      setProfile(data);
+    } catch {
+      /* ignore */
+    }
+  }, [base]);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+
+  useEffect(() => {
+    if (!status?.connected) return;
+    void loadProfile();
+  }, [status?.connected, loadProfile]);
+
+  // Nach erfolgreichem Popup-Login den Status neu laden.
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'deskos:discord') void loadStatus();
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [loadStatus]);
+
+  const login = async () => {
+    try {
+      const res = await fetch(`${base}/api/discord/login`);
+      if (!res.ok) return;
+      const { url } = (await res.json()) as { url: string };
+      window.open(url, 'deskos-discord-login', 'width=480,height=720');
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const disconnect = async () => {
+    try {
+      await fetch(`${base}/api/discord/disconnect`, { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
+    setProfile(null);
+    void loadStatus();
+  };
+
+  // 1) Keine Zugangsdaten -> zur Plugin-Einrichtung schicken.
+  if (status && !status.hasCredentials) {
+    return (
+      <Panel title="Discord">
+        <div className="flex flex-col items-center gap-2 py-5 text-center">
+          <HoloIcon name="shield" className="h-7 w-7 text-accent/50" />
+          <p className="text-[12px] text-accent/55">Konfiguration erforderlich</p>
+          <button
+            type="button"
+            onClick={() => setActiveView('plugins')}
+            className="rounded-none border border-accent/40 px-2.5 py-1 text-[10px] uppercase tracking-wider text-accent hover:bg-accent/10"
+          >
+            Einrichten
+          </button>
+        </div>
+      </Panel>
+    );
+  }
+
+  // 2) Zugangsdaten vorhanden, aber noch nicht verbunden -> Login anbieten.
+  if (status && !status.connected) {
+    return (
+      <Panel title="Discord">
+        <div className="flex flex-col items-center gap-2 py-5 text-center">
+          <HoloIcon name="shield" className="h-7 w-7 text-success/70" />
+          <p className="text-[12px] text-accent/55">Mit deinem Discord-Konto verbinden</p>
+          <button
+            type="button"
+            onClick={() => void login()}
+            className="rounded-none border border-success/50 px-3 py-1 text-[11px] uppercase tracking-wider text-success hover:bg-success/10"
+          >
+            Verbinden
+          </button>
+        </div>
+      </Panel>
+    );
+  }
+
+  // 3) Verbunden -> Profil anzeigen.
+  if (status && status.connected && profile) {
+    return (
+      <Panel title="Discord">
+        <div className="flex items-center gap-3">
+          {profile.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.avatarUrl} alt={profile.username} className="h-16 w-16 shrink-0 rounded-full border border-accent/20 object-cover" />
+          ) : (
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-accent/20 bg-accent/5">
+              <HoloIcon name="shield" className="h-7 w-7 text-accent/40" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-mono text-sm font-bold text-white">{profile.globalName || profile.username}</p>
+            <p className="truncate text-[12px] text-accent/60">@{profile.username}</p>
+            <button
+              type="button"
+              onClick={() => void disconnect()}
+              className="mt-2 text-[10px] uppercase tracking-wider text-danger/60 transition-colors hover:text-danger"
+            >
+              Trennen
+            </button>
+          </div>
+        </div>
+      </Panel>
+    );
+  }
+
+  // Initialer Ladezustand.
+  return (
+    <Panel title="Discord">
+      <div className="py-6 text-center text-[12px] text-accent/40">Lade…</div>
+    </Panel>
+  );
+}
+
 const BUILTIN_WIDGETS: Record<string, ComponentType> = {
   clock: ClockWidget,
   'system-summary': SystemSummaryWidget,
   spotify: SpotifyWidget,
+  discord: DiscordWidget,
 };
 
 export function PluginWidgets() {

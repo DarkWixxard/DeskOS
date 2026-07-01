@@ -16,6 +16,7 @@ import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
 import { createPluginRegistry } from './services/PluginRegistry';
 import { createSpotifyService } from './services/SpotifyService';
+import { createDiscordService } from './services/DiscordService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -87,9 +88,10 @@ const notifications = createNotificationService({
 const layout = createLayoutService(database);
 const plugins = createPluginRegistry(database);
 const spotify = createSpotifyService(plugins);
+const discord = createDiscordService(plugins);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout, plugins, spotify });
+setupRoutes(app, { persistence, notifications, layout, plugins, spotify, discord });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -137,6 +139,10 @@ async function bootstrap(): Promise<void> {
     // Spotify: persistierten Refresh-Token (falls vorhanden) laden.
     spotify.restore();
     console.log('✅ Spotify service ready');
+
+    // Discord: persistierten Refresh-Token (falls vorhanden) laden.
+    discord.restore();
+    console.log('✅ Discord service ready');
 
     // MQTT (ESP32 / sensor nodes) — embedded broker + client.
     await mqttService.start();
