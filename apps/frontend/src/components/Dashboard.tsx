@@ -2,6 +2,7 @@
 
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEffect, type ComponentType, type MouseEvent } from 'react';
+import dynamic from 'next/dynamic';
 import clsx from 'clsx';
 import { OverlayMenu } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
@@ -12,6 +13,8 @@ import { AutomationsView } from '@/components/AutomationsView';
 import { SensorView } from '@/components/SensorView';
 import { PluginsView } from '@/components/PluginsView';
 import { PluginWidgets } from '@/components/PluginWidgets';
+// xterm greift auf window/document zu -> client-only laden (kein SSR).
+const TerminalView = dynamic(() => import('@/components/TerminalView').then((m) => m.TerminalView), { ssr: false });
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -31,7 +34,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status', 'display'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -568,6 +571,8 @@ export function Dashboard() {
         {activeView === 'status' && <StatusLedView />}
 
         {activeView === 'display' && <DashboardSettingsView />}
+
+        {activeView === 'terminal' && <TerminalView />}
 
         {!FULL_VIEWS.includes(activeView) && (
         <>

@@ -39,7 +39,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'automations', label: 'Automations', icon: 'zap', view: 'automations' },
       { id: 'network', label: 'Network', icon: 'wifi', view: 'network' },
       { id: 'storage', label: 'Storage', icon: 'database', view: 'storage' },
-      { id: 'terminal', label: 'Terminal', icon: 'terminal' },
+      { id: 'terminal', label: 'Terminal', icon: 'terminal', view: 'terminal' },
       { id: 'alerts', label: 'Alerts', icon: 'bell' },
       { id: 'api', label: 'API Console', icon: 'code' },
       { id: 'display', label: 'Anzeige', icon: 'layers', view: 'display' },
