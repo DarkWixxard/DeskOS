@@ -4,8 +4,10 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { HoloIcon, Panel, Sparkline, RadialGauge, StatBar } from '@/components/holo';
+import { HoloIcon, Panel, Sparkline, RadialGauge, StatBar, HoloCorners, StatusLed } from '@/components/holo';
 import { getBackendPort } from '@/lib/api';
+import { timeAgo } from '@/lib/time';
+import type { Device } from '@shared/types';
 
 /* =========================================================================
    DeskOS Overlay Menu — holographic "mobiGlas" style launcher.
@@ -78,6 +80,10 @@ export function OverlayMenu() {
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [now, setNow] = useState<Date | null>(null);
+  // When a device-category tile (Remote PCs / ESP32 / Devices) is picked we open
+  // an in-menu submenu listing that category's devices instead of jumping to the
+  // dashboard. `submenu` holds the tile that opened it (null = grid view).
+  const [submenu, setSubmenu] = useState<ModuleDef | null>(null);
 
   const systemMetrics = useDashboardStore((s) => s.systemMetrics);
   const metricsHistory = useDashboardStore((s) => s.metricsHistory);
@@ -87,6 +93,7 @@ export function OverlayMenu() {
   const setDeviceFilter = useDashboardStore((s) => s.setDeviceFilter);
   const setActiveView = useDashboardStore((s) => s.setActiveView);
   const setNotificationsOpen = useDashboardStore((s) => s.setNotificationsOpen);
+  const selectDevice = useDashboardStore((s) => s.selectDevice);
 
   // Derived, real data from the store
   const online = devices.filter((d) => d.status === 'online').length;
@@ -124,7 +131,9 @@ export function OverlayMenu() {
       }
 
       if (e.key === 'Escape') {
-        if (open) setOpen(false);
+        // Step back out of the device submenu first, then close the menu.
+        if (submenu) setSubmenu(null);
+        else if (open) setOpen(false);
         return;
       }
       if (typing) return;
@@ -137,7 +146,8 @@ export function OverlayMenu() {
         setOpen((o) => !o);
         return;
       }
-      if (!open) return;
+      // While the submenu is open the arrow keys belong to it, not page paging.
+      if (!open || submenu) return;
       if (e.key === 'ArrowRight' || e.key === 'e' || e.key === 'E') {
         setPage((p) => Math.min(p + 1, PAGES.length - 1));
       } else if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
@@ -146,6 +156,12 @@ export function OverlayMenu() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [open, submenu]);
+
+  // Closing the whole menu always drops back to the grid, so reopening never
+  // lands straight back inside a stale submenu.
+  useEffect(() => {
+    if (!open) setSubmenu(null);
   }, [open]);
 
   // Lock background scroll while open
@@ -165,10 +181,37 @@ export function OverlayMenu() {
       setOpen(false);
       return;
     }
+    // Device-category tiles (Remote PCs / ESP32 / Devices) open an in-menu
+    // submenu listing that category's devices instead of jumping to the
+    // dashboard. Tiles that carry their own view keep navigating normally.
+    if (mod.filter && !mod.view) {
+      setSubmenu(mod);
+      return;
+    }
     if (mod.filter) setDeviceFilter(mod.filter);
     // Tiles without an explicit view return to the main dashboard, so picking a
     // filter tile never leaves you stuck inside a sub-view (oszi/monitor/…).
     setActiveView(mod.view ?? 'dashboard');
+    setOpen(false);
+  };
+
+  // Devices belonging to the open submenu's category ('all' matches everything).
+  const submenuDevices: Device[] = submenu
+    ? devices.filter((d) => submenu.filter === 'all' || d.type === submenu.filter)
+    : [];
+
+  // Open a device's detail modal (rendered on the dashboard) and dismiss the menu.
+  const openDevice = (device: Device) => {
+    selectDevice(device);
+    setSubmenu(null);
+    setOpen(false);
+  };
+
+  // Fall back to the old behaviour: filter the dashboard device list and jump there.
+  const showCategoryOnDashboard = () => {
+    if (submenu?.filter) setDeviceFilter(submenu.filter);
+    setActiveView('dashboard');
+    setSubmenu(null);
     setOpen(false);
   };
 
@@ -498,6 +541,127 @@ export function OverlayMenu() {
                   <HoloIcon name="gear" className="h-4 w-4" />
                 </div>
               </div>
+
+              {/* ---------------- Device submenu ---------------- */}
+              <AnimatePresence>
+                {submenu && (
+                  <motion.div
+                    key="submenu"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute inset-0 z-20 flex items-center justify-center p-4"
+                  >
+                    {/* Click-away closes the submenu, keeping the grid behind it. */}
+                    <button
+                      type="button"
+                      aria-label="Untermenü schließen"
+                      onClick={() => setSubmenu(null)}
+                      className="absolute inset-0 cursor-default bg-dark/75 backdrop-blur-sm"
+                    />
+
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label={`${submenu.label} – Geräte`}
+                      className="relative w-full max-w-md"
+                    >
+                      <Panel className="relative">
+                        <HoloCorners />
+
+                        {/* Submenu header */}
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => setSubmenu(null)}
+                              aria-label="Zurück zum Menü"
+                              className="flex h-8 w-8 items-center justify-center rounded-none border border-accent/25 text-accent/70 transition-colors hover:border-accent hover:bg-accent/10 hover:text-accent"
+                            >
+                              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M15 6l-6 6 6 6" />
+                              </svg>
+                            </button>
+                            <HoloIcon name={submenu.icon} className="h-5 w-5 text-accent" />
+                            <div>
+                              <div
+                                className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-accent"
+                                style={{ textShadow: '0 0 10px rgba(0,217,255,0.5)' }}
+                              >
+                                {submenu.label}
+                              </div>
+                              <div className="holo-label mt-0.5">
+                                {submenuDevices.length} {submenuDevices.length === 1 ? 'Gerät' : 'Geräte'}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSubmenu(null)}
+                            aria-label="Schließen"
+                            className="flex h-8 w-8 items-center justify-center rounded-none border border-accent/25 text-accent/70 transition-colors hover:border-accent hover:bg-accent/10 hover:text-accent"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                              <path d="M6 6l12 12M18 6L6 18" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        {/* Device list */}
+                        {submenuDevices.length === 0 ? (
+                          <div className="py-10 text-center text-sm text-accent/40">
+                            Keine Geräte in dieser Kategorie
+                          </div>
+                        ) : (
+                          <div className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+                            {submenuDevices.map((d) => (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => openDevice(d)}
+                                className="holo-tile group flex w-full items-center gap-3 p-2.5 text-left"
+                              >
+                                <StatusLed status={d.status} />
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-mono text-sm text-white transition-colors group-hover:text-accent">
+                                    {d.name}
+                                  </div>
+                                  <div className="holo-label mt-0.5">
+                                    {d.type} · {timeAgo(d.lastSeen)}
+                                  </div>
+                                </div>
+                                <span className="hidden font-mono text-[10px] uppercase tracking-wider text-accent/60 sm:inline">
+                                  {d.status}
+                                </span>
+                                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-accent/40 transition-colors group-hover:text-accent" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M9 6l6 6-6 6" />
+                                </svg>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Footer: keep the old "show them on the dashboard" path */}
+                        <div className="mt-3 border-t border-accent/15 pt-3">
+                          <button
+                            type="button"
+                            onClick={showCategoryOnDashboard}
+                            className="flex w-full items-center justify-center gap-2 rounded-none border border-accent/30 py-2 text-[11px] font-semibold uppercase tracking-wider text-accent/80 transition-colors hover:border-accent hover:bg-accent/10 hover:text-accent"
+                          >
+                            <HoloIcon name="grid" className="h-3.5 w-3.5" />
+                            Alle im Dashboard anzeigen
+                          </button>
+                        </div>
+                      </Panel>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </motion.div>
         )}
