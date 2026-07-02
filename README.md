@@ -50,6 +50,16 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 - Jedes Licht ist ein `Device` (Status-Polling); Modi pro Licht: **Manuell / Temperatur** (Farbe folgt CPU-Temp) **/ Alarm**.
 - RGB-Dashboard zum Hinzufügen/Steuern der Lichter. Zwei Lichter sind vorkonfiguriert (über `WLED_LIGHTS`).
 
+### 🖥️ Displays / Info-Panels
+- `DisplayService`: verwaltet sekundäre **Info-Screens** am Schreibtisch (kleine ESP32-/Pi-TFT-/OLED-Panels,
+  E-Ink-Displays oder ein Browser-Tab als Screen). Jedes Panel ist ein `Device` und nutzt Persistenz + Device Center mit.
+- Das Backend **rendert** die gewählte Quelle aus Live-Daten – **Uhr · System (CPU/RAM/Temp) · Sensor · Text · Aus** –
+  in einen firmware-agnostischen Payload (Titel + Zeilen + Akzentfarbe) und **pusht** ihn ans Panel:
+  **HTTP** (POST an IP/URL) oder **MQTT** (`cmd` an einen ESP32-Node). **Virtuelle** Panels sind reine Vorschau
+  (out-of-the-box, ohne Hardware).
+- Displays-View mit **Live-Screen-Vorschau** je Panel, Power/Helligkeit, Quellenwahl und Node-/URL-Ziel;
+  Updates live per WebSocket (`display:update`). Ein virtuelles Uhr-Panel ist beim ersten Start vorkonfiguriert.
+
 ### ⚡ Automation-Engine v2 + 🗂️ Layout-Profile
 - Trigger: **Schwellwert · Event · Gerätestatus · Zeitplan**. Aktionen (entkoppelt über Event-Bus):
   Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**.
@@ -168,11 +178,11 @@ DeskOS/
 │   │   └── src/
 │   │       ├── core/             # EventSystem, DeviceManager, AutomationEngine, ActionExecutor, PluginSystem
 │   │       ├── services/         # SystemMonitor, PersistenceService, NotificationService, WledService,
-│   │       │                     #   MqttService, LayoutService, PluginRegistry, DatabaseService, WebSocketServer
+│   │       │                     #   MqttService, DisplayService, LayoutService, PluginRegistry, DatabaseService, WebSocketServer
 │   │       └── api/routes.ts      # REST-Endpoints
 │   ├── frontend/                 # React + Next.js Dashboard
 │   │   └── src/
-│   │       ├── components/        # Dashboard, MonitorView, LogView, RgbView, AutomationsView,
+│   │       ├── components/        # Dashboard, MonitorView, LogView, RgbView, DisplaysView, AutomationsView,
 │   │       │                      #   SensorView, PluginsView, PluginWidgets, NotificationCenter,
 │   │       │                      #   DeviceDetail, LayoutBar, OverlayMenu, holo
 │   │       └── stores/            # Zustand Store (dashboardStore.ts)
@@ -237,6 +247,7 @@ DeskOS/
 | **Notifications** | `GET /api/notifications` · `GET /api/notifications/unread-count` · `POST /api/notifications/:id/read` · `POST /api/notifications/read-all` |
 | **Automationen** | `GET/POST /api/automations` · `PATCH/DELETE /api/automations/:id` |
 | **WLED / RGB** | `GET/POST /api/wled/lights` · `PATCH/DELETE /api/wled/lights/:id` · `POST /api/wled/lights/:id/state` · `POST /api/wled/lights/:id/mode` · `GET /api/wled/lights/:id/effects` |
+| **Displays** | `GET/POST /api/displays` · `PATCH/DELETE /api/displays/:id` · `POST /api/displays/:id/state` (An/Aus, Helligkeit) |
 | **Layouts** | `GET /api/layouts` · `POST /api/layouts` · `PATCH/DELETE /api/layouts/:id` · `POST /api/layouts/:id/activate` |
 | **Sensoren** | `GET /api/sensors` |
 | **Plugins** | `GET /api/plugins` · `POST /api/plugins/:id/{install,uninstall,enable,disable}` · `PATCH /api/plugins/:id/settings` |
@@ -244,7 +255,7 @@ DeskOS/
 | **Oszi** | `ALL /api/oszi/*` (Proxy zum Flask-Dienst) |
 
 **WebSocket (Socket.IO), Server → Client:** `devices:list`, `device:update`, `event:new`,
-`notification:new`, `wled:update`, `layout:set`, `local:device:id`.
+`notification:new`, `wled:update`, `display:update`, `layout:set`, `local:device:id`.
 **Client → Server:** `get:devices`, `subscribe:device`, `subscribe:events`, `register-agent`, `metrics`.
 
 Detaillierte Beispiele: [API.md](./docs/API.md).

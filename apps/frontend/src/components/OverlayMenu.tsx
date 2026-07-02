@@ -55,7 +55,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'esp32', label: 'ESP32', icon: 'cpu', filter: 'esp32' },
       { id: 'sensors', label: 'Sensor Hub', icon: 'thermometer', view: 'sensors' },
       { id: 'rgb', label: 'RGB / LED', icon: 'bulb', view: 'rgb' },
-      { id: 'displays', label: 'Displays', icon: 'monitor' },
+      { id: 'displays', label: 'Displays', icon: 'monitor', view: 'displays' },
       { id: 'audio', label: 'Audio', icon: 'speaker' },
       { id: 'power', label: 'Power / Status', icon: 'power', view: 'status' },
       { id: 'cameras', label: 'Cameras', icon: 'camera' },
