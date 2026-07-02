@@ -43,7 +43,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'alerts', label: 'Alerts', icon: 'bell' },
       { id: 'api', label: 'API Console', icon: 'code', view: 'api' },
       { id: 'display', label: 'Anzeige', icon: 'layers', view: 'display' },
-      { id: 'settings', label: 'Settings', icon: 'gear' },
+      { id: 'settings', label: 'Settings', icon: 'gear', view: 'settings' },
     ],
   },
   {
