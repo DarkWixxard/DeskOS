@@ -16,6 +16,7 @@ import type {
   AutomationTrigger,
   AutomationAction,
   LayoutProfile,
+  Scene,
   PluginInstance,
 } from '@shared/types';
 
@@ -34,6 +35,7 @@ export type {
   AutomationTrigger,
   AutomationAction,
   LayoutProfile,
+  Scene,
   PluginInstance,
 };
 export type DashboardEvent = DeskOSEvent;
@@ -77,6 +79,8 @@ interface DashboardStore {
   automations: AutomationRule[];
   layouts: LayoutProfile[];
   activeLayoutId: string | null;
+  // Scenes (Szenen)
+  scenes: Scene[];
   // Plugins
   plugins: PluginInstance[];
   // Per-section dashboard visibility (id -> shown). Missing id defaults to visible.
@@ -126,6 +130,11 @@ interface DashboardStore {
   toggleAutomation: (id: string, enabled: boolean) => Promise<void>;
   fetchLayouts: () => Promise<void>;
   activateLayout: (id: string) => Promise<void>;
+  fetchScenes: () => Promise<void>;
+  applyScene: (id: string) => Promise<void>;
+  createScene: (input: { name: string; icon?: string; color?: [number, number, number]; actions?: AutomationAction[]; capture?: boolean }) => Promise<boolean>;
+  updateScene: (id: string, patch: Partial<Pick<Scene, 'name' | 'icon' | 'color' | 'actions'>>) => Promise<void>;
+  deleteScene: (id: string) => Promise<void>;
   fetchPlugins: () => Promise<void>;
   pluginAction: (id: string, action: 'install' | 'uninstall' | 'enable' | 'disable') => Promise<void>;
   updatePluginSettings: (id: string, settings: Record<string, string>) => Promise<void>;
@@ -179,6 +188,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   automations: [],
   layouts: [],
   activeLayoutId: null,
+  scenes: [],
   plugins: [],
   // Start empty (all visible) so server and first client render match; the saved
   // selection is applied after mount via hydrateDashboardWidgets()/hydrateDashboardModules().
@@ -204,6 +214,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().fetchDisplays();
       get().fetchAutomations();
       get().fetchLayouts();
+      get().fetchScenes();
       get().fetchPlugins();
     });
 
@@ -224,6 +235,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     socket.on('display:update', (panels: DisplayPanel[]) => {
       set({ displayPanels: panels });
+    });
+
+    socket.on('scene:update', (scenes: Scene[]) => {
+      set({ scenes });
     });
 
     socket.on('local:device:id', (data: { deviceId: string }) => {
@@ -639,6 +654,65 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       await fetch(`${getApiBaseUrl()}/api/layouts/${encodeURIComponent(id)}/activate`, { method: 'POST' });
     } catch (error) {
       console.error('Unable to activate layout:', error);
+    }
+  },
+
+  fetchScenes: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/scenes`);
+      set({ scenes: (await res.json()) as Scene[] });
+    } catch (error) {
+      console.error('Unable to fetch scenes:', error);
+    }
+  },
+
+  applyScene: async (id: string) => {
+    try {
+      await fetch(`${getApiBaseUrl()}/api/scenes/${encodeURIComponent(id)}/apply`, { method: 'POST' });
+    } catch (error) {
+      console.error('Unable to apply scene:', error);
+    }
+  },
+
+  createScene: async (input) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/scenes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) return false;
+      // The list refreshes via the scene:update broadcast; fetch as a fallback.
+      await get().fetchScenes();
+      return true;
+    } catch (error) {
+      console.error('Unable to create scene:', error);
+      return false;
+    }
+  },
+
+  updateScene: async (id, patch) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/scenes/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const scene = (await res.json()) as Scene;
+        set({ scenes: get().scenes.map((s) => (s.id === id ? scene : s)) });
+      }
+    } catch (error) {
+      console.error('Unable to update scene:', error);
+    }
+  },
+
+  deleteScene: async (id: string) => {
+    try {
+      await fetch(`${getApiBaseUrl()}/api/scenes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      set({ scenes: get().scenes.filter((s) => s.id !== id) });
+    } catch (error) {
+      console.error('Unable to delete scene:', error);
     }
   },
 

@@ -68,6 +68,11 @@ export class WebSocketServer {
     eventSystem.on('layout:set', (event: DeskOSEvent) => {
       this.io.emit('layout:set', event.payload);
     });
+
+    // Relay live scene-list changes (create/update/delete).
+    eventSystem.on('scene:update', (event: DeskOSEvent) => {
+      this.io.emit('scene:update', event.payload);
+    });
   }
 
   private registerLocalDeviceListener(): void {

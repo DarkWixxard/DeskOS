@@ -15,6 +15,7 @@ import { wledService } from './services/WledService';
 import { displayService } from './services/DisplayService';
 import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
+import { createSceneService } from './services/SceneService';
 import { createPluginRegistry } from './services/PluginRegistry';
 import { createSpotifyService } from './services/SpotifyService';
 import { createDiscordService } from './services/DiscordService';
@@ -87,12 +88,13 @@ const notifications = createNotificationService({
   deviceManager,
 });
 const layout = createLayoutService(database);
+const scenes = createSceneService(database);
 const plugins = createPluginRegistry(database);
 const spotify = createSpotifyService(plugins);
 const discord = createDiscordService(plugins);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout, plugins, spotify, discord, wsServer });
+setupRoutes(app, { persistence, notifications, layout, scenes, plugins, spotify, discord, wsServer });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -136,6 +138,12 @@ async function bootstrap(): Promise<void> {
     await layout.restore();
     await layout.seedDefaults();
     console.log('✅ Layout profiles ready');
+
+    // Scenes (Szenen): restore + seed defaults, then listen for scene:apply.
+    await scenes.restore();
+    await scenes.seedDefaults();
+    scenes.attach();
+    console.log('✅ Scenes ready');
 
     // Plugin registry / marketplace.
     await plugins.restore();

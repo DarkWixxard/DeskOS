@@ -6,6 +6,7 @@ import { eventSystem } from '../src/core/EventSystem';
 import { AutomationEngine } from '../src/core/AutomationEngine';
 import { DatabaseService } from '../src/services/DatabaseService';
 import { LayoutService } from '../src/services/LayoutService';
+import { SceneService } from '../src/services/SceneService';
 
 // Actions are dispatched via fire-and-forget bus emits; let microtasks flush.
 const tick = () => new Promise((r) => setTimeout(r, 15));
@@ -140,6 +141,77 @@ describe('LayoutService', () => {
 
     u1();
     u2();
+    await db.close();
+    try {
+      fs.unlinkSync(dbFile);
+    } catch {
+      /* ignore */
+    }
+  });
+});
+
+describe('SceneService', () => {
+  const makeDbFile = () =>
+    path.join(os.tmpdir(), `descos-scene-${Date.now()}-${Math.random().toString(16).slice(2)}.db`);
+
+  test('seeds scenes, applies one and broadcasts scene:applied', async () => {
+    const dbFile = makeDbFile();
+    const db = new DatabaseService(dbFile);
+    const scenes = new SceneService(db);
+    await scenes.restore();
+    await scenes.seedDefaults();
+    expect(scenes.list().length).toBe(5);
+
+    let cmd: any = null;
+    let applied: any = null;
+    const u1 = eventSystem.on('wled:command', (e) => (cmd = e.payload));
+    const u2 = eventSystem.on('scene:applied', (e) => (applied = e.payload));
+
+    const scene = await scenes.apply('scene-focus');
+    await tick();
+
+    expect(scene?.name).toBe('Fokus');
+    expect(cmd?.target).toBe('all'); // the scene's WLED action executed
+    expect(applied?.sceneId).toBe('scene-focus');
+
+    u1();
+    u2();
+    await db.close();
+    try {
+      fs.unlinkSync(dbFile);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  test('a "scene" automation action runs the scene through the bus', async () => {
+    const dbFile = makeDbFile();
+    const db = new DatabaseService(dbFile);
+    const scenes = new SceneService(db);
+    await scenes.restore();
+    await scenes.seedDefaults();
+    scenes.attach(); // subscribe to scene:apply
+
+    const engine = new AutomationEngine();
+    let cmd: any = null;
+    const u1 = eventSystem.on('wled:command', (e) => (cmd = e.payload));
+    engine.addRule({
+      id: 's1',
+      name: 'Kino bei Filmstart',
+      trigger: { type: 'event', eventType: 'movie:start' },
+      actions: [{ type: 'scene', sceneId: 'scene-movie' }],
+      enabled: true,
+      cooldownMs: 0,
+    });
+
+    await eventSystem.emit('movie:start', {}, 'test');
+    await tick();
+
+    expect(cmd?.target).toBe('all'); // scene-movie's WLED action ran via scene:apply
+
+    u1();
+    engine.removeRule('s1');
+    engine.stop();
     await db.close();
     try {
       fs.unlinkSync(dbFile);

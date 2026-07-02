@@ -60,7 +60,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'power', label: 'Power / Status', icon: 'power', view: 'status' },
       { id: 'cameras', label: 'Cameras', icon: 'camera' },
       { id: 'security', label: 'Security', icon: 'shield', view: 'security' },
-      { id: 'scenes', label: 'Scenes', icon: 'layers' },
+      { id: 'scenes', label: 'Scenes', icon: 'layers', view: 'scenes' },
       { id: 'plugins', label: 'Plugins', icon: 'plug', view: 'plugins' },
       { id: 'oszi', label: 'Oszi', icon: 'chart', view: 'oszi' },
       { id: 'labs', label: 'Labs', icon: 'flask' },

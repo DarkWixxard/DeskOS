@@ -222,7 +222,15 @@ export interface LayoutAction {
   profileId?: string;
   view?: string;
 }
-export type AutomationAction = EmitEventAction | NotifyAction | WledAction | LayoutAction;
+// Runs a saved scene by id (the M4 "Szene ausführen" action). Handled by the
+// SceneService, which reacts to the 'scene:apply' bus event and executes the
+// scene's own actions — so automations and layout profiles reference a scene
+// once instead of duplicating its WLED/notify actions inline.
+export interface SceneAction {
+  type: 'scene';
+  sceneId: string;
+}
+export type AutomationAction = EmitEventAction | NotifyAction | WledAction | LayoutAction | SceneAction;
 
 export interface AutomationRule {
   id: string;
@@ -240,7 +248,21 @@ export interface LayoutProfile {
   name: string;
   icon?: string;
   view?: string; // dashboard view to switch to
-  actions: AutomationAction[]; // the "scene" applied on activation
+  actions: AutomationAction[]; // applied on activation: inline actions or a { type: 'scene' } reference
+}
+
+// --- Scenes ---
+// Eine benannte, wiederverwendbare Momentaufnahme der Schreibtisch-Stimmung –
+// in erster Linie Licht (WLED an/Helligkeit/Farbe/Effekt), allgemein ein Bündel
+// von AutomationActions. Szenen sind der wiederverwendbare Baustein: einmal
+// definiert ("Fokus", "Kino", "Aus") und per Ein-Klick anwendbar, aus
+// Automationen (Aktionstyp 'scene') und aus Layout-Profilen referenzierbar.
+export interface Scene {
+  id: string;
+  name: string;
+  icon?: string; // HoloIcon-Name für die Kachel
+  color?: [number, number, number]; // Akzentfarbe der Karte (RGB), rein kosmetisch
+  actions: AutomationAction[]; // was die Szene beim Anwenden ausführt
 }
 
 // --- ESP32 / MQTT nodes, Sensor Hub, Module Manager ---
