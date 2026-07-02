@@ -16,7 +16,7 @@ Es gibt zwei Bausteine:
 > Liegt das Backend auf einem anderen Rechner, setze vor dem Build
 > `NEXT_PUBLIC_API_URL=http://<backend-ip>:4001` in `apps/frontend/.env.local`.
 
-Alle Dateien liegen unter [`deploy/`](./deploy).
+Alle Dateien liegen unter [`deploy/`](../deploy).
 
 > **Fernzugriff:** Soll das Dashboard zusätzlich von anderen Geräten über eine
 > Tailscale-Domain (`https://<gerät>.<tailnet>.ts.net`) erreichbar sein, ohne dass

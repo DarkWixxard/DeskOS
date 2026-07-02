@@ -177,7 +177,7 @@ Go to http://localhost:4000 and check the Devices section.
 
 ## Resources
 
-- [Full Documentation](./README.md)
+- [Full Documentation](../README.md)
 - [API Documentation](./API.md)
 - [Deployment Guide](./DEPLOYMENT.md)
 - [Contributing Guide](./CONTRIBUTING.md)

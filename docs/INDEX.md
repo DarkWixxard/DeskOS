@@ -80,14 +80,11 @@ DeskOS/
 │       ├── plugin.json
 │       └── backend.ts
 │
-├── 📖 Documentation Files
-│   ├── README.md                 # Main documentation
-│   ├── QUICKSTART.md             # Quick start guide (5 minutes)
-│   ├── API.md                    # API documentation
-│   ├── DEPLOYMENT.md             # Deployment guide
-│   ├── CONTRIBUTING.md           # Contributing guide
-│   ├── CHANGELOG.md              # Version history
-│   └── LICENSE                   # MIT License
+├── 📖 Documentation
+│   ├── README.md                 # Main documentation (root)
+│   ├── LICENSE                   # MIT License (root)
+│   └── docs/                     # QUICKSTART, API, DEPLOYMENT, CONTRIBUTING, CHANGELOG,
+│                                 #   INDEX, MENU, KIOSK, ROADMAP, SPOTIFY, DISCORD, TAILSCALE
 │
 ├── 🐳 Docker Files
 │   ├── docker-compose.yml        # Docker compose setup
@@ -289,7 +286,7 @@ npm run dev --workspace=apps/agent
 
 | Document | Purpose | Link |
 |----------|---------|------|
-| **README.md** | Main documentation | [📖](./README.md) |
+| **README.md** | Main documentation | [📖](../README.md) |
 | **QUICKSTART.md** | 5-minute setup guide | [🚀](./QUICKSTART.md) |
 | **API.md** | Complete API reference | [🔌](./API.md) |
 | **DEPLOYMENT.md** | Production deployment | [🚀](./DEPLOYMENT.md) |
@@ -425,7 +422,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for:
 
 ## 📄 License
 
-MIT License - See [LICENSE](./LICENSE) file for details.
+MIT License - See [LICENSE](../LICENSE) file for details.
 
 ---
 
@@ -443,7 +440,7 @@ MIT License - See [LICENSE](./LICENSE) file for details.
 
 ## 📞 Support
 
-- 📖 Documentation: See [README.md](./README.md)
+- 📖 Documentation: See [README.md](../README.md)
 - 🚀 Quick Setup: See [QUICKSTART.md](./QUICKSTART.md)
 - 🔌 API Reference: See [API.md](./API.md)
 - 📋 Issues: Check documentation first, then GitHub Issues
