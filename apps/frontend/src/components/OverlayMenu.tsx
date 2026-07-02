@@ -63,7 +63,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'scenes', label: 'Scenes', icon: 'layers', view: 'scenes' },
       { id: 'plugins', label: 'Plugins', icon: 'plug', view: 'plugins' },
       { id: 'oszi', label: 'Oszi', icon: 'chart', view: 'oszi' },
-      { id: 'labs', label: 'Labs', icon: 'flask' },
+      { id: 'labs', label: 'Labs', icon: 'flask', view: 'labs' },
     ],
   },
 ];
