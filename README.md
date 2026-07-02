@@ -4,7 +4,7 @@ Ein „**Betriebssystem für den Schreibtisch**": Überwachung und Steuerung von
 Remote-PCs, WLED-Lichtern, ESP32-/Sensor-Nodes, Automationen, Layout-Profilen und Plugins –
 mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-Marktplatz.
 
-**Status:** ✅ Roadmap **M0–M6** vollständig umgesetzt (v1.0–v3.0). Siehe [ROADMAP.md](./ROADMAP.md).
+**Status:** ✅ Roadmap **M0–M6** vollständig umgesetzt (v1.0–v3.0). Siehe [ROADMAP.md](./docs/ROADMAP.md).
 
 ---
 
@@ -68,9 +68,9 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 - Plugin-System v2 mit **Marktplatz**: funktionale Built-ins (Uhr, System-Übersicht) + Katalog
   (Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue) mit Install/Aktivieren/Einstellungen, persistent.
 - **Spotify-Plugin voll funktionsfähig**: OAuth-Login, „Now Playing"-Anzeige (Cover/Titel/Fortschritt)
-  und Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API – Einrichtung in [SPOTIFY.md](./SPOTIFY.md).
+  und Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API – Einrichtung in [SPOTIFY.md](./docs/SPOTIFY.md).
 - **Discord-Plugin voll funktionsfähig**: OAuth-Login mit dem eigenen Discord-Konto
-  (kein Bot), zeigt Avatar & Anzeigename im Widget – Einrichtung in [DISCORD.md](./DISCORD.md).
+  (kein Bot), zeigt Avatar & Anzeigename im Widget – Einrichtung in [DISCORD.md](./docs/DISCORD.md).
 - Aktivierte Plugins rendern Widgets im Dashboard.
 
 ### 🏗️ Infrastruktur
@@ -184,6 +184,7 @@ DeskOS/
 ├── services/oszi/               # Oszilloskop-Service (Flask, Bonus)
 ├── plugins/                     # Dir-basierte Backend-Plugins (system-monitor, rgb-control)
 ├── deploy/                      # systemd / Windows-Autostart / Kiosk
+├── docs/                        # Doku (QUICKSTART, API, DEPLOYMENT, ROADMAP, MENU, …)
 ├── docker-compose.yml · Dockerfile.* · setup.sh · setup.bat
 └── package.json                 # Monorepo-Root (npm Workspaces)
 ```
@@ -246,7 +247,7 @@ DeskOS/
 `notification:new`, `wled:update`, `layout:set`, `local:device:id`.
 **Client → Server:** `get:devices`, `subscribe:device`, `subscribe:events`, `register-agent`, `metrics`.
 
-Detaillierte Beispiele: [API.md](./API.md).
+Detaillierte Beispiele: [API.md](./docs/API.md).
 
 ---
 
@@ -259,9 +260,9 @@ Home Assistant/Philips Hue sind als Framework angelegt und benötigen für die e
 deine API-Zugangsdaten.
 
 Das **Spotify-Plugin** ist bereits vollständig angebunden (OAuth, Now Playing,
-Wiedergabesteuerung) – Schritt-für-Schritt-Anleitung in [SPOTIFY.md](./SPOTIFY.md).
+Wiedergabesteuerung) – Schritt-für-Schritt-Anleitung in [SPOTIFY.md](./docs/SPOTIFY.md).
 Das **Discord-Plugin** ist ebenfalls vollständig angebunden (OAuth-Login mit dem
-eigenen Konto, kein Bot) – Schritt-für-Schritt-Anleitung in [DISCORD.md](./DISCORD.md).
+eigenen Konto, kein Bot) – Schritt-für-Schritt-Anleitung in [DISCORD.md](./docs/DISCORD.md).
 Die übrigen Katalog-Einträge (OBS/Steam/Home Assistant/Hue) sind als
 Framework angelegt und benötigen für die echte Anbindung deine API-Zugangsdaten.
 
@@ -287,7 +288,7 @@ Automation/Layout, MQTT (mit eingebettetem Broker) und die Plugin-Registry ab.
 - **Windows (Autostart):** `powershell -ExecutionPolicy Bypass -File deploy\windows\install-autostart.ps1`.
 - **Docker:** `docker-compose up -d`.
 
-Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCALE.md](./TAILSCALE.md).
+Details: [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) · [TAILSCALE.md](./docs/TAILSCALE.md).
 
 ---
 
@@ -295,20 +296,20 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 
 | Datei | Inhalt |
 |-------|--------|
-| [ROADMAP.md](./ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
-| [QUICKSTART.md](./QUICKSTART.md) | Schnellstart & Troubleshooting |
-| [MENU.md](./MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
-| [SPOTIFY.md](./SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
-| [DISCORD.md](./DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
-| [API.md](./API.md) | API-Beispiele |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) | Produktion / Kiosk |
-| [CHANGELOG.md](./CHANGELOG.md) | Versionshistorie |
+| [ROADMAP.md](./docs/ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
+| [QUICKSTART.md](./docs/QUICKSTART.md) | Schnellstart & Troubleshooting |
+| [MENU.md](./docs/MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
+| [SPOTIFY.md](./docs/SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
+| [DISCORD.md](./docs/DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
+| [API.md](./docs/API.md) | API-Beispiele |
+| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) | Produktion / Kiosk |
+| [CHANGELOG.md](./docs/CHANGELOG.md) | Versionshistorie |
 
 ---
 
 ## Roadmap
 
-✅ **Vollständig umgesetzt** – siehe [ROADMAP.md](./ROADMAP.md).
+✅ **Vollständig umgesetzt** – siehe [ROADMAP.md](./docs/ROADMAP.md).
 
 | Stufe | Meilensteine | Inhalt |
 |-------|--------------|--------|
@@ -317,8 +318,8 @@ Details: [DEPLOYMENT.md](./DEPLOYMENT.md) · [KIOSK.md](./KIOSK.md) · [TAILSCAL
 | ✅ **v3.0** | M5 · M6 | ESP32/MQTT + Sensor-Hub + Simulator · Firmware + Plugin-Marktplatz |
 
 **Nächste Ausbaustufen (offen):** echte Anbindung weiterer Credential-Plugins (OBS/Steam/Hue/…)
-— **Spotify und Discord sind bereits live** (siehe [SPOTIFY.md](./SPOTIFY.md) und
-[DISCORD.md](./DISCORD.md)) —, ESP32-Firmware-Sketch (PlatformIO) für echte Hardware,
+— **Spotify und Discord sind bereits live** (siehe [SPOTIFY.md](./docs/SPOTIFY.md) und
+[DISCORD.md](./docs/DISCORD.md)) —, ESP32-Firmware-Sketch (PlatformIO) für echte Hardware,
 optionaler „Musikmodus".
 
 ---

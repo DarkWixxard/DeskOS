@@ -4,7 +4,7 @@ Das **Overlay-Menü** (`OverlayMenu`) ist der holografische „mobiGlas"-Launche
 ein Vollbild-Overlay, über das du alle Module erreichst (Monitor, RGB, Automationen,
 Sensoren, Plugins, Logs …) – **ohne die Maus zu bewegen**.
 
-Quelle: [`apps/frontend/src/components/OverlayMenu.tsx`](./apps/frontend/src/components/OverlayMenu.tsx)
+Quelle: [`apps/frontend/src/components/OverlayMenu.tsx`](../apps/frontend/src/components/OverlayMenu.tsx)
 
 ---
 
@@ -112,7 +112,7 @@ Wichtige Punkte:
 
 Möchtest du eine andere Taste (z. B. die Leertaste, eine Funktionstaste oder eine
 andere Kombination), passe den `keydown`-Handler in
-[`apps/frontend/src/components/OverlayMenu.tsx`](./apps/frontend/src/components/OverlayMenu.tsx)
+[`apps/frontend/src/components/OverlayMenu.tsx`](../apps/frontend/src/components/OverlayMenu.tsx)
 an. Beispiel – Menü zusätzlich mit **Strg + Leertaste** öffnen:
 
 ```ts

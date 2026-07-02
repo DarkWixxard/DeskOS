@@ -117,7 +117,7 @@ All notable changes to this project will be documented in this file.
 ## Support
 
 - GitHub Issues: [Report bugs](https://github.com/your-repo/issues)
-- Documentation: See [README.md](./README.md)
+- Documentation: See [README.md](../README.md)
 - Quick Start: See [QUICKSTART.md](./QUICKSTART.md)
 
 ---
