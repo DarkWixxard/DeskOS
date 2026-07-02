@@ -87,6 +87,7 @@ interface DashboardStore {
   setDashboardWidget: (id: string, visible: boolean) => void;
   hydrateDashboardModules: () => void;
   toggleDashboardModule: (id: string) => void;
+  resetDashboardLayout: () => void;
   setActiveView: (view: string) => void;
   setDevices: (devices: Device[]) => void;
   selectDevice: (device: Device | null) => void;
@@ -299,6 +300,14 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     const next = { ...get().dashboardModules, [id]: !current };
     saveVisibility(MODULES_STORAGE_KEY, next);
     set({ dashboardModules: next });
+  },
+  resetDashboardLayout: () => {
+    // Wipe both saved visibility maps back to defaults (all sections visible,
+    // all extra modules hidden). Empty maps let the getters fall back to the
+    // per-id defaults, so this restores the shipped dashboard layout.
+    saveVisibility(WIDGET_STORAGE_KEY, {});
+    saveVisibility(MODULES_STORAGE_KEY, {});
+    set({ dashboardWidgets: {}, dashboardModules: {} });
   },
   selectDevice: (device: Device | null) => set({ selectedDevice: device }),
   updateEvents: (events: DashboardEvent[]) => set({ events }),
