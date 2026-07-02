@@ -4,6 +4,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { eventSystem, DeskOSEvent } from '../core/EventSystem';
 import { deviceManager } from '../core/DeviceManager';
 import { systemMonitor } from './SystemMonitor';
+import { terminalService } from './TerminalService';
 import { socketAuth } from '../api/auth';
 
 const corsOriginsEnv = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -90,6 +91,9 @@ export class WebSocketServer {
   private setupHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
       console.log(`Client connected: ${socket.id}`);
+
+      // Web-Terminal: PTY-Handler (räumt sich beim Disconnect selbst auf).
+      terminalService.attach(socket);
 
       // Per-Connection: Unsubscribe-Funktion des '*'-Event-Abos (gegen Listener-Leak).
       let eventsUnsub: (() => void) | null = null;
