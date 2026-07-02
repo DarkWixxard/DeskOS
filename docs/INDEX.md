@@ -289,6 +289,7 @@ npm run dev --workspace=apps/agent
 | **README.md** | Main documentation | [📖](../README.md) |
 | **QUICKSTART.md** | 5-minute setup guide | [🚀](./QUICKSTART.md) |
 | **API.md** | Complete API reference | [🔌](./API.md) |
+| **API-CONSOLE.md** | Built-in REST client (Dashboard) | [🔌](./API-CONSOLE.md) |
 | **DEPLOYMENT.md** | Production deployment | [🚀](./DEPLOYMENT.md) |
 | **CONTRIBUTING.md** | Contributing guide | [🤝](./CONTRIBUTING.md) |
 | **CHANGELOG.md** | Version history | [📋](./CHANGELOG.md) |

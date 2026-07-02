@@ -15,6 +15,7 @@ import { PluginsView } from '@/components/PluginsView';
 import { PluginWidgets } from '@/components/PluginWidgets';
 // xterm greift auf window/document zu -> client-only laden (kein SSR).
 const TerminalView = dynamic(() => import('@/components/TerminalView').then((m) => m.TerminalView), { ssr: false });
+import { ApiConsoleView } from '@/components/ApiConsoleView';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -34,7 +35,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -573,6 +574,8 @@ export function Dashboard() {
         {activeView === 'display' && <DashboardSettingsView />}
 
         {activeView === 'terminal' && <TerminalView />}
+
+        {activeView === 'api' && <ApiConsoleView />}
 
         {!FULL_VIEWS.includes(activeView) && (
         <>

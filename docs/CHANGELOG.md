@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- 🔌 **API-Console**: eingebauter REST-Client im Dashboard. Methode + Pfad wählen,
+  optional JSON-Body senden und Status, Dauer, Header sowie den formatierten
+  Antwort-Body sehen – mit kuratiertem Endpunkt-Katalog und lokalem Anfrage-Verlauf.
+  Erreichbar über das Overlay-Menü (SYSTEM → API Console). Bisher führte die
+  Kachel nur zurück aufs Dashboard. Dokumentiert in [API-CONSOLE.md](./API-CONSOLE.md).
 - 🎵 **Spotify-Plugin voll angebunden**: OAuth-2.0-Login (Authorization-Code-Flow),
   „Now Playing"-Widget (Cover, Titel, Interpret, Fortschritt) und
   Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API.
