@@ -256,6 +256,51 @@ export interface SensorNode {
   modules: NodeModule[];
 }
 
+// --- Displays / Info-Panels ---
+// Ein sekundärer Screen am Schreibtisch, den DeskOS mit Inhalten bespielt: ein
+// kleines ESP32-/Pi-getriebenes TFT-/OLED-Panel, ein E-Ink-Display oder ein
+// Browser-Tab als Screen. Jedes Panel wird von einem Device gebacked und nutzt
+// so Persistenz, das Device Center und die Modul-Status-LEDs mit.
+
+// Was ein Panel gerade anzeigt. Das Backend rendert jede Quelle aus Live-Daten.
+export type DisplaySource =
+  | 'clock' // Uhrzeit + Datum
+  | 'system' // CPU / RAM / Temperatur des lokalen Hosts
+  | 'sensor' // letzter Messwert eines Sensor-Nodes
+  | 'text' // frei eingegebener Text
+  | 'blank'; // leerer / ausgeschalteter Screen
+
+// Wie der gerenderte Inhalt das Panel erreicht.
+export type DisplayTransport =
+  | 'virtual' // nur Vorschau im Dashboard (keine Hardware)
+  | 'http' // POST an eine HTTP-Adresse (IP/URL)
+  | 'mqtt'; // Kommando an einen ESP32-/MQTT-Node
+
+// Der gerenderte Payload, der ans Panel geschickt und in der UI-Vorschau
+// gespiegelt wird. Firmware-agnostisch gehalten: ein großer Titel, ein paar
+// kleinere Zeilen und eine Akzentfarbe.
+export interface DisplayContent {
+  title: string;
+  lines: string[];
+  color?: [number, number, number]; // Akzentfarbe (RGB), z. B. temperaturabhängig
+  updatedAt: number;
+}
+
+export interface DisplayPanel {
+  id: string; // backing device id
+  name: string;
+  transport: DisplayTransport;
+  target: string; // IP/URL (http) bzw. Node-Id (mqtt); leer für 'virtual'
+  online: boolean;
+  on: boolean;
+  brightness: number; // 0-100
+  source: DisplaySource;
+  text?: string; // Inhalt für source 'text'
+  sensorDeviceId?: string; // Quelle für source 'sensor'
+  sensorMetric?: string; // Messfeld für source 'sensor' (z. B. 'temperature')
+  content?: DisplayContent; // zuletzt gerenderter Inhalt (für die Vorschau)
+}
+
 // --- Plugin System v2 / Marketplace ---
 export type PluginCategory = 'system' | 'media' | 'communication' | 'streaming' | 'gaming' | 'smart-home';
 

@@ -12,6 +12,7 @@ import { createDatabaseService } from './services/DatabaseService';
 import { createPersistenceService } from './services/PersistenceService';
 import { createNotificationService } from './services/NotificationService';
 import { wledService } from './services/WledService';
+import { displayService } from './services/DisplayService';
 import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
 import { createPluginRegistry } from './services/PluginRegistry';
@@ -126,6 +127,11 @@ async function bootstrap(): Promise<void> {
     wledService.attach();
     console.log('✅ WLED/RGB engine attached');
 
+    // Displays / info-panels: seed a virtual panel on first run, then render + push.
+    displayService.seedDefaults();
+    displayService.attach();
+    console.log('✅ Display panels attached');
+
     // Layout / profile system.
     await layout.restore();
     await layout.seedDefaults();
@@ -196,6 +202,7 @@ async function bootstrap(): Promise<void> {
       console.log('\n⏹️ Shutting down gracefully...');
       systemMonitor.stop();
       wledService.stop();
+      displayService.stop();
       automationEngine.stop();
       persistence.stop();
       await mqttService.stop();

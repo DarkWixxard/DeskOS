@@ -9,6 +9,9 @@ import type {
   DeskNotification,
   WledLight,
   RgbMode,
+  DisplayPanel,
+  DisplaySource,
+  DisplayTransport,
   AutomationRule,
   AutomationTrigger,
   AutomationAction,
@@ -24,6 +27,9 @@ export type {
   DeskNotification,
   WledLight,
   RgbMode,
+  DisplayPanel,
+  DisplaySource,
+  DisplayTransport,
   AutomationRule,
   AutomationTrigger,
   AutomationAction,
@@ -65,6 +71,8 @@ interface DashboardStore {
   notificationsOpen: boolean;
   // WLED / RGB
   wledLights: WledLight[];
+  // Displays / info-panels
+  displayPanels: DisplayPanel[];
   // Automations + Layout profiles
   automations: AutomationRule[];
   layouts: LayoutProfile[];
@@ -107,6 +115,11 @@ interface DashboardStore {
   addWledLight: (name: string, ip: string) => Promise<boolean>;
   updateWledLight: (id: string, patch: { name?: string; ip?: string }) => Promise<void>;
   removeWledLight: (id: string) => Promise<void>;
+  fetchDisplays: () => Promise<void>;
+  addDisplay: (input: { name: string; transport?: DisplayTransport; target?: string; source?: DisplaySource }) => Promise<boolean>;
+  updateDisplay: (id: string, patch: Partial<Pick<DisplayPanel, 'name' | 'transport' | 'target' | 'source' | 'text' | 'brightness' | 'sensorDeviceId' | 'sensorMetric'>>) => Promise<void>;
+  controlDisplay: (id: string, patch: { on?: boolean; brightness?: number }) => Promise<void>;
+  removeDisplay: (id: string) => Promise<void>;
   fetchAutomations: () => Promise<void>;
   createAutomation: (rule: Omit<AutomationRule, 'lastFired'>) => Promise<boolean>;
   deleteAutomation: (id: string) => Promise<void>;
@@ -162,6 +175,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   unreadCount: 0,
   notificationsOpen: false,
   wledLights: [],
+  displayPanels: [],
   automations: [],
   layouts: [],
   activeLayoutId: null,
@@ -187,6 +201,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       socket.emit('subscribe:events');
       get().fetchNotifications();
       get().fetchWledLights();
+      get().fetchDisplays();
       get().fetchAutomations();
       get().fetchLayouts();
       get().fetchPlugins();
@@ -205,6 +220,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     socket.on('wled:update', (lights: WledLight[]) => {
       set({ wledLights: lights });
+    });
+
+    socket.on('display:update', (panels: DisplayPanel[]) => {
+      set({ displayPanels: panels });
     });
 
     socket.on('local:device:id', (data: { deviceId: string }) => {
@@ -488,6 +507,72 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       set({ wledLights: get().wledLights.filter((l) => l.id !== id) });
     } catch (error) {
       console.error('WLED remove failed:', error);
+    }
+  },
+
+  fetchDisplays: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/displays`);
+      set({ displayPanels: (await res.json()) as DisplayPanel[] });
+    } catch (error) {
+      console.error('Unable to fetch displays:', error);
+    }
+  },
+
+  addDisplay: async (input) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/displays`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) return false;
+      await get().fetchDisplays();
+      return true;
+    } catch (error) {
+      console.error('Display add failed:', error);
+      return false;
+    }
+  },
+
+  updateDisplay: async (id, patch) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/displays/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const panel = (await res.json()) as DisplayPanel;
+        set({ displayPanels: get().displayPanels.map((p) => (p.id === id ? panel : p)) });
+      }
+    } catch (error) {
+      console.error('Display update failed:', error);
+    }
+  },
+
+  controlDisplay: async (id, patch) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/displays/${encodeURIComponent(id)}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const panel = (await res.json()) as DisplayPanel;
+        set({ displayPanels: get().displayPanels.map((p) => (p.id === id ? panel : p)) });
+      }
+    } catch (error) {
+      console.error('Display control failed:', error);
+    }
+  },
+
+  removeDisplay: async (id: string) => {
+    try {
+      await fetch(`${getApiBaseUrl()}/api/displays/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      set({ displayPanels: get().displayPanels.filter((p) => p.id !== id) });
+    } catch (error) {
+      console.error('Display remove failed:', error);
     }
   },
 

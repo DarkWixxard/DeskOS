@@ -59,6 +59,11 @@ export class WebSocketServer {
       this.io.emit('wled:update', event.payload);
     });
 
+    // Relay live display-panel state.
+    eventSystem.on('display:update', (event: DeskOSEvent) => {
+      this.io.emit('display:update', event.payload);
+    });
+
     // Relay layout/profile activation to clients.
     eventSystem.on('layout:set', (event: DeskOSEvent) => {
       this.io.emit('layout:set', event.payload);

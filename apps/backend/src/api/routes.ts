@@ -5,6 +5,7 @@ import { eventSystem } from '../core/EventSystem';
 import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
 import { wledService } from '../services/WledService';
+import { displayService } from '../services/DisplayService';
 import { mqttService } from '../services/MqttService';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
@@ -163,6 +164,36 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
 
   app.get('/api/wled/lights/:id/effects', async (req, res) => {
     res.json(await wledService.getEffects(req.params.id));
+  });
+
+  // ---- Displays / Info-Panels ----
+  app.get('/api/displays', (req, res) => {
+    res.json(displayService.listPanels());
+  });
+
+  app.post('/api/displays', (req, res) => {
+    const { name, transport, target, source, text } = req.body ?? {};
+    if (!name) return res.status(400).json({ error: 'name erforderlich' });
+    res.status(201).json(displayService.addPanel({ name: String(name), transport, target, source, text }));
+  });
+
+  app.patch('/api/displays/:id', (req, res) => {
+    const panel = displayService.updatePanel(req.params.id, req.body ?? {});
+    if (!panel) return res.status(404).json({ error: 'Display nicht gefunden' });
+    res.json(panel);
+  });
+
+  app.delete('/api/displays/:id', (req, res) => {
+    const ok = displayService.removePanel(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Display nicht gefunden' });
+    res.json({ success: true, id: req.params.id });
+  });
+
+  app.post('/api/displays/:id/state', async (req, res) => {
+    const { on, brightness } = req.body ?? {};
+    const panel = await displayService.control(req.params.id, { on, brightness });
+    if (!panel) return res.status(404).json({ error: 'Display nicht gefunden' });
+    res.json(panel);
   });
 
   // ---- Layout / Profile System ----
