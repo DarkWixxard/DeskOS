@@ -9,6 +9,7 @@ import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
 import { LogView } from '@/components/LogView';
 import { RgbView } from '@/components/RgbView';
+import { SceneView } from '@/components/SceneView';
 import { DisplaysView } from '@/components/DisplaysView';
 import { AutomationsView } from '@/components/AutomationsView';
 import { SensorView } from '@/components/SensorView';
@@ -38,7 +39,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -60,6 +61,7 @@ export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
 export const EMBEDDABLE_MODULES: { id: string; label: string; Component: ComponentType }[] = [
   { id: 'sensors', label: 'Sensor Hub', Component: SensorView },
   { id: 'rgb', label: 'RGB / LED', Component: RgbView },
+  { id: 'scenes', label: 'Szenen', Component: SceneView },
   { id: 'displays', label: 'Displays', Component: DisplaysView },
   { id: 'automations', label: 'Automations', Component: AutomationsView },
   { id: 'logs', label: 'Log Center', Component: LogView },
@@ -566,6 +568,8 @@ export function Dashboard() {
         {activeView === 'logs' && <LogView />}
 
         {activeView === 'rgb' && <RgbView />}
+
+        {activeView === 'scenes' && <SceneView />}
 
         {activeView === 'displays' && <DisplaysView />}
 

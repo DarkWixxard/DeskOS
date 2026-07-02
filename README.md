@@ -60,10 +60,14 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 - Displays-View mit **Live-Screen-Vorschau** je Panel, Power/Helligkeit, Quellenwahl und Node-/URL-Ziel;
   Updates live per WebSocket (`display:update`). Ein virtuelles Uhr-Panel ist beim ersten Start vorkonfiguriert.
 
-### ⚡ Automation-Engine v2 + 🗂️ Layout-Profile
+### ⚡ Automation-Engine v2 + 🗂️ Layout-Profile + 🎬 Szenen
 - Trigger: **Schwellwert · Event · Gerätestatus · Zeitplan**. Aktionen (entkoppelt über Event-Bus):
-  Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**.
+  Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**, **Szene ausführen**.
 - **No-Code-Regelbuilder** im Frontend; Regeln persistent, mit Cooldown.
+- **Szenen** (eigene Ansicht, `scene:update` live): eine benannte, wiederverwendbare Momentaufnahme der
+  Schreibtisch-Stimmung (primär WLED-Licht). Per Ein-Klick anwendbar, „aus aktuellem Licht" erfassbar und aus
+  Automationen (Aktion „Szene ausführen") sowie Layout-Profilen referenzierbar – einmal definiert, überall genutzt.
+  Vorkonfiguriert: **Fokus · Entspannen · Kino · Party · Aus**.
 - Layout-Profile (Gaming/Coding/Streaming/Work/Minimal): wenden per Knopfdruck eine **Szene** an (RGB) und wechseln die Ansicht.
 
 ### 📡 ESP32 / MQTT, Sensor-Hub & Modul-Manager

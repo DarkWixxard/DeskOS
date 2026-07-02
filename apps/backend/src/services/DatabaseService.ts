@@ -60,6 +60,15 @@ CREATE TABLE IF NOT EXISTS layouts (
   createdAt INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS scenes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  icon TEXT,
+  color TEXT,
+  actions TEXT NOT NULL,
+  createdAt INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT

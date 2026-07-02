@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
 import type { LayoutService } from '../services/LayoutService';
+import type { SceneService } from '../services/SceneService';
 import type { PluginRegistry } from '../services/PluginRegistry';
 import type { SpotifyService, PlaybackAction } from '../services/SpotifyService';
 import type { DiscordService } from '../services/DiscordService';
@@ -22,6 +23,7 @@ export interface RouteDeps {
   persistence?: PersistenceService;
   notifications?: NotificationService;
   layout?: LayoutService;
+  scenes?: SceneService;
   plugins?: PluginRegistry;
   spotify?: SpotifyService;
   discord?: DiscordService;
@@ -231,6 +233,45 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     const profile = await deps.layout.activate(req.params.id);
     if (!profile) return res.status(404).json({ error: 'Profil nicht gefunden' });
     res.json(profile);
+  });
+
+  // ---- Scenes (Szenen) ----
+  const scenesUnavailable = (res: any) => res.status(503).json({ error: 'Szenen-Service nicht verfügbar' });
+
+  app.get('/api/scenes', (req, res) => {
+    if (!deps.scenes) return res.json([]);
+    res.json(deps.scenes.list());
+  });
+
+  app.post('/api/scenes', async (req, res) => {
+    if (!deps.scenes) return scenesUnavailable(res);
+    const { name, icon, color, actions, capture } = req.body ?? {};
+    if (!name) return res.status(400).json({ error: 'name erforderlich' });
+    // `capture: true` snapshots the current WLED state; otherwise take the
+    // provided actions (default: empty).
+    const sceneActions = capture ? deps.scenes.captureLightActions() : actions ?? [];
+    res.status(201).json(await deps.scenes.create({ name, icon, color, actions: sceneActions }));
+  });
+
+  app.patch('/api/scenes/:id', async (req, res) => {
+    if (!deps.scenes) return scenesUnavailable(res);
+    const updated = await deps.scenes.update(req.params.id, req.body ?? {});
+    if (!updated) return res.status(404).json({ error: 'Szene nicht gefunden' });
+    res.json(updated);
+  });
+
+  app.delete('/api/scenes/:id', async (req, res) => {
+    if (!deps.scenes) return scenesUnavailable(res);
+    const ok = await deps.scenes.remove(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Szene nicht gefunden' });
+    res.json({ success: true, id: req.params.id });
+  });
+
+  app.post('/api/scenes/:id/apply', async (req, res) => {
+    if (!deps.scenes) return scenesUnavailable(res);
+    const scene = await deps.scenes.apply(req.params.id);
+    if (!scene) return res.status(404).json({ error: 'Szene nicht gefunden' });
+    res.json(scene);
   });
 
   // ---- Sensor Hub / MQTT nodes ----

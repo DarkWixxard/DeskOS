@@ -39,6 +39,7 @@ const actionDefaults: Record<AutomationAction['type'], AutomationAction> = {
   wled: { type: 'wled', target: 'all', on: true, brightness: 100, color: '#ff0000' },
   emit_event: { type: 'emit_event', eventType: '', message: '', priority: 'normal' },
   layout: { type: 'layout', view: 'dashboard' },
+  scene: { type: 'scene', sceneId: '' },
 };
 
 function triggerSummary(t: AutomationTrigger): string {
@@ -65,6 +66,8 @@ function actionSummary(a: AutomationAction): string {
       return `⚡ ${a.eventType || 'Event'}`;
     case 'layout':
       return `🗂 Layout`;
+    case 'scene':
+      return `🎬 Szene`;
     default:
       return '—';
   }
@@ -73,6 +76,8 @@ function actionSummary(a: AutomationAction): string {
 export function AutomationsView() {
   const automations = useDashboardStore((s) => s.automations);
   const wledLights = useDashboardStore((s) => s.wledLights);
+  const scenes = useDashboardStore((s) => s.scenes);
+  const fetchScenes = useDashboardStore((s) => s.fetchScenes);
   const fetchAutomations = useDashboardStore((s) => s.fetchAutomations);
   const createAutomation = useDashboardStore((s) => s.createAutomation);
   const deleteAutomation = useDashboardStore((s) => s.deleteAutomation);
@@ -87,7 +92,8 @@ export function AutomationsView() {
 
   useEffect(() => {
     fetchAutomations();
-  }, [fetchAutomations]);
+    fetchScenes();
+  }, [fetchAutomations, fetchScenes]);
 
   const updateAction = (i: number, patch: Record<string, unknown>) =>
     setActions((arr) => arr.map((a, idx) => (idx === i ? ({ ...a, ...patch } as AutomationAction) : a)));
@@ -252,6 +258,7 @@ export function AutomationsView() {
                       <select value={action.type} onChange={(e) => changeActionType(i, e.target.value as AutomationAction['type'])} className={clsx(FIELD, 'cursor-pointer')}>
                         <option value="notify">Benachrichtigung</option>
                         <option value="wled">WLED steuern</option>
+                        <option value="scene">Szene ausführen</option>
                         <option value="emit_event">Event auslösen</option>
                       </select>
                       {actions.length > 1 && (
@@ -287,6 +294,24 @@ export function AutomationsView() {
                         </label>
                         <input type="color" value={typeof action.color === 'string' ? action.color : '#ff0000'} onChange={(e) => updateAction(i, { color: e.target.value })} className="h-8 w-10 cursor-pointer border border-accent/30 bg-transparent" />
                         <input type="number" min={0} max={100} value={action.brightness ?? 100} onChange={(e) => updateAction(i, { brightness: Number(e.target.value) })} className={clsx(FIELD, 'w-20')} placeholder="Hell." />
+                      </div>
+                    )}
+
+                    {action.type === 'scene' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={action.sceneId}
+                          onChange={(e) => updateAction(i, { sceneId: e.target.value })}
+                          className={clsx(FIELD, 'flex-1 cursor-pointer')}
+                        >
+                          <option value="">Szene wählen…</option>
+                          {scenes.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        {scenes.length === 0 && (
+                          <span className="text-[10px] text-accent/40">Noch keine Szenen angelegt</span>
+                        )}
                       </div>
                     )}
 

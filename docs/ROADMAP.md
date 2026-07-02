@@ -117,6 +117,9 @@ Beschreibungen dokumentieren den jeweils **gelieferten** Umfang.
 - Trigger: threshold (vorhanden) + Event + Zeitplan (cron) + Gerätestatus + Tageszeit.
 - Aktionen: emit_event (vorhanden) + WLED/RGB steuern + Notification senden + Layout wechseln + Szene ausführen + Agent-Command.
 - Regeln persistent (M0); **No-Code-Regelbuilder** im Frontend.
+- **Szenen** als eigenständige, wiederverwendbare Entität (`SceneService`, persistent): benannte Momentaufnahme
+  (primär WLED-Licht), eigene „Scenes"-Ansicht mit Ein-Klick-Anwenden + „aus aktuellem Licht erfassen"; von der
+  Automations-Aktion `scene` und von Layout-Profilen referenzierbar (entkoppelt über `scene:apply`).
 - Layout-Profile (Gaming/Coding/Streaming/Work/Minimal): wechseln Dashboard-Layout **und** wenden Szene an (RGB + Automationen); nutzt `activeView`.
 
 ### ✅ M5 – ESP32/MQTT + Sensor-Hub + Modul-Manager (+ Simulator)  · *v3.0*
