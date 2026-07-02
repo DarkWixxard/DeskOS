@@ -1,7 +1,7 @@
 'use client';
 
-import { useDashboardStore } from '@/stores/dashboardStore';
-import { useEffect, type ComponentType, type MouseEvent } from 'react';
+import { useDashboardStore, useLabsFlag } from '@/stores/dashboardStore';
+import { useEffect, useState, type ComponentType, type MouseEvent } from 'react';
 import dynamic from 'next/dynamic';
 import clsx from 'clsx';
 import { OverlayMenu } from '@/components/OverlayMenu';
@@ -20,6 +20,7 @@ const TerminalView = dynamic(() => import('@/components/TerminalView').then((m) 
 import { ApiConsoleView } from '@/components/ApiConsoleView';
 import { SettingsView } from '@/components/SettingsView';
 import { SecurityView } from '@/components/SecurityView';
+import { LabsView, LABS_CALM_MODE, LABS_DASHBOARD_CLOCK } from '@/components/LabsView';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -39,7 +40,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security', 'labs'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -484,6 +485,17 @@ export function Header() {
   const unreadCount = useDashboardStore((state) => state.unreadCount);
   const setNotificationsOpen = useDashboardStore((state) => state.setNotificationsOpen);
 
+  // Labs experiment: an optional live clock in the header. Time is set on mount
+  // only (starts null) so the server and first client render match — no mismatch.
+  const showClock = useLabsFlag(LABS_DASHBOARD_CLOCK);
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    if (!showClock) return;
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [showClock]);
+
   return (
     <header className="border-b border-accent/20 bg-darker/40 py-6 backdrop-blur">
       <div className="container mx-auto flex items-center justify-between gap-3 px-4">
@@ -499,19 +511,33 @@ export function Header() {
             <p className="holo-label mt-0.5">Modular Monitoring &amp; Control System</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setNotificationsOpen(true)}
-          className="relative flex h-10 w-10 items-center justify-center rounded-none border border-accent/30 text-accent transition-colors hover:bg-accent/10"
-          aria-label="Benachrichtigungen öffnen"
-        >
-          <HoloIcon name="bell" className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-bold text-white shadow-glow-sm">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
+        <div className="flex items-center gap-3">
+          {showClock && (
+            <div className="hidden text-right sm:block">
+              <div className="holo-value text-lg leading-none">
+                {now
+                  ? now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                  : '--:--:--'}
+              </div>
+              <div className="holo-label mt-1">
+                {now ? now.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--.--.----'}
+              </div>
+            </div>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen(true)}
+            className="relative flex h-10 w-10 items-center justify-center rounded-none border border-accent/30 text-accent transition-colors hover:bg-accent/10"
+            aria-label="Benachrichtigungen öffnen"
+          >
+            <HoloIcon name="bell" className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-bold text-white shadow-glow-sm">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -534,7 +560,11 @@ export function Dashboard() {
     hydrateDashboardWidgets,
     dashboardModules,
     hydrateDashboardModules,
+    hydrateLabsFlags,
   } = useDashboardStore();
+
+  // Labs experiment: the "Ruhemodus" flag drops the holo flicker + scanline motion.
+  const calm = useLabsFlag(LABS_CALM_MODE);
 
   // A section is visible unless it was explicitly switched off in the Anzeige view.
   const shows = (id: string) => dashboardWidgets[id] !== false;
@@ -546,19 +576,20 @@ export function Dashboard() {
     return () => disconnectWebSocket();
   }, []);
 
-  // Apply the saved section/module visibility after mount (avoids an SSR hydration mismatch).
+  // Apply the saved section/module/labs state after mount (avoids an SSR hydration mismatch).
   useEffect(() => {
     hydrateDashboardWidgets();
     hydrateDashboardModules();
+    hydrateLabsFlags();
   }, []);
 
   return (
     <main className="holo-grid-bg relative min-h-screen overflow-x-hidden bg-dark text-white">
-      {/* Fixed scanline texture behind all content */}
-      <div className="holo-scanlines pointer-events-none fixed inset-0 z-0" />
+      {/* Fixed scanline texture behind all content (hidden in Labs "Ruhemodus") */}
+      {!calm && <div className="holo-scanlines pointer-events-none fixed inset-0 z-0" />}
 
-      {/* Content (the constant holo flicker lives here, not on the modal/overlay) */}
-      <div className="animate-holo-flicker relative z-10">
+      {/* Content (the constant holo flicker lives here — off in Labs "Ruhemodus") */}
+      <div className={clsx('relative z-10', !calm && 'animate-holo-flicker')}>
         {shows('header') && <Header />}
 
         {activeView === 'oszi' && <OsziView />}
@@ -590,6 +621,8 @@ export function Dashboard() {
         {activeView === 'settings' && <SettingsView />}
 
         {activeView === 'security' && <SecurityView />}
+
+        {activeView === 'labs' && <LabsView />}
 
         {!FULL_VIEWS.includes(activeView) && (
         <>

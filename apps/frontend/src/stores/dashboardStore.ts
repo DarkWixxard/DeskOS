@@ -88,6 +88,9 @@ interface DashboardStore {
   // Extra module views embedded on the dashboard (id -> shown). Missing id defaults
   // to hidden — the user opts a module in.
   dashboardModules: Record<string, boolean>;
+  // Labs: experimental feature flags (id -> enabled). Missing id defaults to OFF —
+  // every experiment is strictly opt-in.
+  labsFlags: Record<string, boolean>;
 
   // Actions
   connectWebSocket: () => void;
@@ -99,6 +102,9 @@ interface DashboardStore {
   setDashboardWidget: (id: string, visible: boolean) => void;
   hydrateDashboardModules: () => void;
   toggleDashboardModule: (id: string) => void;
+  hydrateLabsFlags: () => void;
+  toggleLabsFlag: (id: string) => void;
+  resetLabsFlags: () => void;
   resetDashboardLayout: () => void;
   setActiveView: (view: string) => void;
   setDevices: (devices: Device[]) => void;
@@ -145,6 +151,7 @@ interface DashboardStore {
 // where there is no window/localStorage).
 const WIDGET_STORAGE_KEY = 'deskos.dashboardWidgets';
 const MODULES_STORAGE_KEY = 'deskos.dashboardModules';
+const LABS_STORAGE_KEY = 'deskos.labsFlags';
 
 function loadVisibility(key: string): Record<string, boolean> {
   if (typeof window === 'undefined') return {};
@@ -194,6 +201,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   // selection is applied after mount via hydrateDashboardWidgets()/hydrateDashboardModules().
   dashboardWidgets: {},
   dashboardModules: {},
+  // Start empty (every experiment off) so SSR and first client render match; the
+  // saved flags are applied after mount via hydrateLabsFlags().
+  labsFlags: {},
 
   connectWebSocket: () => {
     installAuthFetch();
@@ -334,6 +344,19 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     const next = { ...get().dashboardModules, [id]: !current };
     saveVisibility(MODULES_STORAGE_KEY, next);
     set({ dashboardModules: next });
+  },
+  hydrateLabsFlags: () => set({ labsFlags: loadVisibility(LABS_STORAGE_KEY) }),
+  toggleLabsFlag: (id: string) => {
+    // Missing id counts as OFF (experiments are opt-in), so the first toggle enables it.
+    const current = get().labsFlags[id] === true;
+    const next = { ...get().labsFlags, [id]: !current };
+    saveVisibility(LABS_STORAGE_KEY, next);
+    set({ labsFlags: next });
+  },
+  resetLabsFlags: () => {
+    // Turn every experiment back off and forget the saved selection.
+    saveVisibility(LABS_STORAGE_KEY, {});
+    set({ labsFlags: {} });
   },
   resetDashboardLayout: () => {
     // Wipe both saved visibility maps back to defaults (all sections visible,
@@ -753,3 +776,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     }
   },
 }));
+
+// Convenience hook for reading a single Labs feature flag (default OFF). Components
+// opt into experimental behaviour with `useLabsFlag('my-flag')` without pulling the
+// whole flag map. Reads {} until hydrateLabsFlags() runs after mount, so the first
+// client render matches the server (no hydration mismatch).
+export const useLabsFlag = (id: string): boolean =>
+  useDashboardStore((s) => s.labsFlags[id] === true);

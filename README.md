@@ -95,6 +95,14 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
   das Rate-Limit, aktive Verbindungen und die Server-Umgebung – über `GET /api/security/status`,
   **ohne** das Token je preiszugeben. Einrichtung in [SECURITY.md](./docs/SECURITY.md).
 
+### 🧪 Labs (experimentelle Funktionen)
+- **Labs-View** (Kachel „Labs"): Hub für experimentelle / Beta-Funktionen (wie „Google Labs" /
+  `chrome://flags`). Jedes Experiment ist ein **opt-in Feature-Flag** – standardmäßig aus, per
+  Schalter sofort wirksam, lokal in `localStorage` persistiert und per „Zurücksetzen" abschaltbar.
+- Mitgeliefert: **Ruhemodus** (schaltet Flackern/Scanlines ab) und **Dashboard-Uhr** (Live-Uhr in der
+  Kopfzeile). Neue Experimente werden im Katalog `LABS_FEATURES` gepflegt und per `useLabsFlag()`
+  verdrahtet – Details in [LABS.md](./docs/LABS.md).
+
 ### 🏗️ Infrastruktur
 - TypeScript in allen Schichten, Monorepo mit npm Workspaces, **eine** Typquelle (`packages/shared`).
 - **SQLite-Persistenz** für Geräte, Geräte-Daten (gedrosselt), Logs, Automationen, Layouts, Plugins, Notifications.
@@ -195,8 +203,8 @@ DeskOS/
 │   ├── frontend/                 # React + Next.js Dashboard
 │   │   └── src/
 │   │       ├── components/        # Dashboard, MonitorView, LogView, RgbView, DisplaysView, AutomationsView,
-│   │       │                      #   SensorView, PluginsView, PluginWidgets, NotificationCenter,
-│   │       │                      #   DeviceDetail, LayoutBar, OverlayMenu, holo
+│   │       │                      #   SensorView, PluginsView, PluginWidgets, NotificationCenter, SecurityView,
+│   │       │                      #   LabsView, DeviceDetail, LayoutBar, OverlayMenu, holo
 │   │       └── stores/            # Zustand Store (dashboardStore.ts)
 │   ├── agent/                    # Remote-PC-Agent (sendet Metriken via WebSocket)
 │   └── simulator/                # Virtueller ESP32-Sensor-/LED-Node (MQTT)
@@ -327,6 +335,7 @@ Details: [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) ·
 | [QUICKSTART.md](./docs/QUICKSTART.md) | Schnellstart & Troubleshooting |
 | [MENU.md](./docs/MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
 | [SECURITY.md](./docs/SECURITY.md) | Security-Center & Auth-Modell (Shared-Token, CORS, Rate-Limit) |
+| [LABS.md](./docs/LABS.md) | Labs – experimentelle Funktionen (Feature-Flags) |
 | [SPOTIFY.md](./docs/SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
 | [DISCORD.md](./docs/DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
 | [API.md](./docs/API.md) | API-Beispiele |
