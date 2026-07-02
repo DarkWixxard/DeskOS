@@ -41,7 +41,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'storage', label: 'Storage', icon: 'database', view: 'storage' },
       { id: 'terminal', label: 'Terminal', icon: 'terminal', view: 'terminal' },
       { id: 'alerts', label: 'Alerts', icon: 'bell' },
-      { id: 'api', label: 'API Console', icon: 'code' },
+      { id: 'api', label: 'API Console', icon: 'code', view: 'api' },
       { id: 'display', label: 'Anzeige', icon: 'layers', view: 'display' },
       { id: 'settings', label: 'Settings', icon: 'gear' },
     ],
