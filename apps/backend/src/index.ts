@@ -92,7 +92,7 @@ const spotify = createSpotifyService(plugins);
 const discord = createDiscordService(plugins);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout, plugins, spotify, discord });
+setupRoutes(app, { persistence, notifications, layout, plugins, spotify, discord, wsServer });
 
 // Event logging
 eventSystem.on('*', (event) => {

@@ -18,6 +18,7 @@ import { PluginWidgets } from '@/components/PluginWidgets';
 const TerminalView = dynamic(() => import('@/components/TerminalView').then((m) => m.TerminalView), { ssr: false });
 import { ApiConsoleView } from '@/components/ApiConsoleView';
 import { SettingsView } from '@/components/SettingsView';
+import { SecurityView } from '@/components/SecurityView';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -37,7 +38,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -583,6 +584,8 @@ export function Dashboard() {
         {activeView === 'api' && <ApiConsoleView />}
 
         {activeView === 'settings' && <SettingsView />}
+
+        {activeView === 'security' && <SecurityView />}
 
         {!FULL_VIEWS.includes(activeView) && (
         <>

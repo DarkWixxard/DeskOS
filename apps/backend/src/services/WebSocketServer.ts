@@ -237,6 +237,13 @@ export class WebSocketServer {
   }
 
   /**
+   * Anzahl aktuell verbundener Socket.IO-Clients (für das Security-Center).
+   */
+  getClientCount(): number {
+    return this.io.engine.clientsCount;
+  }
+
+  /**
    * Broadcast event to all connected clients
    */
   broadcastEvent(event: DeskOSEvent): void {
