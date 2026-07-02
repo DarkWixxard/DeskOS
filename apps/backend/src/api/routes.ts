@@ -7,6 +7,7 @@ import { automationEngine } from '../core/AutomationEngine';
 import { wledService } from '../services/WledService';
 import { displayService } from '../services/DisplayService';
 import { mqttService } from '../services/MqttService';
+import { authEnabled } from './auth';
 import { v4 as uuidv4 } from 'uuid';
 import type { PersistenceService } from '../services/PersistenceService';
 import type { NotificationService } from '../services/NotificationService';
@@ -14,6 +15,7 @@ import type { LayoutService } from '../services/LayoutService';
 import type { PluginRegistry } from '../services/PluginRegistry';
 import type { SpotifyService, PlaybackAction } from '../services/SpotifyService';
 import type { DiscordService } from '../services/DiscordService';
+import type { WebSocketServer } from '../services/WebSocketServer';
 import type { LogLevel } from '@shared/types';
 
 export interface RouteDeps {
@@ -23,6 +25,7 @@ export interface RouteDeps {
   plugins?: PluginRegistry;
   spotify?: SpotifyService;
   discord?: DiscordService;
+  wsServer?: WebSocketServer;
 }
 
 export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
@@ -364,6 +367,51 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     if (!deps.discord) return discordUnavailable(res);
     await deps.discord.disconnect();
     res.json({ ok: true });
+  });
+
+  // ---- Security-Center ----
+  // Liefert eine geheimnis-freie Momentaufnahme der Sicherheitslage des Backends
+  // (Auth an/aus, CORS-Modus, Rate-Limit, Header, offene Verbindungen). Der Token
+  // selbst wird NIE ausgeliefert – nur ob überhaupt einer gesetzt ist.
+  app.get('/api/security/status', (req, res) => {
+    const corsOrigins = (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const corsMode: 'all' | 'allowlist' | 'mirror' = corsOrigins.includes('*')
+      ? 'all'
+      : corsOrigins.length > 0
+        ? 'allowlist'
+        : 'mirror';
+
+    res.json({
+      auth: {
+        enabled: authEnabled(),
+        scheme: 'shared-token',
+        // Wo der Token akzeptiert wird – hilft beim Einrichten weiterer Geräte.
+        accepts: ['x-deskos-token', 'Authorization: Bearer', '?token='],
+        websocketProtected: authEnabled(),
+      },
+      cors: {
+        mode: corsMode,
+        // Bei 'all'/'mirror' bleibt die Liste leer (Anfrage-Origin wird gespiegelt).
+        origins: corsMode === 'allowlist' ? corsOrigins : [],
+      },
+      rateLimit: {
+        windowMs: 60_000,
+        max: Number(process.env.RATE_LIMIT_MAX) || 300,
+      },
+      headers: {
+        helmet: true,
+      },
+      connections: {
+        websocketClients: deps.wsServer ? deps.wsServer.getClientCount() : 0,
+      },
+      server: {
+        env: process.env.NODE_ENV || 'development',
+        uptimeSec: Math.round(process.uptime()),
+      },
+    });
   });
 
   // Dashboard summary

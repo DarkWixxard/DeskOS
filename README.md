@@ -83,6 +83,14 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
   (kein Bot), zeigt Avatar & Anzeigename im Widget – Einrichtung in [DISCORD.md](./docs/DISCORD.md).
 - Aktivierte Plugins rendern Widgets im Dashboard.
 
+### 🔐 Security-Center
+- **Shared-Token-Auth** (`DESKOS_TOKEN`): schützt API **und** WebSocket mit einem gemeinsamen
+  LAN-Geheimnis (zeitkonstanter Vergleich). Ohne Token bleibt DeskOS offen (rückwärtskompatibel,
+  Warnung beim Start). Dazu `helmet`-Security-Header, CORS-Allowlist und Rate-Limit gegen Brute-Force.
+- **Security-View** (Kachel „Security"): zeigt live, ob API/WebSocket geschützt sind, den CORS-Modus,
+  das Rate-Limit, aktive Verbindungen und die Server-Umgebung – über `GET /api/security/status`,
+  **ohne** das Token je preiszugeben. Einrichtung in [SECURITY.md](./docs/SECURITY.md).
+
 ### 🏗️ Infrastruktur
 - TypeScript in allen Schichten, Monorepo mit npm Workspaces, **eine** Typquelle (`packages/shared`).
 - **SQLite-Persistenz** für Geräte, Geräte-Daten (gedrosselt), Logs, Automationen, Layouts, Plugins, Notifications.
@@ -223,6 +231,9 @@ DeskOS/
 | `MQTT_EMBEDDED` | `true` | eingebetteten Broker starten (`false` zum Deaktivieren) |
 | `WLED_LIGHTS` | *(2 Defaults)* | JSON-Array `[{"name":"…","ip":"…"}]`, beim ersten Start angelegt |
 | `LOG_LEVEL` | `debug` | Log-Level |
+| `DESKOS_TOKEN` | – | Shared-Token für API + WebSocket. Leer = Auth **aus** (Warnung beim Start). Erzeugen: `openssl rand -hex 24` |
+| `CORS_ORIGINS` | – | Komma-Liste erlaubter Origins (`*` = alle, leer = Anfrage-Origin spiegeln) |
+| `RATE_LIMIT_MAX` | `300` | Requests je Minute und IP auf `/api` |
 
 ### Frontend (`apps/frontend/.env.local`)
 `NEXT_PUBLIC_API_URL` – Backend-URL (Standard `http://localhost:4001`).
@@ -242,6 +253,7 @@ DeskOS/
 | Bereich | Endpoints |
 |---------|-----------|
 | **System** | `GET /health` · `GET /api/system/metrics` · `GET /api/dashboard/summary` |
+| **Security** | `GET /api/security/status` (Auth/CORS/Rate-Limit/Verbindungen – **ohne** Token-Geheimnis) |
 | **Geräte** | `GET /api/devices` · `GET /api/devices/:id` · `GET /api/devices/:id/data` · `PATCH /api/devices/:id` (umbenennen) · `DELETE /api/devices/:id` · `POST /api/devices/:id/command` (MQTT/Firmware) |
 | **Events / Logs** | `GET /api/events` · `GET /api/logs?level=&limit=` |
 | **Notifications** | `GET /api/notifications` · `GET /api/notifications/unread-count` · `POST /api/notifications/:id/read` · `POST /api/notifications/read-all` |
@@ -310,6 +322,7 @@ Details: [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) ·
 | [ROADMAP.md](./docs/ROADMAP.md) | Vision, Meilensteine M0–M6 (umgesetzt) |
 | [QUICKSTART.md](./docs/QUICKSTART.md) | Schnellstart & Troubleshooting |
 | [MENU.md](./docs/MENU.md) | Overlay-Menü & Tastatur-Befehle (Strg + K …) |
+| [SECURITY.md](./docs/SECURITY.md) | Security-Center & Auth-Modell (Shared-Token, CORS, Rate-Limit) |
 | [SPOTIFY.md](./docs/SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
 | [DISCORD.md](./docs/DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
 | [API.md](./docs/API.md) | API-Beispiele |
