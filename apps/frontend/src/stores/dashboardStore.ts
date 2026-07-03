@@ -8,6 +8,7 @@ import type {
   DeskOSEvent,
   DeskNotification,
   WledLight,
+  WledOffSchedule,
   RgbMode,
   DisplayPanel,
   DisplaySource,
@@ -27,6 +28,7 @@ export type {
   SystemMetrics,
   DeskNotification,
   WledLight,
+  WledOffSchedule,
   RgbMode,
   DisplayPanel,
   DisplaySource,
@@ -123,7 +125,10 @@ interface DashboardStore {
   controlWledLight: (id: string, patch: WledControl) => Promise<void>;
   setWledMode: (id: string, mode: RgbMode) => Promise<void>;
   addWledLight: (name: string, ip: string) => Promise<boolean>;
-  updateWledLight: (id: string, patch: { name?: string; ip?: string }) => Promise<void>;
+  updateWledLight: (
+    id: string,
+    patch: { name?: string; ip?: string; offSchedule?: WledOffSchedule | null }
+  ) => Promise<void>;
   removeWledLight: (id: string) => Promise<void>;
   fetchDisplays: () => Promise<void>;
   addDisplay: (input: { name: string; transport?: DisplayTransport; target?: string; source?: DisplaySource }) => Promise<boolean>;
@@ -523,7 +528,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     }
   },
 
-  updateWledLight: async (id: string, patch: { name?: string; ip?: string }) => {
+  updateWledLight: async (id: string, patch: { name?: string; ip?: string; offSchedule?: WledOffSchedule | null }) => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/wled/lights/${encodeURIComponent(id)}`, {
         method: 'PATCH',

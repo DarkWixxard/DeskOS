@@ -9,7 +9,7 @@ import { deviceManager } from '../core/DeviceManager';
 import { eventSystem, DeskOSEvent } from '../core/EventSystem';
 import { systemMonitor } from './SystemMonitor';
 import type { Device } from '../core/DeviceManager';
-import type { SystemMetrics, WledLight, WledState, RgbMode } from '@shared/types';
+import type { SystemMetrics, WledLight, WledState, RgbMode, WledOffSchedule } from '@shared/types';
 
 interface ControlInput {
   on?: boolean;
@@ -70,7 +70,11 @@ function toRgb(color: [number, number, number] | string): [number, number, numbe
 export class WledService {
   private readonly stateCache = new Map<string, WledState>();
   private readonly tempThrottle = new Map<string, number>();
+  // Last minute ('YYYY-M-D HH:MM') an auto-off fired per light, so a schedule
+  // triggers at most once within its matching minute.
+  private readonly offFiredAt = new Map<string, string>();
   private pollTimer: NodeJS.Timeout | null = null;
+  private scheduleTimer: NodeJS.Timeout | null = null;
   private readonly pollIntervalMs = Number(process.env.WLED_POLL_INTERVAL_MS) || 7000;
   private readonly tempIntervalMs = 3000;
   private readonly requestTimeoutMs = 2500;
@@ -93,6 +97,9 @@ export class WledService {
     void this.pollAll();
     this.pollTimer = setInterval(() => void this.pollAll(), this.pollIntervalMs);
     this.pollTimer.unref?.();
+    // Per-light "turn off at HH:MM" schedules, checked once per minute.
+    this.scheduleTimer = setInterval(() => this.tickSchedules(), 60_000);
+    this.scheduleTimer.unref?.();
   }
 
   private onCommand(event: DeskOSEvent): void {
@@ -118,6 +125,10 @@ export class WledService {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
+    if (this.scheduleTimer) {
+      clearInterval(this.scheduleTimer);
+      this.scheduleTimer = null;
+    }
   }
 
   // ------------------------------------------------------------- light config
@@ -137,7 +148,19 @@ export class WledService {
       state: this.stateCache.get(d.id),
       ledCount: typeof meta.ledCount === 'number' ? meta.ledCount : undefined,
       version: typeof meta.version === 'string' ? meta.version : undefined,
+      offSchedule: this.normalizeSchedule(meta.offSchedule),
     };
+  }
+
+  /** Coerce persisted metadata into a valid WledOffSchedule (or undefined). */
+  private normalizeSchedule(raw: unknown): WledOffSchedule | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const s = raw as Record<string, unknown>;
+    if (typeof s.time !== 'string' || !/^\d{2}:\d{2}$/.test(s.time)) return undefined;
+    const days = Array.isArray(s.days)
+      ? s.days.filter((d): d is number => typeof d === 'number' && d >= 0 && d <= 6)
+      : undefined;
+    return { enabled: !!s.enabled, time: s.time, days: days && days.length ? days : undefined };
   }
 
   listLights(): WledLight[] {
@@ -155,12 +178,22 @@ export class WledService {
     return this.toLight(deviceManager.getDevice(device.id)!);
   }
 
-  updateLight(id: string, patch: { name?: string; ip?: string; mode?: RgbMode }): WledLight | null {
+  updateLight(
+    id: string,
+    patch: { name?: string; ip?: string; mode?: RgbMode; offSchedule?: WledOffSchedule | null }
+  ): WledLight | null {
     const device = deviceManager.getDevice(id);
     if (!device || !isWledDevice(device)) return null;
     const metadata = { ...(device.metadata as Record<string, unknown>) };
     if (patch.ip !== undefined) metadata.ip = patch.ip;
     if (patch.mode !== undefined) metadata.mode = patch.mode;
+    if (patch.offSchedule !== undefined) {
+      // `null` clears the schedule; otherwise store the normalized shape.
+      const normalized = patch.offSchedule === null ? undefined : this.normalizeSchedule(patch.offSchedule);
+      if (normalized) metadata.offSchedule = normalized;
+      else delete metadata.offSchedule;
+      this.offFiredAt.delete(id); // let an edited schedule fire again this minute
+    }
     deviceManager.updateDevice(id, { name: patch.name, metadata });
     if (patch.ip) void this.poll(id);
     this.emitUpdate();
@@ -172,6 +205,7 @@ export class WledService {
     if (!device || !isWledDevice(device)) return false;
     this.stateCache.delete(id);
     this.tempThrottle.delete(id);
+    this.offFiredAt.delete(id);
     const ok = deviceManager.removeDevice(id);
     this.emitUpdate();
     return ok;
@@ -292,6 +326,30 @@ export class WledService {
 
   private emitUpdate(): void {
     eventSystem.emit('wled:update', this.listLights(), 'wled-service');
+  }
+
+  // ---------------------------------------------------------- auto-off timer
+
+  /**
+   * Turn off any light whose off-schedule matches the current minute. Runs once
+   * a minute; the offFiredAt guard keeps it to a single shutdown per matching
+   * minute even if the tick is invoked more than once.
+   */
+  private tickSchedules(): void {
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const day = now.getDay();
+    const stamp = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()} ${hhmm}`;
+
+    for (const device of this.wledDevices()) {
+      const sched = this.normalizeSchedule((device.metadata as any)?.offSchedule);
+      if (!sched || !sched.enabled) continue;
+      if (sched.time !== hhmm) continue;
+      if (sched.days && sched.days.length > 0 && !sched.days.includes(day)) continue;
+      if (this.offFiredAt.get(device.id) === stamp) continue;
+      this.offFiredAt.set(device.id, stamp);
+      void this.control(device.id, { on: false }).catch(() => undefined);
+    }
   }
 
   // -------------------------------------------------------------- RGB engine

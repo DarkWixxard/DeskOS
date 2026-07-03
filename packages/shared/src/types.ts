@@ -121,6 +121,14 @@ export interface WledState {
   effectName?: string;
 }
 
+// Per-light "turn off at a set time" schedule (evaluated by the WledService
+// once a minute in local time). Stored on the backing device's metadata.
+export interface WledOffSchedule {
+  enabled: boolean;
+  time: string; // 'HH:MM' (24h, local time)
+  days?: number[]; // 0=Sun .. 6=Sat; empty/undefined = every day
+}
+
 export interface WledLight {
   id: string; // backing device id
   name: string;
@@ -130,6 +138,7 @@ export interface WledLight {
   state?: WledState;
   ledCount?: number;
   version?: string;
+  offSchedule?: WledOffSchedule;
 }
 
 export type NotificationLevel = 'info' | 'success' | 'warn' | 'error';
