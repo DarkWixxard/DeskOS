@@ -429,6 +429,30 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     res.json({ ok: deps.bambu.control(action) });
   });
 
+  // Cloud-Login Schritt 1: E-Mail + Passwort. Antwort-Status: ok | verifyCode | error.
+  app.post('/api/bambu/cloud/login', async (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    const { email, password } = (req.body ?? {}) as { email?: string; password?: string; region?: string };
+    if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort erforderlich' });
+    const region = (req.body?.region === 'china' ? 'china' : 'global') as 'china' | 'global';
+    res.json(await deps.bambu.cloudLogin(String(email), String(password), region));
+  });
+
+  // Cloud-Login Schritt 2: E-Mail-Code bestätigen.
+  app.post('/api/bambu/cloud/code', async (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    const { email, code } = (req.body ?? {}) as { email?: string; code?: string; region?: string };
+    if (!email || !code) return res.status(400).json({ error: 'E-Mail und Code erforderlich' });
+    const region = (req.body?.region === 'china' ? 'china' : 'global') as 'china' | 'global';
+    res.json(await deps.bambu.cloudSubmitCode(String(email), String(code), region));
+  });
+
+  app.post('/api/bambu/cloud/logout', async (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    await deps.bambu.cloudLogout();
+    res.json({ ok: true });
+  });
+
   // ---- Security-Center ----
   // Liefert eine geheimnis-freie Momentaufnahme der Sicherheitslage des Backends
   // (Auth an/aus, CORS-Modus, Rate-Limit, Header, offene Verbindungen). Der Token

@@ -407,7 +407,8 @@ export interface DiscordUser {
 // Enthält keine Secrets – nur ob Zugangsdaten hinterlegt sind (hasCredentials)
 // und der zuletzt empfangene Druckstatus.
 export interface BambuStatus {
-  hasCredentials: boolean; // IP + Access Code + Serial hinterlegt
+  hasCredentials: boolean; // Zugangsdaten hinterlegt (lokal ODER Cloud)
+  mode: 'local' | 'cloud' | 'none'; // aktiver Verbindungsmodus
   online: boolean; // kürzlich Daten vom Drucker empfangen
   gcodeState: string; // IDLE | PREPARE | RUNNING | PAUSE | FINISH | FAILED
   jobName: string; // aktueller Auftrag (subtask_name / Dateiname)
