@@ -461,6 +461,158 @@ const BAMBU_STATE_LABEL: Record<string, string> = {
   IDLE: 'Bereit',
 };
 
+// Trennt die Cloud-Verbindung (verwirft das gespeicherte Token).
+function BambuLogout({ base, onDone }: { base: string; onDone: () => void }) {
+  const logout = async () => {
+    try {
+      await fetch(`${base}/api/bambu/cloud/logout`, { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
+    onDone();
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void logout()}
+      className="text-[10px] uppercase tracking-wider text-danger/60 transition-colors hover:text-danger"
+    >
+      Cloud trennen
+    </button>
+  );
+}
+
+// Verbindungsauswahl: Bambu-Cloud-Login (E-Mail/Passwort + ggf. E-Mail-Code)
+// oder Hinweis auf die lokale (LAN-)Einrichtung.
+function BambuConnect({ base, onDone, onLocal }: { base: string; onDone: () => void; onLocal: () => void }) {
+  const [step, setStep] = useState<'choose' | 'form' | 'code'>('choose');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [region, setRegion] = useState<'global' | 'china'>('global');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const input =
+    'w-full rounded-none border border-accent/30 bg-black/30 px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-accent';
+  const primary =
+    'rounded-none border border-success/50 px-3 py-1 text-[11px] uppercase tracking-wider text-success transition-colors hover:bg-success/10 disabled:opacity-50';
+  const ghost = 'text-[10px] uppercase tracking-wider text-accent/50 transition-colors hover:text-accent';
+
+  const submitLogin = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`${base}/api/bambu/cloud/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, region }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.status === 'ok') onDone();
+      else if (data.status === 'verifyCode') setStep('code');
+      else setError(data.message || data.error || 'Login fehlgeschlagen.');
+    } catch {
+      setError('Netzwerkfehler.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitCode = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`${base}/api/bambu/cloud/code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code, region }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.status === 'ok') onDone();
+      else setError(data.message || data.error || 'Code ungültig.');
+    } catch {
+      setError('Netzwerkfehler.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === 'choose') {
+    return (
+      <div className="flex flex-col items-center gap-3 py-4 text-center">
+        <HoloIcon name="layers" className="h-7 w-7 text-accent/50" />
+        <p className="text-[12px] text-accent/55">Drucker verbinden</p>
+        <button type="button" onClick={() => setStep('form')} className={primary}>
+          Bambu-Konto (Cloud)
+        </button>
+        <button type="button" onClick={onLocal} className={ghost}>
+          oder lokal (LAN) einrichten
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 'code') {
+    return (
+      <div className="flex flex-col gap-2 py-3">
+        <p className="text-[11px] text-accent/55">Verifizierungscode aus der E-Mail eingeben:</p>
+        <input
+          className={input}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="Code"
+          inputMode="numeric"
+        />
+        {error && <p className="text-[10px] text-danger">{error}</p>}
+        <div className="mt-1 flex items-center justify-between">
+          <button type="button" onClick={() => setStep('form')} className={ghost}>
+            Zurück
+          </button>
+          <button type="button" disabled={busy || !code} onClick={() => void submitCode()} className={primary}>
+            Bestätigen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // step === 'form'
+  return (
+    <div className="flex flex-col gap-2 py-3">
+      <input
+        className={input}
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Bambu-E-Mail"
+        type="email"
+        autoComplete="username"
+      />
+      <input
+        className={input}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Passwort"
+        type="password"
+        autoComplete="current-password"
+      />
+      <select className={input} value={region} onChange={(e) => setRegion(e.target.value as 'global' | 'china')}>
+        <option value="global">Region: Global (EU/US)</option>
+        <option value="china">Region: China</option>
+      </select>
+      {error && <p className="text-[10px] text-danger">{error}</p>}
+      <div className="mt-1 flex items-center justify-between">
+        <button type="button" onClick={() => setStep('choose')} className={ghost}>
+          Zurück
+        </button>
+        <button type="button" disabled={busy || !email || !password} onClick={() => void submitLogin()} className={primary}>
+          Anmelden
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function BambuWidget() {
   const setActiveView = useDashboardStore((s) => s.setActiveView);
   const base = getApiBaseUrl();
@@ -495,33 +647,29 @@ function BambuWidget() {
     }
   };
 
-  // 1) Keine Zugangsdaten -> zur Plugin-Einrichtung schicken.
-  if (status && !status.hasCredentials) {
+  // 1) Kein Modus aktiv -> Verbindungsauswahl (Cloud-Login oder LAN-Hinweis).
+  if (status && status.mode === 'none') {
     return (
       <Panel title="Bambu Lab A1">
-        <div className="flex flex-col items-center gap-2 py-5 text-center">
-          <HoloIcon name="layers" className="h-7 w-7 text-accent/50" />
-          <p className="text-[12px] text-accent/55">Konfiguration erforderlich</p>
-          <button
-            type="button"
-            onClick={() => setActiveView('plugins')}
-            className="rounded-none border border-accent/40 px-2.5 py-1 text-[10px] uppercase tracking-wider text-accent hover:bg-accent/10"
-          >
-            Einrichten
-          </button>
-        </div>
+        <BambuConnect base={base} onDone={() => void load()} onLocal={() => setActiveView('plugins')} />
       </Panel>
     );
   }
 
-  // 2) Zugangsdaten vorhanden, aber Drucker (noch) nicht erreichbar.
-  if (status && status.hasCredentials && !status.online) {
+  // 2) Modus aktiv, aber Drucker (noch) nicht erreichbar.
+  if (status && !status.online) {
+    const cloud = status.mode === 'cloud';
     return (
       <Panel title="Bambu Lab A1">
         <div className="flex flex-col items-center gap-2 py-5 text-center">
           <HoloIcon name="layers" className="h-7 w-7 text-accent/40" />
-          <p className="text-[12px] text-accent/55">Drucker nicht erreichbar</p>
-          <p className="text-[10px] text-accent/35">Verbindung wird versucht …</p>
+          <p className="text-[12px] text-accent/55">
+            {cloud ? 'Cloud verbunden – warte auf Druckerdaten …' : 'Drucker nicht erreichbar'}
+          </p>
+          <p className="text-[10px] text-accent/35">
+            {cloud ? 'Der Drucker meldet sich, sobald er online ist.' : 'Verbindung wird versucht …'}
+          </p>
+          {cloud && <BambuLogout base={base} onDone={() => void load()} />}
         </div>
       </Panel>
     );
@@ -553,6 +701,11 @@ function BambuWidget() {
             <span className="holo-label">kein Druck aktiv</span>
           </div>
           {temps}
+          {status.mode === 'cloud' && (
+            <div className="mt-3 text-center">
+              <BambuLogout base={base} onDone={() => void load()} />
+            </div>
+          )}
         </Panel>
       );
     }
