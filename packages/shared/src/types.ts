@@ -392,3 +392,23 @@ export interface DiscordUser {
   globalName: string | null; // Anzeigename, falls gesetzt
   avatarUrl: string | null;
 }
+
+// --- Bambu Lab (3D-Drucker-Plugin) ---
+// Live-Status eines Bambu-Lab-Druckers (A1 & Co.), lokal per MQTT abgerufen.
+// Enthält keine Secrets – nur ob Zugangsdaten hinterlegt sind (hasCredentials)
+// und der zuletzt empfangene Druckstatus.
+export interface BambuStatus {
+  hasCredentials: boolean; // IP + Access Code + Serial hinterlegt
+  online: boolean; // kürzlich Daten vom Drucker empfangen
+  gcodeState: string; // IDLE | PREPARE | RUNNING | PAUSE | FINISH | FAILED
+  jobName: string; // aktueller Auftrag (subtask_name / Dateiname)
+  progress: number; // Fortschritt 0–100 (mc_percent)
+  remainingMin: number; // Restzeit in Minuten (mc_remaining_time)
+  layerNum: number; // aktuelle Schicht
+  totalLayers: number; // Gesamtzahl Schichten
+  nozzleTemp: number; // Düsentemperatur °C (ist)
+  nozzleTarget: number; // Düsentemperatur °C (soll)
+  bedTemp: number; // Betttemperatur °C (ist)
+  bedTarget: number; // Betttemperatur °C (soll)
+  updatedAt: number; // Zeitpunkt des letzten Reports (epoch ms)
+}

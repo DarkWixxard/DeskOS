@@ -125,6 +125,20 @@ const CATALOG: PluginManifest[] = [
       { key: 'apiKey', label: 'API Key', type: 'password' },
     ],
   },
+  {
+    id: 'bambu',
+    name: 'Bambu Lab A1',
+    description: 'Druckfortschritt & Restzeit des 3D-Druckers.',
+    category: 'smart-home',
+    icon: 'layers',
+    requiresAuth: true,
+    hasWidget: true,
+    settingsSchema: [
+      { key: 'ip', label: 'Drucker-IP', type: 'text' },
+      { key: 'accessCode', label: 'LAN-Zugangscode', type: 'password' },
+      { key: 'serial', label: 'Seriennummer', type: 'text' },
+    ],
+  },
 ];
 
 const BUILTIN_DEFAULT_ENABLED = ['clock', 'system-summary'];
