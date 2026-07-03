@@ -141,8 +141,8 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   });
 
   app.patch('/api/wled/lights/:id', (req, res) => {
-    const { name, ip, mode } = req.body ?? {};
-    const light = wledService.updateLight(req.params.id, { name, ip, mode });
+    const { name, ip, mode, offSchedule } = req.body ?? {};
+    const light = wledService.updateLight(req.params.id, { name, ip, mode, offSchedule });
     if (!light) return res.status(404).json({ error: 'WLED-Licht nicht gefunden' });
     res.json(light);
   });

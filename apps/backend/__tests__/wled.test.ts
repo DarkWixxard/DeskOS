@@ -92,4 +92,52 @@ describe('WledService', () => {
     wledService.removeLight(light.id);
     await new Promise<void>((r) => mock.server.close(() => r()));
   });
+
+  test('persists and normalizes the auto-off schedule', async () => {
+    const mock = await startMockWled();
+    const light = wledService.addLight('Timer-Licht', `127.0.0.1:${mock.port}`);
+    expect(light.offSchedule).toBeUndefined();
+
+    const withSchedule = wledService.updateLight(light.id, {
+      offSchedule: { enabled: true, time: '22:30', days: [1, 2, 3, 4, 5, 9 as any] },
+    });
+    // Invalid day (9) is dropped; the rest is kept.
+    expect(withSchedule?.offSchedule).toEqual({ enabled: true, time: '22:30', days: [1, 2, 3, 4, 5] });
+
+    // Clearing with null removes it again.
+    const cleared = wledService.updateLight(light.id, { offSchedule: null });
+    expect(cleared?.offSchedule).toBeUndefined();
+
+    wledService.removeLight(light.id);
+    await new Promise<void>((r) => mock.server.close(() => r()));
+  });
+
+  test('turns a light off when its schedule matches the current minute', async () => {
+    const mock = await startMockWled();
+    const light = wledService.addLight('AutoAus-Licht', `127.0.0.1:${mock.port}`);
+
+    // Bring it online + on so the scheduled shutdown is observable.
+    await wledService.control(light.id, { on: true, brightness: 80 });
+    expect(mock.getState().on).toBe(true);
+
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    wledService.updateLight(light.id, { offSchedule: { enabled: true, time: hhmm } });
+
+    // Invoke the per-minute tick directly and let the async control() settle.
+    (wledService as any).tickSchedules();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mock.lastBody().on).toBe(false);
+    expect(mock.getState().on).toBe(false);
+
+    // A disabled schedule at the same minute must not fire.
+    await wledService.control(light.id, { on: true });
+    wledService.updateLight(light.id, { offSchedule: { enabled: false, time: hhmm } });
+    (wledService as any).tickSchedules();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mock.getState().on).toBe(true);
+
+    wledService.removeLight(light.id);
+    await new Promise<void>((r) => mock.server.close(() => r()));
+  });
 });

@@ -16,6 +16,10 @@ const MODES: { id: RgbMode; label: string; hint: string }[] = [
   { id: 'alarm', label: 'Alarm', hint: 'Rot bei kritischen Warnungen' },
 ];
 
+// getDay() order: 0 = Sonntag .. 6 = Samstag.
+const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
 const toHex = (c?: [number, number, number]): string =>
   c ? '#' + c.map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, '0')).join('') : '#ffffff';
 
@@ -37,10 +41,40 @@ function LightCard({ light }: { light: WledLight }) {
   const [editName, setEditName] = useState(light.name);
   const [editIp, setEditIp] = useState(light.ip);
 
+  // Auto-off schedule (local mirror of light.offSchedule).
+  const [offEnabled, setOffEnabled] = useState(light.offSchedule?.enabled ?? false);
+  const [offTime, setOffTime] = useState(light.offSchedule?.time ?? '22:00');
+  const [offDays, setOffDays] = useState<number[]>(light.offSchedule?.days ?? []);
+
   // Keep the brightness slider in sync with live state (unless mid-drag handled by onChange).
   useEffect(() => {
     setBri(light.state?.brightness ?? 50);
   }, [light.state?.brightness]);
+
+  // Reflect schedule changes coming from the backend (other clients / restore).
+  useEffect(() => {
+    setOffEnabled(light.offSchedule?.enabled ?? false);
+    if (light.offSchedule?.time) setOffTime(light.offSchedule.time);
+    setOffDays(light.offSchedule?.days ?? []);
+  }, [light.offSchedule?.enabled, light.offSchedule?.time, light.offSchedule?.days]);
+
+  // Persist the schedule; empty days = jeden Tag.
+  const saveSchedule = (next: { enabled?: boolean; time?: string; days?: number[] }) => {
+    const enabled = next.enabled ?? offEnabled;
+    const time = next.time ?? offTime;
+    const days = next.days ?? offDays;
+    setOffEnabled(enabled);
+    setOffTime(time);
+    setOffDays(days);
+    updateLight(light.id, { offSchedule: { enabled, time, days: days.length ? days : undefined } });
+  };
+
+  const toggleDay = (idx: number) => {
+    const current = offDays.length === 0 ? [...ALL_DAYS] : [...offDays];
+    let nextDays = current.includes(idx) ? current.filter((d) => d !== idx) : [...current, idx].sort((a, b) => a - b);
+    if (nextDays.length === 0) nextDays = [...ALL_DAYS]; // never leave an empty (= impossible) selection
+    saveSchedule({ days: nextDays.length === ALL_DAYS.length ? [] : nextDays });
+  };
 
   // Lazy-load the effect list once (best effort; empty when offline).
   useEffect(() => {
@@ -182,6 +216,56 @@ function LightCard({ light }: { light: WledLight }) {
               {m.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Auto-off timer */}
+      <div className="mt-3 border-t border-accent/10 pt-3">
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="holo-label">Auto-Aus (Zeitplan)</p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={offEnabled}
+            onClick={() => saveSchedule({ enabled: !offEnabled })}
+            className={clsx(
+              'rounded-none border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors',
+              offEnabled ? 'border-success/50 text-success' : 'border-accent/30 text-accent/40 hover:border-accent/60'
+            )}
+          >
+            {offEnabled ? 'An' : 'Aus'}
+          </button>
+        </div>
+        <div className={clsx('flex items-center gap-2 transition-opacity', !offEnabled && 'opacity-40')}>
+          <span className="text-[11px] text-accent/60">Ausschalten um</span>
+          <input
+            type="time"
+            value={offTime}
+            disabled={!offEnabled}
+            onChange={(e) => saveSchedule({ time: e.target.value })}
+            className="rounded-none border border-accent/30 bg-darker/60 px-2 py-1 text-sm text-white outline-none focus:border-accent disabled:cursor-not-allowed"
+            aria-label="Ausschaltzeit"
+          />
+        </div>
+        <div className={clsx('mt-2 flex flex-wrap gap-1 transition-opacity', !offEnabled && 'opacity-40')}>
+          {WEEKDAYS.map((label, idx) => {
+            const active = offDays.length === 0 || offDays.includes(idx);
+            return (
+              <button
+                key={idx}
+                type="button"
+                disabled={!offEnabled}
+                onClick={() => toggleDay(idx)}
+                title={offDays.length === 0 ? 'Jeden Tag' : undefined}
+                className={clsx(
+                  'w-7 rounded-none border py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-all disabled:cursor-not-allowed',
+                  active ? 'border-accent bg-accent/15 text-accent' : 'border-accent/20 text-accent/40 hover:border-accent/50'
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </Panel>
