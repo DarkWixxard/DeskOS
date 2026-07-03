@@ -19,6 +19,7 @@ import { createSceneService } from './services/SceneService';
 import { createPluginRegistry } from './services/PluginRegistry';
 import { createSpotifyService } from './services/SpotifyService';
 import { createDiscordService } from './services/DiscordService';
+import { createBambuService } from './services/BambuService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -92,9 +93,10 @@ const scenes = createSceneService(database);
 const plugins = createPluginRegistry(database);
 const spotify = createSpotifyService(plugins);
 const discord = createDiscordService(plugins);
+const bambu = createBambuService(plugins);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout, scenes, plugins, spotify, discord, wsServer });
+setupRoutes(app, { persistence, notifications, layout, scenes, plugins, spotify, discord, bambu, wsServer });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -158,6 +160,10 @@ async function bootstrap(): Promise<void> {
     discord.restore();
     console.log('✅ Discord service ready');
 
+    // Bambu Lab (3D-Drucker): bei hinterlegten Zugangsdaten per MQTT verbinden.
+    bambu.attach();
+    console.log('✅ Bambu service ready');
+
     // MQTT (ESP32 / sensor nodes) — embedded broker + client.
     await mqttService.start();
 
@@ -213,6 +219,7 @@ async function bootstrap(): Promise<void> {
       displayService.stop();
       automationEngine.stop();
       persistence.stop();
+      bambu.stop();
       await mqttService.stop();
       await database.close();
       server.close(() => {

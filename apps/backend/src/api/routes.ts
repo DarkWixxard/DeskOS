@@ -16,6 +16,7 @@ import type { SceneService } from '../services/SceneService';
 import type { PluginRegistry } from '../services/PluginRegistry';
 import type { SpotifyService, PlaybackAction } from '../services/SpotifyService';
 import type { DiscordService } from '../services/DiscordService';
+import type { BambuService, BambuAction } from '../services/BambuService';
 import type { WebSocketServer } from '../services/WebSocketServer';
 import type { LogLevel } from '@shared/types';
 
@@ -27,6 +28,7 @@ export interface RouteDeps {
   plugins?: PluginRegistry;
   spotify?: SpotifyService;
   discord?: DiscordService;
+  bambu?: BambuService;
   wsServer?: WebSocketServer;
 }
 
@@ -408,6 +410,23 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     if (!deps.discord) return discordUnavailable(res);
     await deps.discord.disconnect();
     res.json({ ok: true });
+  });
+
+  // ---- Bambu Lab (3D-Drucker-Plugin) ----
+  const bambuUnavailable = (res: any) => res.status(503).json({ error: 'Bambu-Service nicht verfügbar' });
+
+  app.get('/api/bambu/status', (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    res.json(deps.bambu.getStatus());
+  });
+
+  app.post('/api/bambu/control/:action', (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    const action = req.params.action as BambuAction;
+    if (!['pause', 'resume', 'stop'].includes(action)) {
+      return res.status(400).json({ error: 'Ungültige Aktion' });
+    }
+    res.json({ ok: deps.bambu.control(action) });
   });
 
   // ---- Security-Center ----
