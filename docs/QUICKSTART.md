@@ -150,6 +150,12 @@ npm run build
 NODE_ENV=production node dist/index.js
 ```
 
+> **Note:** `systeminformation` is an *optional* dependency. If it isn't installed
+> (e.g. you skipped `npm install`), the agent still starts and reports core metrics
+> (CPU %, RAM, uptime) plus native Linux/Raspberry-Pi fallbacks for temperature,
+> disks, processes and network — GPU stats need the module. Run `npm install` to
+> enable the full metric set.
+
 ### 3. Verify in Dashboard
 Go to http://localhost:4000 and check the Devices section.
 
