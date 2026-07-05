@@ -10,10 +10,10 @@ out/
 
 # Umgebungsvariablen / Secrets — ALLE .env-Varianten ignorieren,
 # nur die *.example-Vorlagen bleiben im Repo.
-.env
-.env.*
-!.env.example
-!.env.*.example
+#.env
+#.env.*
+#!.env.example
+#!.env.*.example
 
 # Schlüssel, Zertifikate, Zugangsdaten (niemals einchecken)
 *.pem
