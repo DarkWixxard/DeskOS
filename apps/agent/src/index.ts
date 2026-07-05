@@ -34,7 +34,7 @@ function loadSi(): Promise<Si | null> {
   return siPromise;
 }
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://192.168.178.130:4001';
 const AGENT_NAME = process.env.AGENT_NAME || os.hostname();
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '1000');
 

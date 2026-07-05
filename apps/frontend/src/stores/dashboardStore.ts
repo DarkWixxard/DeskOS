@@ -66,7 +66,7 @@ interface DashboardStore {
   wsConnected: boolean;
   socket: Socket | null;
   loading: boolean;
-  deviceFilter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor';
+  deviceFilter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor' | 'RaspberryPi' | 'Arduino';
   searchQuery: string;
   activeView: string;
   // Notification Center
@@ -97,7 +97,7 @@ interface DashboardStore {
   // Actions
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
-  setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor') => void;
+  setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor' | 'RaspberryPi' | 'Arduino') => void;
   setSearchQuery: (query: string) => void;
   hydrateDashboardWidgets: () => void;
   toggleDashboardWidget: (id: string) => void;
@@ -326,7 +326,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   },
 
   setDevices: (devices: Device[]) => set({ devices }),
-  setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor') => set({ deviceFilter: filter }),
+  setDeviceFilter: (filter: 'all' | 'local' | 'remote' | 'esp32' | 'sensor' | 'RaspberryPi' | 'Arduino') => set({ deviceFilter: filter }),
   setSearchQuery: (query: string) => set({ searchQuery: query }),
   setActiveView: (view: string) => set({ activeView: view }),
   hydrateDashboardWidgets: () => set({ dashboardWidgets: loadVisibility(WIDGET_STORAGE_KEY) }),
