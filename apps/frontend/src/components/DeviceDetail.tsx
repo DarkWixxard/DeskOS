@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { useDashboardStore, type Device } from '@/stores/dashboardStore';
 import { Panel, HoloCorners, HoloIcon } from '@/components/holo';
 import { getApiBaseUrl } from '@/lib/api';
+import { DEVICE_TYPE_OPTIONS, deviceTypeLabel, type DeviceType } from '@shared/types';
 
 /* =========================================================================
    DeskOS Device Center – detail view (M2)
@@ -58,6 +59,7 @@ export function DeviceDetail() {
   const notifications = useDashboardStore((s) => s.notifications);
   const renameDevice = useDashboardStore((s) => s.renameDevice);
   const removeDevice = useDashboardStore((s) => s.removeDevice);
+  const updateDeviceType = useDashboardStore((s) => s.updateDeviceType);
 
   const [tab, setTab] = useState<Tab>('info');
   const [nameInput, setNameInput] = useState('');
@@ -94,6 +96,12 @@ export function DeviceDetail() {
     if (!ok) window.alert('Gerät konnte nicht entfernt werden.');
   };
 
+  const handleTypeChange = async (type: DeviceType) => {
+    if (type === device.type) return;
+    const ok = await updateDeviceType(device.id, type);
+    if (!ok) window.alert('Kategorie konnte nicht geändert werden.');
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => selectDevice(null)}>
       <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
@@ -106,7 +114,7 @@ export function DeviceDetail() {
                 {device.name}
               </h2>
               <div className="mt-1 flex items-center gap-2">
-                <span className="holo-label">{device.type}</span>
+                <span className="holo-label">{deviceTypeLabel(device.type)}</span>
                 <StatusPill status={device.status} />
               </div>
             </div>
@@ -187,6 +195,20 @@ export function DeviceDetail() {
                       {saving ? '…' : 'Speichern'}
                     </button>
                   </div>
+                </div>
+                <div>
+                  <label className="holo-label mb-1.5 block">Kategorie</label>
+                  <select
+                    value={device.type}
+                    onChange={(e) => handleTypeChange(e.target.value as DeviceType)}
+                    className="w-full cursor-pointer rounded-none border border-accent/30 bg-darker/60 px-3 py-1.5 text-sm text-white outline-none focus:border-accent focus:shadow-glow-sm"
+                  >
+                    {DEVICE_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="border-t border-accent/15 pt-3">
                   <p className="holo-label mb-1.5">Gefahrenzone</p>

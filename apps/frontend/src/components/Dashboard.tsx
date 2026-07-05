@@ -18,6 +18,7 @@ import { PluginWidgets } from '@/components/PluginWidgets';
 // xterm greift auf window/document zu -> client-only laden (kein SSR).
 const TerminalView = dynamic(() => import('@/components/TerminalView').then((m) => m.TerminalView), { ssr: false });
 import { ApiConsoleView } from '@/components/ApiConsoleView';
+import { DEVICE_TYPE_OPTIONS, deviceTypeLabel } from '@shared/types';
 import { SettingsView } from '@/components/SettingsView';
 import { SecurityView } from '@/components/SecurityView';
 import { LabsView, LABS_CALM_MODE, LABS_DASHBOARD_CLOCK } from '@/components/LabsView';
@@ -127,7 +128,7 @@ export function DeviceCard({ device }: { device: any }) {
           <h3 className="truncate font-mono text-base font-bold text-white transition-colors group-hover:text-accent">
             {device.name}
           </h3>
-          <p className="holo-label mt-0.5">{device.type}</p>
+          <p className="holo-label mt-0.5">{deviceTypeLabel(device.type)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <StatusBadge status={device.status} />
@@ -199,7 +200,7 @@ export function ModuleStatusPanel({ title = 'Modul-Status' }: { title?: string }
                   </td>
                   <td className="py-2 pr-3">
                     <div className="truncate font-mono text-white">{device.name}</div>
-                    <div className="holo-label mt-0.5">{device.type}</div>
+                    <div className="holo-label mt-0.5">{deviceTypeLabel(device.type)}</div>
                   </td>
                   <td className="py-2 pr-3">
                     <StatusBadge status={device.status} />
@@ -707,10 +708,11 @@ export function Dashboard() {
                 className={clsx(holoField, 'cursor-pointer')}
               >
                 <option value="all">All types</option>
-                <option value="local">Local</option>
-                <option value="remote">Remote</option>
-                <option value="esp32">ESP32</option>
-                <option value="sensor">Sensor</option>
+                {DEVICE_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
 

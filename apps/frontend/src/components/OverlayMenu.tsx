@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { HoloIcon, Panel, Sparkline, RadialGauge, StatBar, HoloCorners, StatusLed } from '@/components/holo';
 import { getBackendPort } from '@/lib/api';
 import { timeAgo } from '@/lib/time';
-import type { Device } from '@shared/types';
+import { deviceTypeLabel, type Device } from '@shared/types';
 
 /* =========================================================================
    DeskOS Overlay Menu — holographic "mobiGlas" style launcher.
@@ -632,7 +632,7 @@ export function OverlayMenu() {
                                     {d.name}
                                   </div>
                                   <div className="holo-label mt-0.5">
-                                    {d.type} · {timeAgo(d.lastSeen)}
+                                    {deviceTypeLabel(d.type)} · {timeAgo(d.lastSeen)}
                                   </div>
                                 </div>
                                 <span className="hidden font-mono text-[10px] uppercase tracking-wider text-accent/60 sm:inline">

@@ -1,6 +1,7 @@
 // Device Manager - Verwaltet alle Geräte
 import { v4 as uuidv4 } from 'uuid';
 import { eventSystem } from './EventSystem';
+import { DEVICE_TYPE_OPTIONS } from '@shared/types';
 import type { Device, DeviceData } from '@shared/types';
 
 // Canonical definitions live in @shared/types; re-exported here for backwards
@@ -113,17 +114,23 @@ export class DeviceManager {
   }
 
   /**
-   * Update editable device fields (name/metadata) and persist via event.
+   * Update editable device fields (name/metadata/type) and persist via event.
+   * `type` is the user-facing "category" — it is only overwritten with a known
+   * value, and (unlike an agent reconnect) survives because reconnects never
+   * touch `type`, so a manual category sticks.
    */
   updateDevice(
     deviceId: string,
-    patch: { name?: string; metadata?: Record<string, unknown> }
+    patch: { name?: string; metadata?: Record<string, unknown>; type?: Device['type'] }
   ): Device | null {
     const device = this.devices.get(deviceId);
     if (!device) return null;
 
     if (typeof patch.name === 'string' && patch.name.trim()) device.name = patch.name.trim();
     if (patch.metadata !== undefined) device.metadata = patch.metadata;
+    if (patch.type && DEVICE_TYPE_OPTIONS.some((o) => o.value === patch.type)) {
+      device.type = patch.type;
+    }
     device.lastSeen = Date.now();
 
     eventSystem.emit('device:updated', device, 'device-manager');

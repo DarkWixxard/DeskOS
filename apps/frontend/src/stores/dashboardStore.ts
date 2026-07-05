@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { getApiBaseUrl, getAuthToken, installAuthFetch } from '@/lib/api';
 import type {
   Device,
+  DeviceType,
   SystemMetrics,
   DeskOSEvent,
   DeskNotification,
@@ -117,6 +118,7 @@ interface DashboardStore {
   setLoading: (loading: boolean) => void;
   removeDevice: (deviceId: string) => Promise<boolean>;
   renameDevice: (deviceId: string, name: string) => Promise<boolean>;
+  updateDeviceType: (deviceId: string, type: DeviceType) => Promise<boolean>;
   fetchNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -424,6 +426,26 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       return true;
     } catch (error) {
       console.error('Unable to rename device:', error);
+      return false;
+    }
+  },
+
+  updateDeviceType: async (deviceId: string, type: DeviceType) => {
+    const baseUrl = getApiBaseUrl();
+    try {
+      const response = await fetch(`${baseUrl}/api/devices/${encodeURIComponent(deviceId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      if (!response.ok) throw new Error('category update failed');
+      const updated = (await response.json()) as Device;
+      const devices = get().devices.map((d) => (d.id === deviceId ? updated : d));
+      const sel = get().selectedDevice;
+      set({ devices, selectedDevice: sel?.id === deviceId ? updated : sel });
+      return true;
+    } catch (error) {
+      console.error('Unable to update device category:', error);
       return false;
     }
   },
