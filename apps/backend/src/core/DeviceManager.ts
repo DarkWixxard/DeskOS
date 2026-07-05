@@ -1,12 +1,25 @@
 // Device Manager - Verwaltet alle Geräte
 import { v4 as uuidv4 } from 'uuid';
 import { eventSystem } from './EventSystem';
-import { DEVICE_TYPE_OPTIONS } from '@shared/types';
 import type { Device, DeviceData } from '@shared/types';
 
 // Canonical definitions live in @shared/types; re-exported here for backwards
 // compatibility with existing `import { Device } from './DeviceManager'` callers.
 export type { Device, DeviceData };
+
+// Valid device categories. Mirrors DeviceType in @shared/types, but kept as a
+// local runtime list on purpose: backend/agent resolve @shared to the built
+// shared/dist, so importing a *runtime* value would break whenever that dist is
+// stale (e.g. `npm run dev`, which never rebuilds it). Types are erased by tsx,
+// so the `import type` above needs no fresh dist — only runtime values do.
+const VALID_DEVICE_TYPES = new Set<Device['type']>([
+  'local',
+  'remote',
+  'esp32',
+  'sensor',
+  'RaspberryPi',
+  'Arduino',
+]);
 
 export class DeviceManager {
   private devices: Map<string, Device> = new Map();
@@ -128,7 +141,7 @@ export class DeviceManager {
 
     if (typeof patch.name === 'string' && patch.name.trim()) device.name = patch.name.trim();
     if (patch.metadata !== undefined) device.metadata = patch.metadata;
-    if (patch.type && DEVICE_TYPE_OPTIONS.some((o) => o.value === patch.type)) {
+    if (patch.type && VALID_DEVICE_TYPES.has(patch.type)) {
       device.type = patch.type;
     }
     device.lastSeen = Date.now();
