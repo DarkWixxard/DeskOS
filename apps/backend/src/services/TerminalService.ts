@@ -29,7 +29,7 @@ interface PtyModule {
 const MAX_SESSIONS_PER_SOCKET = 4;
 
 export const terminalEnabled = (): boolean =>
-  authEnabled() || (process.env.DESKOS_TERMINAL_ENABLED || '').trim() === '1';
+  authEnabled() || (process.env.DESKOS_TERMINAL_ENABLED || '1').trim() === '1';
 
 // node-pty ist ein natives Modul: lazy laden, damit ein fehlgeschlagener Build
 // das Backend nicht am Booten hindert (terminal:start meldet dann den Fehler).
