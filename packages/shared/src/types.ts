@@ -4,8 +4,32 @@
 // agent import from here (via the "@shared/*" path alias) and re-export where
 // needed, so a type only ever needs to change in one place.
 
-export type DeviceType = 'local' | 'remote' | 'esp32' | 'sensor';
+export type DeviceType =
+  | 'local'
+  | 'remote'
+  | 'esp32'
+  | 'sensor'
+  | 'RaspberryPi'
+  | 'Arduino';
 export type DeviceStatus = 'online' | 'offline' | 'error';
+
+// Single source of truth for the selectable device categories: used by the
+// device-category dropdown, the dashboard filter and the display labels. Keep
+// the `value`s in sync with DeviceType above.
+export const DEVICE_TYPE_OPTIONS: { value: DeviceType; label: string }[] = [
+  { value: 'local', label: 'Local' },
+  { value: 'remote', label: 'Remote' },
+  { value: 'esp32', label: 'ESP32' },
+  { value: 'sensor', label: 'Sensor' },
+  { value: 'RaspberryPi', label: 'Raspberry Pi' },
+  { value: 'Arduino', label: 'Arduino' },
+];
+
+// Human-friendly label for a device type (e.g. "RaspberryPi" -> "Raspberry Pi").
+// Falls back to the raw value for unknown/legacy types.
+export function deviceTypeLabel(type: string): string {
+  return DEVICE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+}
 export type EventPriority = 'low' | 'normal' | 'high' | 'critical';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 

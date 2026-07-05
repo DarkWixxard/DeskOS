@@ -66,8 +66,8 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   });
 
   app.patch('/api/devices/:id', (req, res) => {
-    const { name, metadata } = req.body ?? {};
-    const updated = deviceManager.updateDevice(req.params.id, { name, metadata });
+    const { name, metadata, type } = req.body ?? {};
+    const updated = deviceManager.updateDevice(req.params.id, { name, metadata, type });
     if (!updated) {
       return res.status(404).json({ error: 'Device not found' });
     }

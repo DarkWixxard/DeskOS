@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as http from 'http';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
+import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo, DeviceType } from '@shared/types';
 
 dotenv.config();
 
@@ -37,6 +37,26 @@ function loadSi(): Promise<Si | null> {
 const BACKEND_URL = process.env.BACKEND_URL || 'http://192.168.178.130:4001';
 const AGENT_NAME = process.env.AGENT_NAME || os.hostname();
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '1000');
+
+// Best-effort detection of the host's device category so a Raspberry Pi
+// registers as "RaspberryPi" instead of the generic "remote". Reads the
+// device-tree model / cpuinfo (only populated on Pi-class Linux boards) and
+// looks for "Raspberry Pi". Overridable via the AGENT_TYPE env var (e.g.
+// AGENT_TYPE=Arduino) to force any category from the start.
+function detectDeviceType(): DeviceType {
+  if (os.platform() === 'linux') {
+    for (const file of ['/sys/firmware/devicetree/base/model', '/proc/cpuinfo']) {
+      try {
+        if (/raspberry pi/i.test(fsSync.readFileSync(file, 'utf8'))) return 'RaspberryPi';
+      } catch {
+        // file not present on this host — try the next probe
+      }
+    }
+  }
+  return 'remote';
+}
+
+const AGENT_TYPE: DeviceType = (process.env.AGENT_TYPE as DeviceType) || detectDeviceType();
 
 // The agent reports the shared SystemMetrics shape (plus a capture timestamp).
 type RemoteSystemMetrics = SystemMetrics & { timestamp: number };
@@ -435,7 +455,7 @@ class RemoteAgent {
     this.socket.emit('register-agent', {
       agentId: this.agentId || undefined,
       name: AGENT_NAME,
-      type: 'remote',
+      type: AGENT_TYPE,
       metadata,
     }, async (response: any) => {
       const previousAgentId = this.agentId;
