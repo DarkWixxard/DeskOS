@@ -8,10 +8,31 @@ import * as path from 'path';
 import * as http from 'http';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import si from 'systeminformation';
 import type { SystemMetrics, DiskMetrics, GpuMetrics, NetworkMetrics, ProcessInfo } from '@shared/types';
 
 dotenv.config();
+
+// `systeminformation` is an OPTIONAL dependency: it enriches the slow metric
+// tier (temperature, GPU, disks, processes, network), but the agent must still
+// run without it — e.g. a fresh Raspberry Pi checkout that only has the core
+// dependencies installed. Load it lazily and cache the result (the module, or
+// `null` when absent) so a missing module warns exactly once instead of
+// crashing the process at import time with MODULE_NOT_FOUND.
+type Si = typeof import('systeminformation');
+let siPromise: Promise<Si | null> | undefined;
+function loadSi(): Promise<Si | null> {
+  if (!siPromise) {
+    siPromise = import('systeminformation')
+      .then((m) => ((m as { default?: Si }).default ?? m) as Si)
+      .catch(() => {
+        console.warn(
+          '[RemoteAgent] Optionales Modul "systeminformation" nicht installiert — nutze native OS/Linux-Fallbacks. Für die vollständigen Metriken bitte `npm install` ausführen.'
+        );
+        return null;
+      });
+  }
+  return siPromise;
+}
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4001';
 const AGENT_NAME = process.env.AGENT_NAME || os.hostname();
@@ -151,6 +172,180 @@ function refreshWindowsGpuCache(): void {
     .finally(() => {
       winGpuFetchInFlight = false;
     });
+}
+
+// ---------------------------------------------------------------------------
+// Native fallbacks for when the optional `systeminformation` module is absent
+// (e.g. a fresh Raspberry Pi checkout without `npm install`). These read the
+// same data straight from the Linux kernel — /sys, /proc and the coreutils
+// `df`/`ps` — so the agent still reports meaningful metrics. Each is Linux-only
+// and fully guarded; on other platforms (or on any read error) it returns
+// nothing and the corresponding field simply stays undefined.
+// ---------------------------------------------------------------------------
+
+// CPU temperature from the thermal zones. On a Raspberry Pi `thermal_zone0` is
+// the SoC/CPU sensor; on x86 the package sensor shows up as "x86_pkg_temp".
+// Prefer a zone whose type looks like a CPU/SoC sensor, otherwise take the
+// hottest plausible zone. Values are stored in milli-°C.
+function readCpuTempFallback(): number | undefined {
+  if (os.platform() !== 'linux') return undefined;
+  try {
+    const root = '/sys/class/thermal';
+    const zones = fsSync.readdirSync(root).filter((n) => /^thermal_zone\d+$/.test(n));
+    let preferred: number | undefined;
+    let hottest: number | undefined;
+    for (const z of zones) {
+      const milliC = readIntFile(path.join(root, z, 'temp'));
+      if (milliC === undefined) continue;
+      const c = milliC / 1000;
+      if (c <= 0 || c > 200) continue; // ignore obviously bogus readings
+      hottest = hottest === undefined ? c : Math.max(hottest, c);
+      let type = '';
+      try {
+        type = fsSync.readFileSync(path.join(root, z, 'type'), 'utf8').trim().toLowerCase();
+      } catch {
+        // `type` is optional — fall back to the hottest zone below
+      }
+      if (/cpu|x86_pkg|soc/.test(type)) preferred = preferred === undefined ? c : Math.max(preferred, c);
+    }
+    const chosen = preferred ?? hottest;
+    return chosen === undefined ? undefined : Math.round(chosen);
+  } catch {
+    return undefined;
+  }
+}
+
+// CPU model + core count without systeminformation. `os.cpus()` carries the
+// brand string on x86 but is often blank on ARM, so fall back to parsing
+// /proc/cpuinfo (which on a Pi carries a "Model" board name, e.g.
+// "Raspberry Pi 4 Model B Rev 1.4").
+function readCpuInfoFallback(): { cpuModel?: string; cpuCores?: number } {
+  const cpus = os.cpus();
+  const out: { cpuModel?: string; cpuCores?: number } = { cpuCores: cpus.length || undefined };
+  const osModel = cpus[0]?.model?.trim();
+  if (osModel) out.cpuModel = osModel;
+
+  if (!out.cpuModel && os.platform() === 'linux') {
+    try {
+      const info = fsSync.readFileSync('/proc/cpuinfo', 'utf8');
+      const pick = (key: string): string | undefined => {
+        const m = info.match(new RegExp(`^${key}\\s*:\\s*(.+)$`, 'im'));
+        return m?.[1]?.trim() || undefined;
+      };
+      out.cpuModel = pick('model name') ?? pick('Model') ?? pick('Hardware');
+    } catch {
+      // leave cpuModel undefined
+    }
+  }
+  return out;
+}
+
+// Per-filesystem usage via coreutils `df` (portable -P columns so each mount is
+// on one line, -k KiB blocks, -T filesystem type). Skips pseudo/virtual mounts.
+async function readDiskFallback(): Promise<DiskMetrics[]> {
+  if (os.platform() !== 'linux') return [];
+  try {
+    const { stdout } = await execFileAsync('df', ['-kPT'], { timeout: 5000 });
+    const skip = /^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|ramfs|debugfs|tracefs|mqueue|efivarfs|autofs|fusectl|configfs|securityfs|pstore|bpf|nsfs|none)$/i;
+    const disks: DiskMetrics[] = [];
+    for (const line of stdout.trim().split('\n').slice(1)) {
+      // Filesystem Type 1024-blocks Used Available Capacity Mounted-on
+      const cols = line.trim().split(/\s+/);
+      if (cols.length < 7) continue;
+      const [fs, type, blocksStr, usedStr] = cols;
+      if (skip.test(type)) continue;
+      const total = parseInt(blocksStr, 10) * 1024;
+      const used = parseInt(usedStr, 10) * 1024;
+      if (!Number.isFinite(total) || total <= 0) continue;
+      const capacity = parseInt(cols[5], 10); // e.g. "42%"
+      disks.push({
+        fs,
+        mount: cols.slice(6).join(' '), // mount point may contain spaces
+        type,
+        used,
+        total,
+        percentage: Number.isFinite(capacity) ? capacity : (used / total) * 100,
+      });
+    }
+    return disks;
+  } catch {
+    return [];
+  }
+}
+
+// Top processes (by CPU) + total count via `ps`. `rss` is reported in KiB.
+async function readProcessesFallback(): Promise<{ count?: number; top: ProcessInfo[] } | undefined> {
+  if (os.platform() !== 'linux') return undefined;
+  try {
+    const { stdout } = await execFileAsync('ps', ['-eo', 'pid,comm,%cpu,rss', '--sort=-%cpu'], { timeout: 5000 });
+    const rows = stdout.trim().split('\n').slice(1);
+    const top: ProcessInfo[] = [];
+    for (const line of rows.slice(0, 8)) {
+      const cols = line.trim().split(/\s+/);
+      if (cols.length < 4) continue;
+      // pid comm %cpu rss — %cpu and rss are always the last two numeric columns,
+      // so anything between the pid and them is the (possibly spaced) command.
+      const pid = parseInt(cols[0], 10);
+      const rss = parseInt(cols[cols.length - 1], 10);
+      const cpu = parseFloat(cols[cols.length - 2]);
+      top.push({
+        pid,
+        name: cols.slice(1, cols.length - 2).join(' '),
+        cpu: Number.isFinite(cpu) ? Math.round(cpu * 10) / 10 : 0,
+        memBytes: Number.isFinite(rss) ? rss * 1024 : undefined,
+      });
+    }
+    return { count: rows.length || undefined, top };
+  } catch {
+    return undefined;
+  }
+}
+
+// Network throughput from /proc/net/dev. The kernel exposes cumulative byte
+// counters, so per-second rates are derived by diffing against the previous
+// sample; the busiest non-loopback interface is chosen. The first call (or an
+// interface switch) reports 0/sec but still carries the cumulative totals.
+let lastNetSample: { at: number; iface: string; rx: number; tx: number } | null = null;
+
+function readNetworkFallback(): NetworkMetrics | undefined {
+  if (os.platform() !== 'linux') return undefined;
+  try {
+    const raw = fsSync.readFileSync('/proc/net/dev', 'utf8');
+    let best: { iface: string; rx: number; tx: number } | null = null;
+    for (const line of raw.split('\n')) {
+      const idx = line.indexOf(':');
+      if (idx === -1) continue;
+      const iface = line.slice(0, idx).trim();
+      if (!iface || iface === 'lo') continue;
+      const nums = line.slice(idx + 1).trim().split(/\s+/).map((n) => parseInt(n, 10));
+      const rx = nums[0]; // rx_bytes
+      const tx = nums[8]; // tx_bytes
+      if (!Number.isFinite(rx) || !Number.isFinite(tx)) continue;
+      if (!best || rx + tx > best.rx + best.tx) best = { iface, rx, tx };
+    }
+    if (!best) return undefined;
+
+    const now = Date.now();
+    let rxSec = 0;
+    let txSec = 0;
+    if (lastNetSample && lastNetSample.iface === best.iface) {
+      const dt = (now - lastNetSample.at) / 1000;
+      if (dt > 0) {
+        rxSec = Math.max(0, (best.rx - lastNetSample.rx) / dt);
+        txSec = Math.max(0, (best.tx - lastNetSample.tx) / dt);
+      }
+    }
+    lastNetSample = { at: now, iface: best.iface, rx: best.rx, tx: best.tx };
+    return {
+      iface: best.iface,
+      rxSec: Math.round(rxSec),
+      txSec: Math.round(txSec),
+      rxBytes: best.rx,
+      txBytes: best.tx,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 class RemoteAgent {
@@ -333,91 +528,158 @@ class RemoteAgent {
 
   private async collectSlowTier(): Promise<Partial<RemoteSystemMetrics>> {
     const out: Partial<RemoteSystemMetrics> = {};
+    // Use `systeminformation` when it's installed; otherwise (and whenever a
+    // given probe comes back empty) fall back to native OS/Linux sources so the
+    // agent still reports metrics on a Pi that never ran `npm install`.
+    const si = await loadSi();
     await Promise.all([
-      si.cpuTemperature().then((t) => {
-        const main = num(t.main);
-        if (main !== undefined && main > 0) out.cpuTempC = Math.round(main);
-      }).catch(() => undefined),
-      si.cpu().then((c) => {
-        out.cpuModel = `${c.manufacturer ?? ''} ${c.brand ?? ''}`.trim() || undefined;
-        out.cpuCores = num(c.cores);
-      }).catch(() => undefined),
-      si.graphics().then((g) => {
-        const gpus: GpuMetrics[] = (g.controllers ?? [])
-          .map((c) => {
-            const gpu: GpuMetrics = {
-              model: c.model,
-              vendor: c.vendor,
-              load: num(c.utilizationGpu),
-              tempC: num(c.temperatureGpu),
-              memUsed: num(c.memoryUsed) !== undefined ? (c.memoryUsed as number) * 1024 * 1024 : undefined,
-              memTotal: num(c.memoryTotal) !== undefined ? (c.memoryTotal as number) * 1024 * 1024 : undefined,
-            };
-            const needsFallback = gpu.load === undefined || gpu.tempC === undefined || gpu.memTotal === undefined;
-            if (os.platform() === 'linux' && c.busAddress && needsFallback && /amd|ati|advanced micro devices/i.test(c.vendor ?? '')) {
-              const fallback = readAmdSysfsGpuMetrics(c.busAddress);
-              gpu.load ??= fallback.load;
-              gpu.tempC ??= fallback.tempC;
-              gpu.memUsed ??= fallback.memUsed;
-              gpu.memTotal ??= fallback.memTotal;
-            }
-            return gpu;
-          })
-          .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
-
-        if (gpus.length === 1 && os.platform() === 'win32' && (gpus[0].load === undefined || gpus[0].memTotal === undefined)) {
-          refreshWindowsGpuCache();
-          gpus[0].load ??= winGpuCache.load;
-          gpus[0].memUsed ??= winGpuCache.memUsed;
-          gpus[0].memTotal ??= winGpuCache.memTotal;
+      // CPU temperature
+      (async () => {
+        if (si) {
+          try {
+            const t = await si.cpuTemperature();
+            const main = num(t.main);
+            if (main !== undefined && main > 0) out.cpuTempC = Math.round(main);
+          } catch {
+            // fall through to the native probe below
+          }
         }
+        if (out.cpuTempC === undefined) {
+          const t = readCpuTempFallback();
+          if (t !== undefined) out.cpuTempC = t;
+        }
+      })(),
+      // CPU model + core count
+      (async () => {
+        if (si) {
+          try {
+            const c = await si.cpu();
+            out.cpuModel = `${c.manufacturer ?? ''} ${c.brand ?? ''}`.trim() || undefined;
+            out.cpuCores = num(c.cores);
+          } catch {
+            // fall through to the native probe below
+          }
+        }
+        if (!out.cpuModel || out.cpuCores === undefined) {
+          const f = readCpuInfoFallback();
+          out.cpuModel ??= f.cpuModel;
+          out.cpuCores ??= f.cpuCores;
+        }
+      })(),
+      // GPU — systeminformation only. A Raspberry Pi has no standard
+      // discrete-GPU sysfs to enumerate, so without the module GPU metrics
+      // simply stay undefined.
+      (async () => {
+        if (!si) return;
+        try {
+          const g = await si.graphics();
+          const gpus: GpuMetrics[] = (g.controllers ?? [])
+            .map((c) => {
+              const gpu: GpuMetrics = {
+                model: c.model,
+                vendor: c.vendor,
+                load: num(c.utilizationGpu),
+                tempC: num(c.temperatureGpu),
+                memUsed: num(c.memoryUsed) !== undefined ? (c.memoryUsed as number) * 1024 * 1024 : undefined,
+                memTotal: num(c.memoryTotal) !== undefined ? (c.memoryTotal as number) * 1024 * 1024 : undefined,
+              };
+              const needsFallback = gpu.load === undefined || gpu.tempC === undefined || gpu.memTotal === undefined;
+              if (os.platform() === 'linux' && c.busAddress && needsFallback && /amd|ati|advanced micro devices/i.test(c.vendor ?? '')) {
+                const fallback = readAmdSysfsGpuMetrics(c.busAddress);
+                gpu.load ??= fallback.load;
+                gpu.tempC ??= fallback.tempC;
+                gpu.memUsed ??= fallback.memUsed;
+                gpu.memTotal ??= fallback.memTotal;
+              }
+              return gpu;
+            })
+            .filter((gpu) => gpu.model || gpu.load !== undefined || gpu.memTotal !== undefined);
 
-        if (gpus.length) out.gpus = gpus;
-      }).catch(() => undefined),
-      si.fsSize().then((list) => {
-        const disks: DiskMetrics[] = (list ?? [])
-          .filter((d) => num(d.size) !== undefined && (d.size as number) > 0)
-          .map((d) => ({
-            fs: d.fs,
-            mount: d.mount,
-            type: d.type,
-            used: d.used,
-            total: d.size,
-            percentage: num(d.use) ?? (d.size ? (d.used / d.size) * 100 : 0),
-          }));
-        if (disks.length) out.disks = disks;
-      }).catch(() => undefined),
-      si.processes().then((p) => {
-        const top: ProcessInfo[] = [...(p.list ?? [])]
-          .sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))
-          .slice(0, 8)
-          .map((x) => ({
-            pid: x.pid,
-            name: x.name,
-            cpu: Math.round((x.cpu ?? 0) * 10) / 10,
-            memBytes: typeof x.memRss === 'number' ? x.memRss * 1024 : undefined,
-          }));
-        out.processes = { count: num(p.all), top };
-      }).catch(() => undefined),
+          if (gpus.length === 1 && os.platform() === 'win32' && (gpus[0].load === undefined || gpus[0].memTotal === undefined)) {
+            refreshWindowsGpuCache();
+            gpus[0].load ??= winGpuCache.load;
+            gpus[0].memUsed ??= winGpuCache.memUsed;
+            gpus[0].memTotal ??= winGpuCache.memTotal;
+          }
+
+          if (gpus.length) out.gpus = gpus;
+        } catch {
+          // GPU metrics stay undefined
+        }
+      })(),
+      // Disks
+      (async () => {
+        if (si) {
+          try {
+            const list = await si.fsSize();
+            const disks: DiskMetrics[] = (list ?? [])
+              .filter((d) => num(d.size) !== undefined && (d.size as number) > 0)
+              .map((d) => ({
+                fs: d.fs,
+                mount: d.mount,
+                type: d.type,
+                used: d.used,
+                total: d.size,
+                percentage: num(d.use) ?? (d.size ? (d.used / d.size) * 100 : 0),
+              }));
+            if (disks.length) out.disks = disks;
+          } catch {
+            // fall through to the native probe below
+          }
+        }
+        if (!out.disks?.length) {
+          const disks = await readDiskFallback();
+          if (disks.length) out.disks = disks;
+        }
+      })(),
+      // Processes
+      (async () => {
+        if (si) {
+          try {
+            const p = await si.processes();
+            const top: ProcessInfo[] = [...(p.list ?? [])]
+              .sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))
+              .slice(0, 8)
+              .map((x) => ({
+                pid: x.pid,
+                name: x.name,
+                cpu: Math.round((x.cpu ?? 0) * 10) / 10,
+                memBytes: typeof x.memRss === 'number' ? x.memRss * 1024 : undefined,
+              }));
+            out.processes = { count: num(p.all), top };
+          } catch {
+            // fall through to the native probe below
+          }
+        }
+        if (!out.processes) {
+          const p = await readProcessesFallback();
+          if (p) out.processes = p;
+        }
+      })(),
     ]);
     return out;
   }
 
   private async getNetwork(): Promise<NetworkMetrics | undefined> {
-    try {
-      const stats = await si.networkStats();
-      const primary = stats?.[0];
-      if (!primary) return undefined;
-      return {
-        iface: primary.iface,
-        rxSec: Math.max(0, num(primary.rx_sec) ?? 0),
-        txSec: Math.max(0, num(primary.tx_sec) ?? 0),
-        rxBytes: num(primary.rx_bytes),
-        txBytes: num(primary.tx_bytes),
-      };
-    } catch {
-      return undefined;
+    const si = await loadSi();
+    if (si) {
+      try {
+        const stats = await si.networkStats();
+        const primary = stats?.[0];
+        if (primary) {
+          return {
+            iface: primary.iface,
+            rxSec: Math.max(0, num(primary.rx_sec) ?? 0),
+            txSec: Math.max(0, num(primary.tx_sec) ?? 0),
+            rxBytes: num(primary.rx_bytes),
+            txBytes: num(primary.tx_bytes),
+          };
+        }
+      } catch {
+        // fall through to the native probe below
+      }
     }
+    return readNetworkFallback();
   }
 
   private getCPUTimeDiff(): { idle: number; total: number } {
