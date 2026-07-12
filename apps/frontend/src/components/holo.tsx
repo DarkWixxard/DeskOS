@@ -143,6 +143,17 @@ export const ICON_PATHS: Record<string, ReactNode> = {
       <path d="M21 4v5h-5" />
     </>
   ),
+  check: <polyline points="4 12 9 17 20 6" />,
+  grip: (
+    <>
+      <circle cx="9" cy="6" r="1" />
+      <circle cx="15" cy="6" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="9" cy="18" r="1" />
+      <circle cx="15" cy="18" r="1" />
+    </>
+  ),
   flask: (
     <>
       <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" />

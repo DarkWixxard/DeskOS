@@ -54,6 +54,18 @@ export interface MetricsSnapshot extends SystemMetrics {
   timestamp: number;
 }
 
+// One tile's placement in the free 2D dashboard grid. Mirrors react-grid-layout's
+// item shape (declared locally so the store carries no UI-library dependency).
+export interface LayoutItem {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+}
+
 interface DashboardStore {
   devices: Device[];
   selectedDevice: Device | null;
@@ -94,6 +106,12 @@ interface DashboardStore {
   // Labs: experimental feature flags (id -> enabled). Missing id defaults to OFF —
   // every experiment is strictly opt-in.
   labsFlags: Record<string, boolean>;
+  // Free 2D placement of the dashboard tiles (desktop / "lg" breakpoint). Empty =
+  // fall back to each tile's default placement. Persisted to localStorage.
+  dashboardLayout: LayoutItem[];
+  // "Anordnen" (arrange) mode: while on, dashboard tiles can be dragged/resized.
+  // Transient UI state — deliberately NOT persisted.
+  dashboardEditMode: boolean;
 
   // Actions
   connectWebSocket: () => void;
@@ -108,6 +126,10 @@ interface DashboardStore {
   hydrateLabsFlags: () => void;
   toggleLabsFlag: (id: string) => void;
   resetLabsFlags: () => void;
+  hydrateDashboardLayout: () => void;
+  setDashboardLayout: (layout: LayoutItem[]) => void;
+  setDashboardEditMode: (on: boolean) => void;
+  toggleDashboardEditMode: () => void;
   resetDashboardLayout: () => void;
   setActiveView: (view: string) => void;
   setDevices: (devices: Device[]) => void;
@@ -159,6 +181,7 @@ interface DashboardStore {
 const WIDGET_STORAGE_KEY = 'deskos.dashboardWidgets';
 const MODULES_STORAGE_KEY = 'deskos.dashboardModules';
 const LABS_STORAGE_KEY = 'deskos.labsFlags';
+const LAYOUT_STORAGE_KEY = 'deskos.dashboardLayout';
 
 function loadVisibility(key: string): Record<string, boolean> {
   if (typeof window === 'undefined') return {};
@@ -171,6 +194,27 @@ function loadVisibility(key: string): Record<string, boolean> {
 }
 
 function saveVisibility(key: string, value: Record<string, boolean>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore quota / privacy-mode errors */
+  }
+}
+
+// Generic JSON persistence for the grid layout array (same SSR guards as above).
+function loadLayout(key: string): LayoutItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as LayoutItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLayout(key: string, value: LayoutItem[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
@@ -211,6 +255,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   // Start empty (every experiment off) so SSR and first client render match; the
   // saved flags are applied after mount via hydrateLabsFlags().
   labsFlags: {},
+  // Start empty (default placement) so SSR and first client render match; the saved
+  // arrangement is applied after mount via hydrateDashboardLayout().
+  dashboardLayout: [],
+  dashboardEditMode: false,
 
   connectWebSocket: () => {
     installAuthFetch();
@@ -365,13 +413,22 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     saveVisibility(LABS_STORAGE_KEY, {});
     set({ labsFlags: {} });
   },
+  hydrateDashboardLayout: () => set({ dashboardLayout: loadLayout(LAYOUT_STORAGE_KEY) }),
+  setDashboardLayout: (layout: LayoutItem[]) => {
+    saveLayout(LAYOUT_STORAGE_KEY, layout);
+    set({ dashboardLayout: layout });
+  },
+  setDashboardEditMode: (on: boolean) => set({ dashboardEditMode: on }),
+  toggleDashboardEditMode: () => set({ dashboardEditMode: !get().dashboardEditMode }),
   resetDashboardLayout: () => {
-    // Wipe both saved visibility maps back to defaults (all sections visible,
-    // all extra modules hidden). Empty maps let the getters fall back to the
-    // per-id defaults, so this restores the shipped dashboard layout.
+    // Wipe the saved visibility maps and the free arrangement back to defaults (all
+    // sections visible, all extra modules hidden, tiles in their default placement).
+    // Empty maps/array let the render fall back to the per-id defaults, so this
+    // restores the shipped dashboard layout.
     saveVisibility(WIDGET_STORAGE_KEY, {});
     saveVisibility(MODULES_STORAGE_KEY, {});
-    set({ dashboardWidgets: {}, dashboardModules: {} });
+    saveLayout(LAYOUT_STORAGE_KEY, []);
+    set({ dashboardWidgets: {}, dashboardModules: {}, dashboardLayout: [] });
   },
   selectDevice: (device: Device | null) => set({ selectedDevice: device }),
   updateEvents: (events: DashboardEvent[]) => set({ events }),

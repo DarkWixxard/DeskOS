@@ -1,9 +1,11 @@
 'use client';
 
-import { useDashboardStore, useLabsFlag } from '@/stores/dashboardStore';
-import { useEffect, useState, type ComponentType, type MouseEvent } from 'react';
+import { useDashboardStore, useLabsFlag, type LayoutItem } from '@/stores/dashboardStore';
+import { useEffect, useMemo, useState, type ComponentType, type MouseEvent } from 'react';
 import dynamic from 'next/dynamic';
 import clsx from 'clsx';
+import { Reorder, useDragControls } from 'framer-motion';
+import { DashboardGrid, type DashboardGridItem } from '@/components/DashboardGrid';
 import { OverlayMenu } from '@/components/OverlayMenu';
 import { OsziView } from '@/components/oszi/OsziView';
 import { MonitorView } from '@/components/MonitorView';
@@ -74,6 +76,45 @@ export const EMBEDDABLE_MODULES: { id: string; label: string; Component: Compone
 const holoField =
   'rounded-none border border-accent/30 bg-darker/60 px-3 py-1.5 text-sm text-white ' +
   'placeholder:text-accent/30 outline-none transition-colors focus:border-accent focus:shadow-glow-sm';
+
+// Secondary holo action button (matches LabsView/SettingsView).
+const holoButton =
+  'flex items-center gap-1.5 rounded-none border border-accent/30 px-3 py-1.5 font-mono ' +
+  'text-[11px] uppercase tracking-wider text-accent/80 transition-colors ' +
+  'hover:border-accent hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40';
+
+// Default size (12-col grid units) for each rearrangeable dashboard tile. Shared by
+// the live grid (initial placement) and the "Anzeige" reorder list (single-column
+// normalisation), so both agree on tile sizes. `header` is intentionally absent — it
+// stays a fixed top bar, not a grid tile.
+export const DASHBOARD_WIDGET_DEFAULTS: Record<
+  string,
+  { w: number; h: number; minW?: number; minH?: number }
+> = {
+  backendLink: { w: 12, h: 2, minH: 2 },
+  layoutBar: { w: 12, h: 2, minH: 2 },
+  metrics: { w: 8, h: 6, minW: 4, minH: 5 },
+  events: { w: 4, h: 6, minW: 3, minH: 4 },
+  moduleStatus: { w: 6, h: 7, minW: 4, minH: 4 },
+  history: { w: 6, h: 7, minW: 4, minH: 4 },
+  plugins: { w: 12, h: 8, minW: 4, minH: 4 },
+  devices: { w: 12, h: 10, minW: 4, minH: 6 },
+};
+
+// Canonical id/label list of the rearrangeable tiles (everything but the header).
+const GRID_WIDGETS = DASHBOARD_WIDGETS.filter((w) => w.id !== 'header');
+
+// Build a tidy single-column layout (each tile full width, stacked in the given
+// order). Used when the user reorders the list in the "Anzeige" view.
+function stackedLayout(orderIds: string[]): LayoutItem[] {
+  let y = 0;
+  return orderIds.map((id) => {
+    const d = DASHBOARD_WIDGET_DEFAULTS[id] ?? { w: 12, h: 4 };
+    const item: LayoutItem = { i: id, x: 0, y, w: 12, h: d.h, minW: d.minW, minH: d.minH };
+    y += d.h;
+    return item;
+  });
+}
 
 // Reusable holo "chip" for capability tags.
 function CapChip({ label }: { label: string }) {
@@ -236,45 +277,271 @@ export function StatusLedView() {
   );
 }
 
-// "Anzeige" view: a list of switches that show/hide each dashboard section.
-// State lives in the store (persisted to localStorage), so choices survive reloads.
+// Backend-connection status as a stand-alone dashboard tile (reads the socket
+// state straight from the store so it stays live).
+export function BackendLinkWidget() {
+  const wsConnected = useDashboardStore((state) => state.wsConnected);
+  return (
+    <div className="flex h-full items-center justify-between px-1">
+      <span className="holo-label">Backend Link</span>
+      <div
+        className={clsx(
+          'flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ring-1 backdrop-blur',
+          wsConnected
+            ? 'bg-success/10 text-success ring-success/40'
+            : 'bg-danger/10 text-danger ring-danger/40'
+        )}
+      >
+        <span className={clsx('h-2 w-2 rounded-full', wsConnected ? 'bg-success' : 'bg-danger')} />
+        {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
+      </div>
+    </div>
+  );
+}
+
+// The Devices section (heading + search/filter + device grid) as a self-contained
+// tile. Extracted from Dashboard() so it can live in the rearrangeable grid; reads
+// everything it needs from the store.
+export function DevicesWidget() {
+  const devices = useDashboardStore((state) => state.devices);
+  const loading = useDashboardStore((state) => state.loading);
+  const deviceFilter = useDashboardStore((state) => state.deviceFilter);
+  const searchQuery = useDashboardStore((state) => state.searchQuery);
+  const setDeviceFilter = useDashboardStore((state) => state.setDeviceFilter);
+  const setSearchQuery = useDashboardStore((state) => state.setSearchQuery);
+
+  return (
+    <section>
+      <div className="mb-4 flex items-center gap-2">
+        <HoloIcon name="cpu" className="h-5 w-5 text-accent" />
+        <h2
+          className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
+          style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
+        >
+          Devices
+        </h2>
+      </div>
+      <div className="mb-4 flex items-center gap-3">
+        <input
+          type="text"
+          placeholder="Search devices..."
+          className={holoField}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          value={deviceFilter}
+          onChange={(e) => setDeviceFilter(e.target.value as any)}
+          className={clsx(holoField, 'cursor-pointer')}
+        >
+          <option value="all">All types</option>
+          {DEVICE_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8 text-accent/50">Loading devices...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {devices
+            .filter((d) => deviceFilter === 'all' || d.type === deviceFilter)
+            .filter((d) =>
+              searchQuery
+                ? (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (d.metadata && JSON.stringify(d.metadata).toLowerCase().includes(searchQuery.toLowerCase()))
+                : true
+            )
+            .map((device) => (
+              <DeviceCard key={device.id} device={device} />
+            ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// Thin toolbar above the dashboard grid: enter/leave the "Anordnen" (arrange) mode
+// and reset the saved layout. Lets the user start free drag & drop without a detour
+// through the Anzeige menu.
+function DashboardToolbar() {
+  const editMode = useDashboardStore((state) => state.dashboardEditMode);
+  const toggleEdit = useDashboardStore((state) => state.toggleDashboardEditMode);
+  const resetLayout = useDashboardStore((state) => state.resetDashboardLayout);
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-h-[1.75rem] items-center">
+        {editMode && (
+          <span className="font-mono text-[11px] uppercase tracking-wider text-accent/60">
+            Kacheln am Griff ziehen · Ecke unten rechts = Größe ändern
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {editMode && (
+          <button type="button" onClick={() => resetLayout()} className={holoButton}>
+            <HoloIcon name="refresh" className="h-4 w-4" />
+            Layout zurücksetzen
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => toggleEdit()}
+          className={clsx(
+            holoButton,
+            editMode && 'border-success/60 bg-success/10 text-success hover:border-success'
+          )}
+        >
+          <HoloIcon name={editMode ? 'check' : 'grip'} className="h-4 w-4" />
+          {editMode ? 'Fertig' : 'Anordnen'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// One draggable row in the "Anzeige" reorder list. Drag is bound to the grip handle
+// only (dragListener={false} + dragControls) so tapping the visibility switch never
+// starts a drag.
+function WidgetOrderRow({
+  id,
+  label,
+  visible,
+  onToggle,
+}: {
+  id: string;
+  label: string;
+  visible: boolean;
+  onToggle: () => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={id}
+      dragListener={false}
+      dragControls={controls}
+      className="flex items-center justify-between gap-2 border border-accent/15 bg-darker/40 px-2 py-2"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onPointerDown={(e) => controls.start(e)}
+          className="cursor-grab touch-none text-accent/40 transition-colors hover:text-accent"
+          aria-label={`${label} verschieben`}
+        >
+          <HoloIcon name="grip" className="h-4 w-4" />
+        </button>
+        <span className="truncate font-mono text-sm text-white/90">{label}</span>
+      </div>
+      <HoloSwitch checked={visible} onChange={onToggle} label={label} />
+    </Reorder.Item>
+  );
+}
+
+// "Anzeige" view: show/hide each dashboard section, reorder the tiles, or jump into
+// the free drag & drop arrange mode. State lives in the store (persisted to
+// localStorage), so every choice survives reloads.
 export function DashboardSettingsView() {
   const dashboardWidgets = useDashboardStore((state) => state.dashboardWidgets);
   const toggleDashboardWidget = useDashboardStore((state) => state.toggleDashboardWidget);
   const dashboardModules = useDashboardStore((state) => state.dashboardModules);
   const toggleDashboardModule = useDashboardStore((state) => state.toggleDashboardModule);
+  const dashboardLayout = useDashboardStore((state) => state.dashboardLayout);
+  const setDashboardLayout = useDashboardStore((state) => state.setDashboardLayout);
+  const setDashboardEditMode = useDashboardStore((state) => state.setDashboardEditMode);
+  const setActiveView = useDashboardStore((state) => state.setActiveView);
+  const resetDashboardLayout = useDashboardStore((state) => state.resetDashboardLayout);
+
+  const headerWidget = DASHBOARD_WIDGETS.find((w) => w.id === 'header');
+  const headerVisible = dashboardWidgets['header'] !== false;
+
+  // Tile order for the reorder list: follow the saved 2D positions (top-to-bottom,
+  // then left-to-right); tiles without a saved slot keep their catalogue order.
+  const orderIds = useMemo(() => {
+    const ids = GRID_WIDGETS.map((w) => w.id);
+    const placed = ids
+      .filter((id) => dashboardLayout.some((l) => l.i === id))
+      .sort((a, b) => {
+        const la = dashboardLayout.find((l) => l.i === a)!;
+        const lb = dashboardLayout.find((l) => l.i === b)!;
+        return la.y - lb.y || la.x - lb.x;
+      });
+    const rest = ids.filter((id) => !placed.includes(id));
+    return [...placed, ...rest];
+  }, [dashboardLayout]);
+
+  const labelFor = (id: string) => GRID_WIDGETS.find((w) => w.id === id)?.label ?? id;
+
+  const startArrange = () => {
+    setDashboardEditMode(true);
+    setActiveView('dashboard');
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-4 flex items-center gap-2">
-        <HoloIcon name="layers" className="h-5 w-5 text-accent" />
-        <h2
-          className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
-          style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
-        >
-          Dashboard-Anzeige
-        </h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <HoloIcon name="layers" className="h-5 w-5 text-accent" />
+          <h2
+            className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
+            style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
+          >
+            Dashboard-Anzeige
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={startArrange} className={holoButton}>
+            <HoloIcon name="grip" className="h-4 w-4" />
+            Anordnen-Modus
+          </button>
+          <button type="button" onClick={() => resetDashboardLayout()} className={holoButton}>
+            <HoloIcon name="refresh" className="h-4 w-4" />
+            Zurücksetzen
+          </button>
+        </div>
       </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Sichtbare Bereiche">
-          <p className="mb-2 text-[11px] text-accent/50">
-            Wähle, welche Bereiche auf dem Dashboard erscheinen. Die Auswahl wird lokal gespeichert.
+        <Panel title="Bereiche & Reihenfolge">
+          <p className="mb-3 text-[11px] text-accent/50">
+            Schalter blenden Bereiche ein/aus. Am <span className="text-accent/80">Griff</span> ziehst du
+            die Reihenfolge – das ordnet die Kacheln in einer sauberen Spalte. Für freies Verschieben
+            &amp; Größe-Ändern den <span className="text-accent/80">Anordnen-Modus</span> starten.
           </p>
-          <ul className="divide-y divide-accent/10">
-            {DASHBOARD_WIDGETS.map((widget) => {
-              const visible = dashboardWidgets[widget.id] !== false;
-              return (
-                <li key={widget.id} className="flex items-center justify-between py-2.5">
-                  <span className="font-mono text-sm text-white/90">{widget.label}</span>
-                  <HoloSwitch
-                    checked={visible}
-                    onChange={() => toggleDashboardWidget(widget.id)}
-                    label={widget.label}
-                  />
-                </li>
-              );
-            })}
-          </ul>
+
+          {/* Header stays a fixed top bar (not a grid tile) — visibility only. */}
+          <div className="mb-2 flex items-center justify-between gap-2 border border-dashed border-accent/15 bg-darker/30 px-2 py-2">
+            <span className="truncate font-mono text-sm text-white/70">
+              {headerWidget?.label ?? 'Kopfzeile'}
+              <span className="ml-2 text-[10px] uppercase tracking-wider text-accent/40">feste Leiste</span>
+            </span>
+            <HoloSwitch
+              checked={headerVisible}
+              onChange={() => toggleDashboardWidget('header')}
+              label={headerWidget?.label ?? 'Kopfzeile'}
+            />
+          </div>
+
+          <Reorder.Group
+            axis="y"
+            values={orderIds}
+            onReorder={(next) => setDashboardLayout(stackedLayout(next as string[]))}
+            className="space-y-2"
+          >
+            {orderIds.map((id) => (
+              <WidgetOrderRow
+                key={id}
+                id={id}
+                label={labelFor(id)}
+                visible={dashboardWidgets[id] !== false}
+                onToggle={() => toggleDashboardWidget(id)}
+              />
+            ))}
+          </Reorder.Group>
         </Panel>
 
         <Panel title="Module auf dem Dashboard">
@@ -546,22 +813,17 @@ export function Header() {
 
 export function Dashboard() {
   const {
-    devices,
     events,
-    wsConnected,
-    loading,
+    plugins,
     connectWebSocket,
     disconnectWebSocket,
-    deviceFilter,
-    searchQuery,
-    setDeviceFilter,
-    setSearchQuery,
     activeView,
     dashboardWidgets,
     hydrateDashboardWidgets,
     dashboardModules,
     hydrateDashboardModules,
     hydrateLabsFlags,
+    hydrateDashboardLayout,
   } = useDashboardStore();
 
   // Labs experiment: the "Ruhemodus" flag drops the holo flicker + scanline motion.
@@ -572,16 +834,52 @@ export function Dashboard() {
   // Extra module views the user pulled onto the dashboard (opt-in, default off).
   const enabledModules = EMBEDDABLE_MODULES.filter((m) => dashboardModules[m.id] === true);
 
+  // The rearrangeable dashboard tiles: every visible grid widget, wrapped for the
+  // free 2D grid. The plugins tile is skipped when no plugin widget is active
+  // (PluginWidgets renders nothing then — we don't want an empty tile taking space).
+  const hasPluginWidgets = plugins.some((p) => p.enabled && p.hasWidget);
+  const nodeFor = (id: string) => {
+    switch (id) {
+      case 'backendLink':
+        return <BackendLinkWidget />;
+      case 'layoutBar':
+        return <LayoutBar />;
+      case 'metrics':
+        return <SystemMetricsWidget />;
+      case 'events':
+        return <EventsWidget events={events} />;
+      case 'moduleStatus':
+        return <ModuleStatusPanel />;
+      case 'history':
+        return <MetricsHistoryChart />;
+      case 'plugins':
+        return <PluginWidgets />;
+      case 'devices':
+        return <DevicesWidget />;
+      default:
+        return null;
+    }
+  };
+  const gridItems: DashboardGridItem[] = GRID_WIDGETS.filter(
+    (w) => shows(w.id) && (w.id !== 'plugins' || hasPluginWidgets)
+  ).map((w) => ({
+    id: w.id,
+    label: w.label,
+    node: nodeFor(w.id),
+    defaultLayout: DASHBOARD_WIDGET_DEFAULTS[w.id] ?? { w: 12, h: 4 },
+  }));
+
   useEffect(() => {
     connectWebSocket();
     return () => disconnectWebSocket();
   }, []);
 
-  // Apply the saved section/module/labs state after mount (avoids an SSR hydration mismatch).
+  // Apply the saved section/module/labs/layout state after mount (avoids an SSR hydration mismatch).
   useEffect(() => {
     hydrateDashboardWidgets();
     hydrateDashboardModules();
     hydrateLabsFlags();
+    hydrateDashboardLayout();
   }, []);
 
   return (
@@ -628,113 +926,9 @@ export function Dashboard() {
         {!FULL_VIEWS.includes(activeView) && (
         <>
         <div className="container mx-auto px-4 py-8">
-          {/* Connection Status */}
-          {shows('backendLink') && (
-            <div className="mb-6 flex items-center justify-between">
-              <span className="holo-label">Backend Link</span>
-              <div
-                className={clsx(
-                  'flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ring-1 backdrop-blur',
-                  wsConnected
-                    ? 'bg-success/10 text-success ring-success/40'
-                    : 'bg-danger/10 text-danger ring-danger/40'
-                )}
-              >
-                <span className={clsx('h-2 w-2 rounded-full', wsConnected ? 'bg-success' : 'bg-danger')} />
-                {wsConnected ? 'Connected to Backend' : 'Disconnected from Backend'}
-              </div>
-            </div>
-          )}
-
-          {/* Layout / profile switcher */}
-          {shows('layoutBar') && <LayoutBar />}
-
-          {/* System Overview */}
-          {(shows('metrics') || shows('events')) && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              {shows('metrics') && (
-                <div className={shows('events') ? 'lg:col-span-2' : 'lg:col-span-3'}>
-                  <SystemMetricsWidget />
-                </div>
-              )}
-              {shows('events') && (
-                <div className={shows('metrics') ? '' : 'lg:col-span-3'}>
-                  <EventsWidget events={events} />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Module status overview (LEDs) */}
-          {shows('moduleStatus') && (
-            <div className="mb-6">
-              <ModuleStatusPanel />
-            </div>
-          )}
-
-          {/* Metrics History Chart */}
-          {shows('history') && (
-            <div className="mb-8">
-              <MetricsHistoryChart />
-            </div>
-          )}
-
-          {/* Enabled plugin widgets */}
-          {shows('plugins') && <PluginWidgets />}
-
-          {/* Devices Section */}
-          {shows('devices') && (
-          <section>
-            <div className="mb-4 flex items-center gap-2">
-              <HoloIcon name="cpu" className="h-5 w-5 text-accent" />
-              <h2
-                className="font-mono text-xl font-bold uppercase tracking-[0.2em] text-accent"
-                style={{ textShadow: '0 0 12px rgba(0,217,255,0.5)' }}
-              >
-                Devices
-              </h2>
-            </div>
-            <div className="mb-4 flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="Search devices..."
-                className={holoField}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <select
-                value={deviceFilter}
-                onChange={(e) => setDeviceFilter(e.target.value as any)}
-                className={clsx(holoField, 'cursor-pointer')}
-              >
-                <option value="all">All types</option>
-                {DEVICE_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {loading ? (
-              <div className="text-center py-8 text-accent/50">Loading devices...</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {devices
-                  .filter((d) => deviceFilter === 'all' || d.type === deviceFilter)
-                  .filter((d) =>
-                    searchQuery
-                      ? (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        (d.metadata && JSON.stringify(d.metadata).toLowerCase().includes(searchQuery.toLowerCase()))
-                      : true
-                  )
-                  .map((device) => (
-                    <DeviceCard key={device.id} device={device} />
-                  ))}
-              </div>
-            )}
-          </section>
-          )}
+          {/* Arrange-mode toolbar + the free 2D grid of dashboard tiles */}
+          <DashboardToolbar />
+          <DashboardGrid items={gridItems} />
         </div>
 
         {/* Module views pulled onto the dashboard via the Anzeige view */}
