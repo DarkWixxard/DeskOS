@@ -160,6 +160,12 @@ export const ICON_PATHS: Record<string, ReactNode> = {
       <path d="M7.5 15h9" />
     </>
   ),
+  book: (
+    <>
+      <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5z" />
+      <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20" />
+    </>
+  ),
   play: <polygon points="7 4 20 12 7 20 7 4" />,
   pause: (
     <>
