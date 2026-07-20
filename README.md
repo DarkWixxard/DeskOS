@@ -60,6 +60,16 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 - Displays-View mit **Live-Screen-Vorschau** je Panel, Power/Helligkeit, Quellenwahl und Node-/URL-Ziel;
   Updates live per WebSocket (`display:update`). Ein virtuelles Uhr-Panel ist beim ersten Start vorkonfiguriert.
 
+### 🎚️ Audio / deej (Hardware-Lautstärkeregler)
+- Bindet einen selbstgebauten **[deej](https://github.com/omriharel/deej)**-Regler ein (Arduino/ESP mit Potentiometern,
+  der seine Stellungen über USB-Serial sendet). Das Backend liest die serielle Zeile, normiert jeden Regler auf 0–100 %
+  (optional invertiert + rauschgeglättet) und **setzt die Lautstärke** des Betriebssystems.
+- Pro Regler frei zuordenbar: **Master · Mikrofon · bestimmte App** (per Prozessname). Lautstärke-Anwendung „best effort"
+  je Plattform: **Linux** `pactl` (inkl. **pro-App**), **macOS** `osascript`, **Windows** `nircmd`.
+- **Audio-Ansicht** mit Live-Fadern, Port-Auswahl, Verbinden/Trennen und Regler-Mapping; Updates live per WebSocket
+  (`deej:update`). `serialport` ist eine **optionale** Abhängigkeit – ohne Hardware lassen sich die Regler **ziehen**
+  und **simulieren** (steuert trotzdem die echte Lautstärke). Einrichtung in [DEEJ.md](./docs/DEEJ.md).
+
 ### ⚡ Automation-Engine v2 + 🗂️ Layout-Profile + 🎬 Szenen
 - Trigger: **Schwellwert · Event · Gerätestatus · Zeitplan**. Aktionen (entkoppelt über Event-Bus):
   Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**, **Szene ausführen**.
@@ -198,7 +208,7 @@ DeskOS/
 │   │   └── src/
 │   │       ├── core/             # EventSystem, DeviceManager, AutomationEngine, ActionExecutor, PluginSystem
 │   │       ├── services/         # SystemMonitor, PersistenceService, NotificationService, WledService,
-│   │       │                     #   MqttService, DisplayService, LayoutService, PluginRegistry, DatabaseService, WebSocketServer
+│   │       │                     #   MqttService, DisplayService, DeejService, AudioController, LayoutService, PluginRegistry, DatabaseService, WebSocketServer
 │   │       └── api/routes.ts      # REST-Endpoints
 │   ├── frontend/                 # React + Next.js Dashboard
 │   │   └── src/
@@ -242,6 +252,9 @@ DeskOS/
 | `MQTT_BROKER` | – | externer Broker (wenn gesetzt, kein eigener) |
 | `MQTT_EMBEDDED` | `true` | eingebetteten Broker starten (`false` zum Deaktivieren) |
 | `WLED_LIGHTS` | *(2 Defaults)* | JSON-Array `[{"name":"…","ip":"…"}]`, beim ersten Start angelegt |
+| `DEEJ_PORT` / `DEEJ_BAUD` | – / `9600` | serieller Port + Baud des deej-Reglers (optional, sonst im Dashboard) |
+| `DEEJ_SLIDERS` / `DEEJ_INVERT` / `DEEJ_NOISE` | `4` / `false` / `default` | Reglerzahl, invertieren, Rauschunterdrückung |
+| `DEEJ_AUTOCONNECT` | `false` | beim Start automatisch mit dem deej-Port verbinden |
 | `LOG_LEVEL` | `debug` | Log-Level |
 | `DESKOS_TOKEN` | – | Shared-Token für API + WebSocket. Leer = Auth **aus** (Warnung beim Start). Erzeugen: `openssl rand -hex 24` |
 | `CORS_ORIGINS` | – | Komma-Liste erlaubter Origins (`*` = alle, leer = Anfrage-Origin spiegeln) |
@@ -272,6 +285,7 @@ DeskOS/
 | **Automationen** | `GET/POST /api/automations` · `PATCH/DELETE /api/automations/:id` |
 | **WLED / RGB** | `GET/POST /api/wled/lights` · `PATCH/DELETE /api/wled/lights/:id` · `POST /api/wled/lights/:id/state` · `POST /api/wled/lights/:id/mode` · `GET /api/wled/lights/:id/effects` |
 | **Displays** | `GET/POST /api/displays` · `PATCH/DELETE /api/displays/:id` · `POST /api/displays/:id/state` (An/Aus, Helligkeit) |
+| **Audio / deej** | `GET /api/deej/{status,ports}` · `POST /api/deej/{connect,disconnect,simulate}` · `PATCH /api/deej/config` · `PATCH /api/deej/sliders/:i` · `POST /api/deej/sliders/:i/volume` |
 | **Layouts** | `GET /api/layouts` · `POST /api/layouts` · `PATCH/DELETE /api/layouts/:id` · `POST /api/layouts/:id/activate` |
 | **Sensoren** | `GET /api/sensors` |
 | **Plugins** | `GET /api/plugins` · `POST /api/plugins/:id/{install,uninstall,enable,disable}` · `PATCH /api/plugins/:id/settings` |
@@ -279,7 +293,7 @@ DeskOS/
 | **Oszi** | `ALL /api/oszi/*` (Proxy zum Flask-Dienst) |
 
 **WebSocket (Socket.IO), Server → Client:** `devices:list`, `device:update`, `event:new`,
-`notification:new`, `wled:update`, `display:update`, `layout:set`, `local:device:id`.
+`notification:new`, `wled:update`, `display:update`, `deej:update`, `layout:set`, `local:device:id`.
 **Client → Server:** `get:devices`, `subscribe:device`, `subscribe:events`, `register-agent`, `metrics`.
 
 Detaillierte Beispiele: [API.md](./docs/API.md).
@@ -338,6 +352,7 @@ Details: [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) ·
 | [LABS.md](./docs/LABS.md) | Labs – experimentelle Funktionen (Feature-Flags) |
 | [SPOTIFY.md](./docs/SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
 | [DISCORD.md](./docs/DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
+| [DEEJ.md](./docs/DEEJ.md) | deej-Hardware-Lautstärkeregler einbinden (Audio-Ansicht) |
 | [API.md](./docs/API.md) | API-Beispiele |
 | [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) | Produktion / Kiosk |
 | [CHANGELOG.md](./docs/CHANGELOG.md) | Versionshistorie |

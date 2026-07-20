@@ -64,6 +64,11 @@ export class WebSocketServer {
       this.io.emit('display:update', event.payload);
     });
 
+    // Relay live deej (volume mixer) slider state.
+    eventSystem.on('deej:update', (event: DeskOSEvent) => {
+      this.io.emit('deej:update', event.payload);
+    });
+
     // Relay layout/profile activation to clients.
     eventSystem.on('layout:set', (event: DeskOSEvent) => {
       this.io.emit('layout:set', event.payload);
