@@ -17,9 +17,11 @@
 // is imported lazily, so DeskOS still runs (and the mapping UI still works via
 // manual/simulated input) on a box where the native module isn't installed.
 
+import * as fs from 'fs';
 import { deviceManager } from '../core/DeviceManager';
 import { eventSystem, DeskOSEvent } from '../core/EventSystem';
 import { audioController } from './AudioController';
+import { parseDeejConfig, configToYaml, resolveConfigPath } from './DeejConfigFile';
 import type { Device } from '../core/DeviceManager';
 import type { DeejSlider, DeejStatus, DeejTarget, DeejNoiseReduction } from '@shared/types';
 
@@ -40,7 +42,7 @@ const NOISE_THRESHOLD: Record<DeejNoiseReduction, number> = {
 interface StoredSlider {
   index: number;
   target: DeejTarget;
-  app?: string;
+  apps?: string[];
   label: string;
   muted?: boolean;
 }
@@ -63,7 +65,8 @@ interface ConfigPatch {
 
 interface SliderPatch {
   target?: DeejTarget;
-  app?: string;
+  apps?: string[];
+  app?: string; // convenience: a single app name (converted to a one-item `apps`)
   label?: string;
   muted?: boolean;
 }
@@ -90,6 +93,10 @@ export class DeejService {
   private lastLine = '';
   private emitTimer: NodeJS.Timeout | null = null;
   private dirty = false;
+  // deej-compatible config.yaml: when present it is the source of truth.
+  private configPath: string | null = null;
+  private configActive = false;
+  private configReloadTimer: NodeJS.Timeout | null = null;
 
   // ---------------------------------------------------------------- lifecycle
 
@@ -114,9 +121,15 @@ export class DeejService {
     // Automations / layout scenes can drive volume via a 'deej:command' event.
     eventSystem.on('deej:command', (e) => this.onCommand(e));
     await this.probeSerial();
-    // Auto-connect on boot when a port is configured and opt-in flag is set.
-    if (process.env.DEEJ_AUTOCONNECT === 'true' && this.config()?.port) {
-      this.connect().catch(() => undefined);
+    // deej-style config.yaml: load it (creating a starter file on first run) and
+    // watch it for live edits. When a file is present it is authoritative.
+    this.loadConfigFile({ createIfMissing: true });
+    this.watchConfigFile();
+    // Auto-connect on boot when a port is configured. A present config.yaml with a
+    // com_port connects like deej does; without a file the DEEJ_AUTOCONNECT flag gates it.
+    const shouldAutoConnect = this.configActive || process.env.DEEJ_AUTOCONNECT === 'true';
+    if (shouldAutoConnect && this.config()?.port) {
+      this.connect().catch((err) => console.warn(`[deej] Auto-Connect fehlgeschlagen: ${err instanceof Error ? err.message : err}`));
     }
     this.emitUpdate();
   }
@@ -125,6 +138,13 @@ export class DeejService {
     if (this.emitTimer) {
       clearInterval(this.emitTimer);
       this.emitTimer = null;
+    }
+    if (this.configPath) {
+      try {
+        fs.unwatchFile(this.configPath);
+      } catch {
+        /* ignore */
+      }
     }
     this.closePort();
     audioController.dispose();
@@ -183,7 +203,7 @@ export class DeejService {
     const sliders: DeejSlider[] = (cfg?.sliders ?? []).map((s) => ({
       index: s.index,
       target: s.target,
-      app: s.app,
+      apps: s.apps,
       label: s.label,
       muted: s.muted ?? false,
       value: Math.round(this.values.get(s.index) ?? 0),
@@ -200,6 +220,8 @@ export class DeejService {
       perAppSupported: audioController.perAppSupported,
       sliders,
       lastLine: this.lastLine || undefined,
+      configPath: this.configPath ?? undefined,
+      configActive: this.configActive,
       updatedAt: Date.now(),
     };
   }
@@ -241,7 +263,8 @@ export class DeejService {
       if (s.index !== index) return s;
       const merged: StoredSlider = { ...s };
       if (patch.target !== undefined) merged.target = patch.target;
-      if (patch.app !== undefined) merged.app = patch.app;
+      if (patch.apps !== undefined) merged.apps = patch.apps.map((a) => a.trim()).filter(Boolean);
+      else if (patch.app !== undefined) merged.apps = patch.app.trim() ? [patch.app.trim()] : [];
       if (patch.label !== undefined) merged.label = patch.label.trim() || s.label;
       if (patch.muted !== undefined) merged.muted = patch.muted;
       return merged;
@@ -299,12 +322,115 @@ export class DeejService {
         await audioController.setMic(v);
         break;
       case 'app':
-        if (slider.app) await audioController.setApp(slider.app, v);
+        // A group maps one slider to several processes (deej-style list).
+        for (const app of slider.apps ?? []) await audioController.setApp(app, v);
+        break;
+      case 'current':
+        await audioController.setCurrentApp(v);
         break;
       // 'system' and 'unmapped' are tracked in the UI but not pushed to the OS.
       default:
         break;
     }
+  }
+
+  // ---------------------------------------------------------------- config.yaml
+
+  /**
+   * Load the deej-compatible config.yaml (creating a starter file from the
+   * current mapping on first run). When a file is present it overwrites the
+   * device metadata, so the file is the single source of truth — just like deej.
+   */
+  loadConfigFile(opts: { createIfMissing?: boolean } = {}): void {
+    const resolved = resolveConfigPath();
+    this.configPath = resolved.path;
+
+    if (!resolved.exists) {
+      if (!opts.createIfMissing) {
+        this.configActive = false;
+        return;
+      }
+      // Seed a starter file that mirrors the current (seeded) mapping.
+      const cfg = this.config();
+      if (!cfg) return;
+      try {
+        fs.writeFileSync(
+          resolved.path,
+          configToYaml({
+            comPort: cfg.port,
+            baud: cfg.baud,
+            invert: cfg.invert,
+            noiseReduction: cfg.noiseReduction,
+            sliders: cfg.sliders,
+          }),
+          'utf8'
+        );
+        console.log(`🎚️  deej config.yaml angelegt: ${resolved.path}`);
+      } catch (err) {
+        console.warn(`[deej] config.yaml konnte nicht angelegt werden (${err instanceof Error ? err.message : err}).`);
+        this.configActive = false;
+        return;
+      }
+    }
+
+    let text: string;
+    try {
+      text = fs.readFileSync(resolved.path, 'utf8');
+    } catch (err) {
+      console.warn(`[deej] config.yaml nicht lesbar (${err instanceof Error ? err.message : err}).`);
+      this.configActive = false;
+      return;
+    }
+
+    const parsed = parseDeejConfig(text);
+    const prev = this.config();
+    const next: Partial<DeejConfig> = {};
+    if (parsed.comPort !== undefined) next.port = parsed.comPort;
+    if (parsed.baud !== undefined) next.baud = parsed.baud;
+    if (parsed.invert !== undefined) next.invert = parsed.invert;
+    if (parsed.noiseReduction !== undefined) next.noiseReduction = parsed.noiseReduction;
+    if (parsed.sliders.length > 0) {
+      // Keep the user's mute flags across a reload where the index still exists.
+      next.sliders = parsed.sliders.map((s) => ({
+        index: s.index,
+        target: s.target,
+        apps: s.apps,
+        label: s.label,
+        muted: prev?.sliders.find((p) => p.index === s.index)?.muted ?? false,
+      }));
+    }
+    this.writeConfig(next);
+    this.configActive = true;
+    console.log(`🎚️  deej config.yaml geladen: ${resolved.path}`);
+
+    // Reconnect if the port/baud changed while connected.
+    if (this.connected && (next.port !== prev?.port || next.baud !== prev?.baud)) {
+      this.connect().catch((err) => console.warn(`[deej] Reconnect nach config-Änderung fehlgeschlagen: ${err instanceof Error ? err.message : err}`));
+    }
+  }
+
+  /** Watch config.yaml for edits and re-apply them live (debounced). */
+  private watchConfigFile(): void {
+    if (!this.configPath) return;
+    try {
+      fs.watchFile(this.configPath, { interval: 1000 }, () => {
+        if (this.configReloadTimer) clearTimeout(this.configReloadTimer);
+        this.configReloadTimer = setTimeout(() => {
+          this.loadConfigFile();
+          this.emitUpdate();
+        }, 300);
+        this.configReloadTimer.unref?.();
+      });
+    } catch {
+      /* watching is best-effort */
+    }
+  }
+
+  /** Force a re-read of config.yaml (used by the "Neu laden" button). */
+  reloadConfig(): DeejStatus {
+    this.loadConfigFile({ createIfMissing: true });
+    this.emitUpdate();
+    return this.getStatus();
   }
 
   // ---------------------------------------------------------------- serial IO

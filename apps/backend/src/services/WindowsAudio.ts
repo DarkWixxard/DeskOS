@@ -123,7 +123,12 @@ namespace DeskOSAudioS {
   }
   [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumerator { }
   public static class Sessions {
-    public static void SetApp(string app, float v) {
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+
+    // Enumerate every audio session and set the volume of those whose owning
+    // process id matches the predicate.
+    static void Apply(float v, Predicate<uint> match) {
       var e = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
       IMMDevice dev; Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0, 0, out dev));
       Guid iid = typeof(IAudioSessionManager2).GUID; object o;
@@ -131,17 +136,27 @@ namespace DeskOSAudioS {
       var mgr = (IAudioSessionManager2)o;
       IAudioSessionEnumerator sessions; Marshal.ThrowExceptionForHR(mgr.GetSessionEnumerator(out sessions));
       int count; sessions.GetCount(out count);
-      string needle = app.ToLowerInvariant();
-      if (needle.EndsWith(".exe")) needle = needle.Substring(0, needle.Length - 4);
       for (int i = 0; i < count; i++) {
         IAudioSessionControl2 ctl;
         if (sessions.GetSession(i, out ctl) != 0 || ctl == null) continue;
         uint pid; if (ctl.GetProcessId(out pid) != 0 || pid == 0) continue;
-        string pname; try { pname = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch { continue; }
-        if (pname == needle || pname.Contains(needle) || needle.Contains(pname)) {
-          var sav = (ISimpleAudioVolume)ctl; var g = Guid.Empty; sav.SetMasterVolume(v, ref g);
-        }
+        if (match(pid)) { var sav = (ISimpleAudioVolume)ctl; var g = Guid.Empty; sav.SetMasterVolume(v, ref g); }
       }
+    }
+    public static void SetApp(string app, float v) {
+      string needle = app.ToLowerInvariant();
+      if (needle.EndsWith(".exe")) needle = needle.Substring(0, needle.Length - 4);
+      Apply(v, delegate(uint pid) {
+        string pname; try { pname = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch { return false; }
+        return pname == needle || pname.Contains(needle) || needle.Contains(pname);
+      });
+    }
+    public static void SetCurrent(float v) {
+      IntPtr hwnd = GetForegroundWindow();
+      if (hwnd == IntPtr.Zero) return;
+      uint target; GetWindowThreadProcessId(hwnd, out target);
+      if (target == 0) return;
+      Apply(v, delegate(uint pid) { return pid == target; });
     }
   }
 }
@@ -162,6 +177,7 @@ while ($true) {
       'I' { [DeskOSAudio.Endpoint]::SetMic([single]([double]$p[1] / 100.0)) }
       'U' { [DeskOSAudio.Endpoint]::SetMasterMute($p[1] -eq '1') }
       'A' { if ($sessionsOk) { [DeskOSAudioS.Sessions]::SetApp($p[1], [single]([double]$p[2] / 100.0)) } }
+      'C' { if ($sessionsOk) { [DeskOSAudioS.Sessions]::SetCurrent([single]([double]$p[1] / 100.0)) } }
     }
   } catch { }
 }
@@ -231,6 +247,10 @@ export class WindowsAudio {
   setApp(app: string, pct: number): boolean {
     // Process names carry no spaces; strip any just in case so the parser stays simple.
     return this.send(`A ${app.replace(/\s+/g, '')} ${Math.round(pct)}`);
+  }
+
+  setCurrent(pct: number): boolean {
+    return this.send(`C ${Math.round(pct)}`);
   }
 
   dispose(): void {

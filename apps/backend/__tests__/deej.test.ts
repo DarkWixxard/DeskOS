@@ -6,6 +6,7 @@ import {
   parseSinkInputs,
   sinkInputMatchesApp,
 } from '../src/services/AudioController';
+import { parseDeejConfig, configToYaml } from '../src/services/DeejConfigFile';
 import { deviceManager } from '../src/core/DeviceManager';
 
 describe('AudioController helpers', () => {
@@ -71,16 +72,21 @@ describe('DeejService', () => {
   });
 
   test('grows/shrinks the slider list while preserving mappings', () => {
-    deejService.updateSlider(2, { target: 'app', app: 'spotify.exe', label: 'Musik' });
+    deejService.updateSlider(2, { target: 'app', apps: ['spotify.exe'], label: 'Musik' });
     let s = deejService.updateConfig({ sliderCount: 5 });
     expect(s.sliders.length).toBe(5);
     expect(s.sliders[2].target).toBe('app');
-    expect(s.sliders[2].app).toBe('spotify.exe');
+    expect(s.sliders[2].apps).toEqual(['spotify.exe']);
 
     s = deejService.updateConfig({ sliderCount: 3 });
     expect(s.sliders.length).toBe(3);
     // The custom mapping on slider #2 survived the shrink.
     expect(s.sliders[2].label).toBe('Musik');
+  });
+
+  test('maps a slider to an app group (multiple processes)', () => {
+    const s = deejService.updateSlider(2, { target: 'app', apps: ['pathofexile_x64.exe', 'rocketleague.exe'] });
+    expect(s.sliders[2].apps).toEqual(['pathofexile_x64.exe', 'rocketleague.exe']);
   });
 
   test('parses a serial line into normalised 0–100 slider values', () => {
@@ -108,5 +114,61 @@ describe('DeejService', () => {
   test('manual setVolume updates a slider without hardware', async () => {
     const s = await deejService.setVolume(0, 73);
     expect(s.sliders[0].value).toBe(73);
+  });
+});
+
+describe('deej config.yaml parsing', () => {
+  // The exact config the user uploaded (deej format), with a group on slider 3.
+  const yaml = [
+    'slider_mapping:',
+    '  0: spotify.exe',
+    '  1: chrome.exe',
+    '  2: master',
+    '  3:',
+    '    - pathofexile_x64.exe',
+    '    - rocketleague.exe',
+    '  4: discord.exe',
+    'invert_sliders: false',
+    'com_port: COM8',
+    'baud_rate: 9600',
+    'noise_reduction: default',
+  ].join('\n');
+
+  test('parses mapping, groups, targets and connection settings', () => {
+    const cfg = parseDeejConfig(yaml);
+    expect(cfg.comPort).toBe('COM8');
+    expect(cfg.baud).toBe(9600);
+    expect(cfg.invert).toBe(false);
+    expect(cfg.noiseReduction).toBe('default');
+    expect(cfg.sliders).toHaveLength(5);
+    expect(cfg.sliders[0]).toMatchObject({ index: 0, target: 'app', apps: ['spotify.exe'] });
+    expect(cfg.sliders[2].target).toBe('master');
+    // The list on slider 3 becomes an app group.
+    expect(cfg.sliders[3]).toMatchObject({ target: 'app', apps: ['pathofexile_x64.exe', 'rocketleague.exe'] });
+  });
+
+  test('recognises the special keywords', () => {
+    const cfg = parseDeejConfig('slider_mapping:\n  0: mic\n  1: deej.current\n  2: deej.unmapped\n  3: system');
+    expect(cfg.sliders.map((s) => s.target)).toEqual(['mic', 'current', 'unmapped', 'system']);
+  });
+
+  test('round-trips through configToYaml back into the same mapping', () => {
+    const cfg = parseDeejConfig(yaml);
+    const rendered = configToYaml({
+      comPort: cfg.comPort!,
+      baud: cfg.baud!,
+      invert: cfg.invert!,
+      noiseReduction: cfg.noiseReduction!,
+      sliders: cfg.sliders,
+    });
+    const again = parseDeejConfig(rendered);
+    expect(again.sliders[3].apps).toEqual(['pathofexile_x64.exe', 'rocketleague.exe']);
+    expect(again.comPort).toBe('COM8');
+    expect(again.sliders[2].target).toBe('master');
+  });
+
+  test('never throws on malformed input', () => {
+    expect(parseDeejConfig(':::not yaml:::').sliders).toEqual([]);
+    expect(parseDeejConfig('').sliders).toEqual([]);
   });
 });

@@ -24,7 +24,8 @@ import { Panel, HoloCorners, HoloIcon, HoloSwitch } from '@/components/holo';
 const TARGETS: { id: DeejTarget; label: string; icon: string; hint: string }[] = [
   { id: 'master', label: 'Master', icon: 'speaker', hint: 'System-Gesamtlautstärke' },
   { id: 'mic', label: 'Mikrofon', icon: 'activity', hint: 'Standard-Eingabegerät' },
-  { id: 'app', label: 'App', icon: 'plug', hint: 'Bestimmte Anwendung' },
+  { id: 'app', label: 'App', icon: 'plug', hint: 'Eine oder mehrere Apps (Gruppe)' },
+  { id: 'current', label: 'Aktiv', icon: 'monitor', hint: 'Gerade aktive App (nur Windows)' },
   { id: 'system', label: 'System', icon: 'gear', hint: 'System-/Benachrichtigungston' },
   { id: 'unmapped', label: 'Frei', icon: 'power', hint: 'Nicht zugewiesen' },
 ];
@@ -120,10 +121,18 @@ function SliderCard({ slider }: { slider: DeejSlider }) {
 
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(slider.label);
-  const [app, setApp] = useState(slider.app ?? '');
+  const [apps, setApps] = useState((slider.apps ?? []).join(', '));
 
   useEffect(() => setLabel(slider.label), [slider.label]);
-  useEffect(() => setApp(slider.app ?? ''), [slider.app]);
+  useEffect(() => setApps((slider.apps ?? []).join(', ')), [slider.apps]);
+
+  // Turn the comma-separated text field into a clean process-name list.
+  const commitApps = () => {
+    const list = apps.split(',').map((a) => a.trim()).filter(Boolean);
+    if (JSON.stringify(list) !== JSON.stringify(slider.apps ?? [])) {
+      updateDeejSlider(slider.index, { apps: list });
+    }
+  };
 
   const target = TARGETS.find((t) => t.id === slider.target) ?? TARGETS[4];
   // Colour the fader by role: mic = amber, unmapped = dim, everything else cyan.
@@ -168,7 +177,7 @@ function SliderCard({ slider }: { slider: DeejSlider }) {
       <div className="mt-3 flex w-full items-center justify-between gap-2">
         <span className="holo-label truncate">
           {target.label}
-          {slider.target === 'app' && slider.app ? ` · ${slider.app}` : ''}
+          {slider.target === 'app' && slider.apps?.length ? ` · ${slider.apps.join(' + ')}` : ''}
         </span>
         <button
           type="button"
@@ -211,13 +220,16 @@ function SliderCard({ slider }: { slider: DeejSlider }) {
             ))}
           </div>
           {slider.target === 'app' && (
-            <input
-              value={app}
-              onChange={(e) => setApp(e.target.value)}
-              onBlur={() => app !== (slider.app ?? '') && updateDeejSlider(slider.index, { app })}
-              placeholder="Prozessname (z. B. spotify.exe)"
-              className="w-full border border-accent/30 bg-darker/60 px-2 py-1 text-sm text-white outline-none focus:border-accent"
-            />
+            <>
+              <input
+                value={apps}
+                onChange={(e) => setApps(e.target.value)}
+                onBlur={commitApps}
+                placeholder="Prozessname(n), z. B. spotify.exe, chrome.exe"
+                className="w-full border border-accent/30 bg-darker/60 px-2 py-1 text-sm text-white outline-none focus:border-accent"
+              />
+              <p className="text-[10px] text-accent/40">Mehrere durch Komma trennen = Gruppe.</p>
+            </>
           )}
         </div>
       )}
@@ -391,6 +403,7 @@ function ConnectionPanel() {
 export function DeejView() {
   const status = useDashboardStore((s) => s.deejStatus);
   const fetchDeej = useDashboardStore((s) => s.fetchDeej);
+  const reloadDeejConfig = useDashboardStore((s) => s.reloadDeejConfig);
   const setActiveView = useDashboardStore((s) => s.setActiveView);
 
   useEffect(() => {
@@ -426,6 +439,23 @@ export function DeejView() {
           deej Volume Mixer
         </a>
       </div>
+
+      {status?.configActive && status.configPath && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border border-accent/25 bg-accent/[0.04] px-3 py-2">
+          <span className="text-[12px] text-accent/80">
+            <HoloIcon name="list" className="mr-1.5 inline h-4 w-4" />
+            <code className="text-accent">config.yaml</code> ist aktiv und maßgeblich:{' '}
+            <span className="break-all text-white/70">{status.configPath}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => reloadDeejConfig()}
+            className="flex items-center gap-1.5 border border-accent/30 px-2.5 py-1 text-[11px] uppercase tracking-wider text-accent/80 transition-colors hover:border-accent hover:bg-accent/10"
+          >
+            <HoloIcon name="refresh" className="h-3.5 w-3.5" /> Neu laden
+          </button>
+        </div>
+      )}
 
       <ConnectionPanel />
 

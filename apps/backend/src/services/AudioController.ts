@@ -155,6 +155,13 @@ export class AudioController {
     return false;
   }
 
+  /** Set the volume of the currently focused app (deej.current — Windows only). */
+  async setCurrentApp(pct: number): Promise<boolean> {
+    if (this.platform === 'win32') return this.windows().setCurrent(clampPct(pct));
+    this.warnOnce('current', `„Aktive App" (deej.current) wird auf ${this.platform} nicht unterstützt.`);
+    return false;
+  }
+
   /** Tear down any long-lived platform helper (called on shutdown). */
   dispose(): void {
     this.win?.dispose();

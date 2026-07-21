@@ -47,6 +47,10 @@ credentials.json
 npm-debug.log*
 yarn-debug.log*
 
+# deej-Lautstärkeregler: persönliche Konfiguration bleibt lokal
+# (die Vorlage config.example.yaml bleibt im Repo).
+/config.yaml
+
 # Sonstiges
 *.tgz
 /public/

@@ -64,9 +64,11 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 - Bindet einen selbstgebauten **[deej](https://github.com/omriharel/deej)**-Regler ein (Arduino/ESP mit Potentiometern,
   der seine Stellungen über USB-Serial sendet). Das Backend liest die serielle Zeile, normiert jeden Regler auf 0–100 %
   (optional invertiert + rauschgeglättet) und **setzt die Lautstärke** des Betriebssystems.
-- Pro Regler frei zuordenbar: **Master · Mikrofon · bestimmte App** (per Prozessname). Lautstärke-Anwendung „best effort"
-  je Plattform: **Windows** Core Audio via PowerShell (ohne Installation, inkl. **pro-App**),
-  **Linux** `pactl` (inkl. **pro-App**), **macOS** `osascript`.
+- Pro Regler frei zuordenbar: **Master · Mikrofon · bestimmte App(s) · aktive App · System** – eine App **oder eine
+  Gruppe** mehrerer Prozesse pro Regler. Lautstärke-Anwendung „best effort" je Plattform: **Windows** Core Audio via
+  PowerShell (ohne Installation, inkl. **pro-App** & **aktiver App**), **Linux** `pactl` (inkl. **pro-App**), **macOS** `osascript`.
+- Konfiguration wahlweise im Dashboard **oder** per **deej-kompatibler [`config.yaml`](./config.example.yaml)**
+  (gleiche `slider_mapping`-Syntax inkl. App-Gruppen) – wird beim Start gelesen und bei Änderungen **live neu geladen**.
 - **Audio-Ansicht** mit Live-Fadern, Port-Auswahl, Verbinden/Trennen und Regler-Mapping; Updates live per WebSocket
   (`deej:update`). `serialport` ist eine **optionale** Abhängigkeit – ohne Hardware lassen sich die Regler **ziehen**
   und **simulieren** (steuert trotzdem die echte Lautstärke). Einrichtung in [DEEJ.md](./docs/DEEJ.md).
@@ -286,7 +288,7 @@ DeskOS/
 | **Automationen** | `GET/POST /api/automations` · `PATCH/DELETE /api/automations/:id` |
 | **WLED / RGB** | `GET/POST /api/wled/lights` · `PATCH/DELETE /api/wled/lights/:id` · `POST /api/wled/lights/:id/state` · `POST /api/wled/lights/:id/mode` · `GET /api/wled/lights/:id/effects` |
 | **Displays** | `GET/POST /api/displays` · `PATCH/DELETE /api/displays/:id` · `POST /api/displays/:id/state` (An/Aus, Helligkeit) |
-| **Audio / deej** | `GET /api/deej/{status,ports}` · `POST /api/deej/{connect,disconnect,simulate}` · `PATCH /api/deej/config` · `PATCH /api/deej/sliders/:i` · `POST /api/deej/sliders/:i/volume` |
+| **Audio / deej** | `GET /api/deej/{status,ports}` · `POST /api/deej/{connect,disconnect,simulate,reload-config}` · `PATCH /api/deej/config` · `PATCH /api/deej/sliders/:i` · `POST /api/deej/sliders/:i/volume` |
 | **Layouts** | `GET /api/layouts` · `POST /api/layouts` · `PATCH/DELETE /api/layouts/:id` · `POST /api/layouts/:id/activate` |
 | **Sensoren** | `GET /api/sensors` |
 | **Plugins** | `GET /api/plugins` · `POST /api/plugins/:id/{install,uninstall,enable,disable}` · `PATCH /api/plugins/:id/settings` |
