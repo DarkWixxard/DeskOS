@@ -69,7 +69,7 @@ const SPANISH_VOCAB: VocabEntry[] = [
   { es: 'barato', de: 'billig / günstig', type: 'Adjektiv', example: 'El menú del día es barato.', exampleDe: 'Das Tagesmenü ist günstig.' },
 ];
 
-const HOUR_MS = 3_600_000;
+const HOUR_MS = 1_800_000;
 
 // Deterministic pick: cycle through the list keyed by the current clock hour, so
 // the same word shows for everyone during a given hour and it changes on the hour.
