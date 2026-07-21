@@ -5,30 +5,35 @@
 // directly to the Windows Core Audio API (the same API the native deej app uses)
 // through a SINGLE long-lived PowerShell process:
 //
-//   - On first use we spawn `powershell -File <script>`. The script compiles a
+//   - On first use we spawn `powershell -File <script>`. The script compiles one
 //     tiny C# helper (Add-Type) that wraps IAudioEndpointVolume (master/mic/mute)
-//     and IAudioSessionManager2 (per-app volume), then loops reading one-line
-//     commands from stdin and applies them.
+//     and IAudioSessionManager2 (per-app + current-app volume), then loops
+//     reading one-line commands from stdin and applies them.
 //   - Every volume change is just a line written to that process's stdin, so
 //     updates are fast (no per-change process spawn, no C# recompile).
 //
+// Everything lives in ONE namespace/Add-Type: an earlier split into two blocks
+// declared the same COM coclass (MMDeviceEnumerator, one CLSID) twice, and the
+// CLR unifies same-CLSID coclasses to the first-loaded type — so the second
+// block's `new` returned the first block's type and the cast threw. One block,
+// one definition, no cast conflict.
+//
 // No installs, no admin rights — PowerShell + the .NET Framework CSC compiler
-// ship with every Windows. If anything fails we log once and become a no-op.
+// ship with every Windows. If anything fails we log it and become a no-op.
 
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-// The PowerShell helper: two independent Add-Type blocks (endpoint + sessions)
-// so that even if the per-app session code ever fails to compile, master/mic/mute
-// keep working. Then a stdin command loop: "M <0-100>", "I <0-100>", "U <0|1>",
-// "A <name> <0-100>".
+// The PowerShell helper. Compiles one C# class (Core Audio) then runs a stdin
+// command loop: "M <0-100>", "I <0-100>", "U <0|1>", "A <name> <0-100>", "C <0-100>".
 const PS_SCRIPT = String.raw`
 $ErrorActionPreference = 'SilentlyContinue'
 
-$endpointCode = @'
+$code = @'
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 namespace DeskOSAudio {
   [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -55,36 +60,6 @@ namespace DeskOSAudio {
     int GetChannelVolumeLevelScalar(uint ch, out float l);
     int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid ctx);
     int GetMute(out bool mute);
-  }
-  [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumerator { }
-  public static class Endpoint {
-    static IAudioEndpointVolume Vol(int dataFlow) {
-      var e = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
-      IMMDevice dev; Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(dataFlow, 0, out dev));
-      Guid iid = typeof(IAudioEndpointVolume).GUID; object o;
-      Marshal.ThrowExceptionForHR(dev.Activate(ref iid, 1, IntPtr.Zero, out o));
-      return (IAudioEndpointVolume)o;
-    }
-    public static void SetMaster(float v) { var g = Guid.Empty; Vol(0).SetMasterVolumeLevelScalar(v, ref g); }
-    public static void SetMic(float v) { var g = Guid.Empty; Vol(1).SetMasterVolumeLevelScalar(v, ref g); }
-    public static void SetMasterMute(bool m) { var g = Guid.Empty; Vol(0).SetMute(m, ref g); }
-  }
-}
-'@
-
-$sessionCode = @'
-using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-namespace DeskOSAudioS {
-  [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-  interface IMMDeviceEnumerator {
-    int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IntPtr ppDevices);
-    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppEndpoint);
-  }
-  [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-  interface IMMDevice {
-    int Activate(ref Guid iid, int dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
   }
   [ComImport, Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
   interface IAudioSessionManager2 {
@@ -122,12 +97,23 @@ namespace DeskOSAudioS {
     int GetMute(out bool mute);
   }
   [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumerator { }
-  public static class Sessions {
+
+  public static class Audio {
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
 
-    // Enumerate every audio session and set the volume of those whose owning
-    // process id matches the predicate. Returns how many sessions were changed.
+    static IAudioEndpointVolume Vol(int dataFlow) {
+      var e = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
+      IMMDevice dev; Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(dataFlow, 0, out dev));
+      Guid iid = typeof(IAudioEndpointVolume).GUID; object o;
+      Marshal.ThrowExceptionForHR(dev.Activate(ref iid, 1, IntPtr.Zero, out o));
+      return (IAudioEndpointVolume)o;
+    }
+    public static void SetMaster(float v) { var g = Guid.Empty; Vol(0).SetMasterVolumeLevelScalar(v, ref g); }
+    public static void SetMic(float v) { var g = Guid.Empty; Vol(1).SetMasterVolumeLevelScalar(v, ref g); }
+    public static void SetMasterMute(bool m) { var g = Guid.Empty; Vol(0).SetMute(m, ref g); }
+
+    // Set the volume of every audio session whose owning pid matches; returns hit count.
     static int Apply(float v, Predicate<uint> match) {
       var e = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
       IMMDevice dev; Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0, 0, out dev));
@@ -145,7 +131,7 @@ namespace DeskOSAudioS {
       }
       return hits;
     }
-    // List the process names of all current audio sessions (for diagnostics).
+    // Process names of all current audio sessions (diagnostic for an unmatched app).
     public static string List() {
       var names = new System.Collections.Generic.List<string>();
       Apply(-1f, delegate(uint pid) {
@@ -173,35 +159,29 @@ namespace DeskOSAudioS {
 }
 '@
 
-try { Add-Type -TypeDefinition $endpointCode; [Console]::Out.WriteLine('ENDPOINT OK') }
-catch { [Console]::Out.WriteLine('ENDPOINT FAIL: ' + $_.Exception.Message) }
-
-$sessionsOk = $true
-try { Add-Type -TypeDefinition $sessionCode; [Console]::Out.WriteLine('SESSIONS OK') }
-catch { $sessionsOk = $false; [Console]::Out.WriteLine('SESSIONS FAIL: ' + $_.Exception.Message) }
+$ok = $true
+try { Add-Type -TypeDefinition $code; [Console]::Out.WriteLine('AUDIO OK') }
+catch { $ok = $false; [Console]::Out.WriteLine('AUDIO FAIL: ' + $_.Exception.Message) }
 [Console]::Out.WriteLine('READY')
 
 while ($true) {
   $line = [Console]::In.ReadLine()
   if ($null -eq $line) { break }
+  if (-not $ok) { continue }
   $p = $line.Split(' ')
   try {
     switch ($p[0]) {
-      'M' { [DeskOSAudio.Endpoint]::SetMaster([single]([double]$p[1] / 100.0)) }
-      'I' { [DeskOSAudio.Endpoint]::SetMic([single]([double]$p[1] / 100.0)) }
-      'U' { [DeskOSAudio.Endpoint]::SetMasterMute($p[1] -eq '1') }
+      'M' { [DeskOSAudio.Audio]::SetMaster([single]([double]$p[1] / 100.0)) }
+      'I' { [DeskOSAudio.Audio]::SetMic([single]([double]$p[1] / 100.0)) }
+      'U' { [DeskOSAudio.Audio]::SetMasterMute($p[1] -eq '1') }
       'A' {
-        if ($sessionsOk) {
-          $n = [DeskOSAudioS.Sessions]::SetApp($p[1], [single]([double]$p[2] / 100.0))
-          if ($n -eq 0) { [Console]::Out.WriteLine("APP-MISS $($p[1]) | sessions: " + [DeskOSAudioS.Sessions]::List()) }
-          else { [Console]::Out.WriteLine("APP-OK $($p[1]) -> $n") }
-        } else { [Console]::Out.WriteLine('APP-SKIP sessions-backend-unavailable') }
+        $n = [DeskOSAudio.Audio]::SetApp($p[1], [single]([double]$p[2] / 100.0))
+        if ($n -eq 0) { [Console]::Out.WriteLine("APP-MISS $($p[1]) | sessions: " + [DeskOSAudio.Audio]::List()) }
+        else { [Console]::Out.WriteLine("APP-OK $($p[1]) -> $n") }
       }
       'C' {
-        if ($sessionsOk) {
-          $n = [DeskOSAudioS.Sessions]::SetCurrent([single]([double]$p[1] / 100.0))
-          if ($n -eq 0) { [Console]::Out.WriteLine('CURRENT-MISS') } else { [Console]::Out.WriteLine("CURRENT-OK -> $n") }
-        } else { [Console]::Out.WriteLine('CURRENT-SKIP sessions-backend-unavailable') }
+        $n = [DeskOSAudio.Audio]::SetCurrent([single]([double]$p[1] / 100.0))
+        if ($n -eq 0) { [Console]::Out.WriteLine('CURRENT-MISS') } else { [Console]::Out.WriteLine("CURRENT-OK -> $n") }
       }
     }
   } catch { [Console]::Out.WriteLine('ERR ' + $p[0] + ': ' + $_.Exception.Message) }
@@ -226,8 +206,7 @@ export class WindowsAudio {
   private onHelperLine(line: string): void {
     const l = line.trim();
     if (!l) return;
-    // Remember the notable states so the dashboard can show why per-app failed.
-    if (/^(ENDPOINT|SESSIONS|APP-|CURRENT-|ERR)/.test(l)) this.note = l;
+    if (/^(AUDIO|APP-|CURRENT-|ERR)/.test(l)) this.note = l;
     // Avoid spamming the console with identical repeated lines (e.g. APP-OK while sliding).
     if (l !== this.lastLogged) {
       this.lastLogged = l;
