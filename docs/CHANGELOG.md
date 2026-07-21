@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- 🗂️ **deej `config.yaml`** (deej-kompatibel): Der Lautstärkeregler lässt sich jetzt
+  auch über eine Datei im deej-Format konfigurieren (`slider_mapping` inkl.
+  **App-Gruppen** als Liste, `invert_sliders`, `com_port`, `baud_rate`,
+  `noise_reduction`). Wird beim Start gelesen (und beim ersten Mal als Vorlage
+  angelegt), bei Änderungen **live neu geladen** (Datei-Watch) und ist dann
+  maßgeblich gegenüber der UI. Neuer Regler-Typ **`deej.current`** (aktive App,
+  Windows) und **Gruppen** (ein Regler steuert mehrere Prozesse). Beispiel:
+  [`config.example.yaml`](../config.example.yaml). Neuer Endpunkt
+  `POST /api/deej/reload-config`.
 - 🎚️ **deej-Hardware-Lautstärkeregler**: bindet einen selbstgebauten
   [deej](https://github.com/omriharel/deej)-Regler ein. Das Backend liest die
   serielle Zeile (Werte 0–1023), normiert jeden Regler auf 0–100 % (optional

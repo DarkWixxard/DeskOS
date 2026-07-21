@@ -439,7 +439,8 @@ export type DeejTarget =
   | 'master' // System-Gesamtlautstärke (Standard-Ausgabegerät)
   | 'mic' // Mikrofon / Standard-Eingabegerät
   | 'system' // System-/Benachrichtigungston (nur Windows sinnvoll)
-  | 'app' // eine bestimmte Anwendung (per Prozessname)
+  | 'app' // eine oder mehrere Anwendungen (per Prozessname) – siehe `apps`
+  | 'current' // die gerade aktive Anwendung (deej.current, nur Windows)
   | 'unmapped'; // nicht zugewiesen (Regler wird ignoriert)
 
 // Stärke der Rauschunterdrückung – wie stark kleine, zappelnde Änderungen der
@@ -450,7 +451,7 @@ export type DeejNoiseReduction = 'low' | 'default' | 'high';
 export interface DeejSlider {
   index: number; // Position in der seriellen Zeile (0-basiert)
   target: DeejTarget; // was dieser Regler steuert
-  app?: string; // Prozess-/App-Name, wenn target === 'app' (z. B. 'spotify.exe')
+  apps?: string[]; // Prozess-/App-Namen, wenn target === 'app' (Liste = Gruppe, z. B. ['spotify.exe'])
   label: string; // Anzeigename in der UI
   value: number; // aktuelle Stellung 0–100 %
   muted?: boolean; // manuell stummgeschaltet
@@ -469,6 +470,8 @@ export interface DeejStatus {
   perAppSupported: boolean; // ob pro-App-Lautstärke auf dieser Plattform geht
   sliders: DeejSlider[]; // Zuordnung + aktuelle Werte
   lastLine?: string; // zuletzt empfangene Roh-Zeile (Diagnose)
+  configPath?: string; // Pfad der config.yaml (deej-kompatibel), falls vorhanden
+  configActive: boolean; // true, wenn die config.yaml geladen wurde und maßgeblich ist
   updatedAt: number; // Zeitpunkt des letzten Updates (epoch ms)
 }
 

@@ -63,6 +63,53 @@ Ohne Hardware zum Ausprobieren: einfach einen Fader ziehen oder **Test** klicken
 
 ---
 
+## Konfiguration per `config.yaml` (wie beim Original-deej)
+
+Wer lieber eine Datei bearbeitet als das Dashboard, kann DeskOS **genau wie deej**
+über eine `config.yaml` konfigurieren.
+
+- **Ort:** `config.yaml` im **Projekt-Root** (neben der `README.md`). Alternativ
+  einen beliebigen Pfad über die Umgebungsvariable `DEEJ_CONFIG` setzen.
+- **Erststart:** Existiert noch keine Datei, legt DeskOS automatisch eine
+  `config.yaml` mit der aktuellen Zuordnung an – als Startpunkt zum Bearbeiten.
+  Eine kommentierte Vorlage liegt außerdem als
+  [`config.example.yaml`](../config.example.yaml) bei.
+- **Live-Reload:** DeskOS **überwacht** die Datei. Speicherst du Änderungen,
+  werden sie **sofort übernommen** – kein Neustart nötig. Im Dashboard zeigt ein
+  Banner den aktiven Pfad und bietet einen **„Neu laden"**-Knopf.
+- **Maßgeblich:** Ist eine `config.yaml` vorhanden, ist **sie die Quelle der
+  Wahrheit**. Ändert sich die Datei, überschreibt sie die Zuordnung im Dashboard.
+
+Format (identisch zu deej):
+
+```yaml
+slider_mapping:
+  0: master
+  1: spotify.exe
+  2: chrome.exe
+  3:                      # eine Liste = Gruppe (ein Regler steuert mehrere Apps)
+    - pathofexile_x64.exe
+    - rocketleague.exe
+  4: discord.exe
+
+invert_sliders: false
+com_port: COM3
+baud_rate: 9600
+noise_reduction: default   # low | default | high
+```
+
+Mögliche Ziele je Regler: `master`, `mic`, `system`, `deej.current` (aktive App,
+nur Windows), `deej.unmapped`, ein **Prozessname** (z. B. `spotify.exe`) oder eine
+**Liste** von Prozessnamen (Gruppe). Steht ein `com_port` in der Datei, verbindet
+sich DeskOS beim Start automatisch damit – wie deej.
+
+> **Reihenfolge der Apps ändern:** Der Index (`0`, `1`, `2` …) entspricht dem
+> physischen Regler (Reihenfolge in der seriellen Zeile). Um „welcher Regler
+> steuert welche App" zu ändern, tauschst du einfach die Zuordnung der jeweiligen
+> Indizes in der `config.yaml`.
+
+---
+
 ## Plattform-Unterstützung für die Lautstärke
 
 Das Setzen der Lautstärke ist „best effort" und nutzt das jeweilige Standard-Tool

@@ -255,6 +255,11 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     res.json(deejService.getStatus());
   });
 
+  // config.yaml (deej-kompatibel) neu einlesen.
+  app.post('/api/deej/reload-config', (req, res) => {
+    res.json(deejService.reloadConfig());
+  });
+
   // ---- Layout / Profile System ----
   app.get('/api/layouts', (req, res) => {
     if (!deps.layout) return res.json({ profiles: [], activeId: null });

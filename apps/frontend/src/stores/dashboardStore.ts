@@ -174,9 +174,10 @@ interface DashboardStore {
   connectDeej: () => Promise<string | null>;
   disconnectDeej: () => Promise<void>;
   updateDeejConfig: (patch: { port?: string; baud?: number; invert?: boolean; noiseReduction?: DeejNoiseReduction; sliderCount?: number }) => Promise<void>;
-  updateDeejSlider: (index: number, patch: { target?: DeejTarget; app?: string; label?: string; muted?: boolean }) => Promise<void>;
+  updateDeejSlider: (index: number, patch: { target?: DeejTarget; apps?: string[]; label?: string; muted?: boolean }) => Promise<void>;
   setDeejVolume: (index: number, value: number) => Promise<void>;
   simulateDeej: (line: string) => Promise<void>;
+  reloadDeejConfig: () => Promise<void>;
   fetchAutomations: () => Promise<void>;
   createAutomation: (rule: Omit<AutomationRule, 'lastFired'>) => Promise<boolean>;
   deleteAutomation: (id: string) => Promise<void>;
@@ -823,6 +824,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       if (res.ok) set({ deejStatus: (await res.json()) as DeejStatus });
     } catch (error) {
       console.error('deej simulate failed:', error);
+    }
+  },
+
+  reloadDeejConfig: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/reload-config`, { method: 'POST' });
+      if (res.ok) set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('deej config reload failed:', error);
     }
   },
 

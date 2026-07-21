@@ -1,0 +1,36 @@
+# DeskOS – deej-Lautstärkeregler: Beispiel-Konfiguration
+#
+# Kopiere diese Datei nach "config.yaml" (im Projekt-Root) und passe sie an.
+# DeskOS liest sie beim Start ein und übernimmt Änderungen LIVE (einfach speichern).
+# Das Format ist kompatibel zum Original-deej: https://github.com/omriharel/deej
+#
+# slider_mapping: Regler-Index -> Ziel. Mögliche Ziele:
+#   master            – System-Gesamtlautstärke
+#   mic               – Mikrofon / Standard-Eingabegerät
+#   system            – System-/Benachrichtigungston (nur Windows)
+#   deej.current      – die gerade aktive Anwendung (nur Windows)
+#   deej.unmapped     – nicht zugewiesen
+#   <prozess.exe>     – eine App, z. B. spotify.exe (Groß-/Kleinschreibung egal)
+#   eine Liste        – eine Gruppe mehrerer Apps (siehe Index 3 unten)
+#
+# Wichtig: Der Index startet bei 0 und entspricht der Reihenfolge der Werte in
+# der seriellen Zeile (erster Regler = 0, zweiter = 1, ...).
+slider_mapping:
+  0: master
+  1: spotify.exe
+  2: chrome.exe
+  3:
+    - pathofexile_x64.exe
+    - rocketleague.exe
+  4: discord.exe
+
+# Regler invertieren (true = oben 0 %, unten 100 %)
+invert_sliders: false
+
+# Verbindung zum Arduino/deej-Board
+com_port: COM3
+baud_rate: 9600
+
+# Rauschunterdrückung je nach Hardware-Qualität:
+# "low" (sehr gute Hardware), "default" (normal) oder "high" (verrauscht)
+noise_reduction: default
