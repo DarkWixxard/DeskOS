@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- 🎚️ **deej-Hardware-Lautstärkeregler**: bindet einen selbstgebauten
+  [deej](https://github.com/omriharel/deej)-Regler ein. Das Backend liest die
+  serielle Zeile (Werte 0–1023), normiert jeden Regler auf 0–100 % (optional
+  invertiert + rauschgeglättet) und setzt die Lautstärke des OS über den neuen
+  `AudioController` (Linux `pactl` inkl. pro-App, macOS `osascript`, Windows
+  `nircmd`). Neue **Audio-Ansicht** mit Live-Fadern, Port-Auswahl und
+  Regler-Mapping; Live-Updates per WebSocket (`deej:update`). `serialport` ist
+  eine optionale Abhängigkeit – ohne Hardware lassen sich Regler ziehen/simulieren.
+  Endpunkte unter `/api/deej/*`. Dokumentiert in [DEEJ.md](./DEEJ.md).
 - 🔌 **API-Console**: eingebauter REST-Client im Dashboard. Methode + Pfad wählen,
   optional JSON-Body senden und Status, Dauer, Header sowie den formatierten
   Antwort-Body sehen – mit kuratiertem Endpunkt-Katalog und lokalem Anfrage-Verlauf.

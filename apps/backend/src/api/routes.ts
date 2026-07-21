@@ -6,6 +6,7 @@ import { systemMonitor } from '../services/SystemMonitor';
 import { automationEngine } from '../core/AutomationEngine';
 import { wledService } from '../services/WledService';
 import { displayService } from '../services/DisplayService';
+import { deejService } from '../services/DeejService';
 import { mqttService } from '../services/MqttService';
 import { authEnabled } from './auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -201,6 +202,57 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     const panel = await displayService.control(req.params.id, { on, brightness });
     if (!panel) return res.status(404).json({ error: 'Display nicht gefunden' });
     res.json(panel);
+  });
+
+  // ---- deej (Hardware-Lautstärkeregler / Audio) ----
+  app.get('/api/deej/status', (req, res) => {
+    res.json(deejService.getStatus());
+  });
+
+  // Verfügbare serielle Ports (benötigt das optionale 'serialport'-Paket).
+  app.get('/api/deej/ports', async (req, res) => {
+    res.json(await deejService.listPorts());
+  });
+
+  app.post('/api/deej/connect', async (req, res) => {
+    try {
+      res.json(await deejService.connect());
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/deej/disconnect', (req, res) => {
+    res.json(deejService.disconnect());
+  });
+
+  // Verbindungs-/Regler-Konfiguration (Port, Baud, Invertieren, Rauschunterdrückung, Reglerzahl).
+  app.patch('/api/deej/config', (req, res) => {
+    res.json(deejService.updateConfig(req.body ?? {}));
+  });
+
+  // Zuordnung eines einzelnen Reglers ändern (Ziel/App/Label/Mute).
+  app.patch('/api/deej/sliders/:index', (req, res) => {
+    const index = Number(req.params.index);
+    if (!Number.isInteger(index) || index < 0) return res.status(400).json({ error: 'Ungültiger Regler-Index' });
+    res.json(deejService.updateSlider(index, req.body ?? {}));
+  });
+
+  // Regler-Wert manuell setzen (0–100) – funktioniert auch ohne Hardware.
+  app.post('/api/deej/sliders/:index/volume', async (req, res) => {
+    const index = Number(req.params.index);
+    const value = Number(req.body?.value);
+    if (!Number.isInteger(index) || index < 0) return res.status(400).json({ error: 'Ungültiger Regler-Index' });
+    if (!Number.isFinite(value)) return res.status(400).json({ error: 'value (0–100) erforderlich' });
+    res.json(await deejService.setVolume(index, value));
+  });
+
+  // Rohe serielle Zeile einspeisen (Test-/Demo-Knopf, z. B. "512|1023|0|340").
+  app.post('/api/deej/simulate', (req, res) => {
+    const line = String(req.body?.line ?? '');
+    if (!line) return res.status(400).json({ error: 'line erforderlich' });
+    deejService.processLine(line);
+    res.json(deejService.getStatus());
   });
 
   // ---- Layout / Profile System ----

@@ -14,6 +14,10 @@ import type {
   DisplayPanel,
   DisplaySource,
   DisplayTransport,
+  DeejStatus,
+  DeejSlider,
+  DeejTarget,
+  DeejNoiseReduction,
   AutomationRule,
   AutomationTrigger,
   AutomationAction,
@@ -34,6 +38,10 @@ export type {
   DisplayPanel,
   DisplaySource,
   DisplayTransport,
+  DeejStatus,
+  DeejSlider,
+  DeejTarget,
+  DeejNoiseReduction,
   AutomationRule,
   AutomationTrigger,
   AutomationAction,
@@ -90,6 +98,8 @@ interface DashboardStore {
   wledLights: WledLight[];
   // Displays / info-panels
   displayPanels: DisplayPanel[];
+  // deej (hardware volume mixer)
+  deejStatus: DeejStatus | null;
   // Automations + Layout profiles
   automations: AutomationRule[];
   layouts: LayoutProfile[];
@@ -159,6 +169,14 @@ interface DashboardStore {
   updateDisplay: (id: string, patch: Partial<Pick<DisplayPanel, 'name' | 'transport' | 'target' | 'source' | 'text' | 'brightness' | 'sensorDeviceId' | 'sensorMetric'>>) => Promise<void>;
   controlDisplay: (id: string, patch: { on?: boolean; brightness?: number }) => Promise<void>;
   removeDisplay: (id: string) => Promise<void>;
+  fetchDeej: () => Promise<void>;
+  fetchDeejPorts: () => Promise<{ path: string; manufacturer?: string }[]>;
+  connectDeej: () => Promise<string | null>;
+  disconnectDeej: () => Promise<void>;
+  updateDeejConfig: (patch: { port?: string; baud?: number; invert?: boolean; noiseReduction?: DeejNoiseReduction; sliderCount?: number }) => Promise<void>;
+  updateDeejSlider: (index: number, patch: { target?: DeejTarget; app?: string; label?: string; muted?: boolean }) => Promise<void>;
+  setDeejVolume: (index: number, value: number) => Promise<void>;
+  simulateDeej: (line: string) => Promise<void>;
   fetchAutomations: () => Promise<void>;
   createAutomation: (rule: Omit<AutomationRule, 'lastFired'>) => Promise<boolean>;
   deleteAutomation: (id: string) => Promise<void>;
@@ -243,6 +261,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   notificationsOpen: false,
   wledLights: [],
   displayPanels: [],
+  deejStatus: null,
   automations: [],
   layouts: [],
   activeLayoutId: null,
@@ -277,6 +296,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().fetchNotifications();
       get().fetchWledLights();
       get().fetchDisplays();
+      get().fetchDeej();
       get().fetchAutomations();
       get().fetchLayouts();
       get().fetchScenes();
@@ -300,6 +320,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     socket.on('display:update', (panels: DisplayPanel[]) => {
       set({ displayPanels: panels });
+    });
+
+    socket.on('deej:update', (status: DeejStatus) => {
+      set({ deejStatus: status });
     });
 
     socket.on('scene:update', (scenes: Scene[]) => {
@@ -695,6 +719,110 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       set({ displayPanels: get().displayPanels.filter((p) => p.id !== id) });
     } catch (error) {
       console.error('Display remove failed:', error);
+    }
+  },
+
+  // ---- deej (hardware volume mixer) ----
+  fetchDeej: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/status`);
+      set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('Unable to fetch deej status:', error);
+    }
+  },
+
+  fetchDeejPorts: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/ports`);
+      return (await res.json()) as { path: string; manufacturer?: string }[];
+    } catch (error) {
+      console.error('Unable to list serial ports:', error);
+      return [];
+    }
+  },
+
+  connectDeej: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/connect`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) return (body?.error as string) || 'Verbindung fehlgeschlagen';
+      set({ deejStatus: body as DeejStatus });
+      return null;
+    } catch (error) {
+      console.error('deej connect failed:', error);
+      return 'Verbindung fehlgeschlagen';
+    }
+  },
+
+  disconnectDeej: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/disconnect`, { method: 'POST' });
+      set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('deej disconnect failed:', error);
+    }
+  },
+
+  updateDeejConfig: async (patch) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('deej config update failed:', error);
+    }
+  },
+
+  updateDeejSlider: async (index, patch) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/sliders/${index}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('deej slider update failed:', error);
+    }
+  },
+
+  setDeejVolume: async (index, value) => {
+    // Optimistic: reflect the new value immediately for a snappy slider.
+    const cur = get().deejStatus;
+    if (cur) {
+      set({
+        deejStatus: {
+          ...cur,
+          sliders: cur.sliders.map((s) => (s.index === index ? { ...s, value } : s)),
+        },
+      });
+    }
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/sliders/${index}/volume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      });
+      if (res.ok) set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('deej volume set failed:', error);
+    }
+  },
+
+  simulateDeej: async (line: string) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ line }),
+      });
+      if (res.ok) set({ deejStatus: (await res.json()) as DeejStatus });
+    } catch (error) {
+      console.error('deej simulate failed:', error);
     }
   },
 

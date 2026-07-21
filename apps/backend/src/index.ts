@@ -13,6 +13,7 @@ import { createPersistenceService } from './services/PersistenceService';
 import { createNotificationService } from './services/NotificationService';
 import { wledService } from './services/WledService';
 import { displayService } from './services/DisplayService';
+import { deejService } from './services/DeejService';
 import { mqttService } from './services/MqttService';
 import { createLayoutService } from './services/LayoutService';
 import { createSceneService } from './services/SceneService';
@@ -136,6 +137,12 @@ async function bootstrap(): Promise<void> {
     displayService.attach();
     console.log('✅ Display panels attached');
 
+    // deej (hardware volume mixer): seed the device on first run, probe the
+    // optional serialport dependency, and auto-connect if configured.
+    deejService.seedDefaults();
+    await deejService.attach();
+    console.log('✅ deej volume mixer ready');
+
     // Layout / profile system.
     await layout.restore();
     await layout.seedDefaults();
@@ -217,6 +224,7 @@ async function bootstrap(): Promise<void> {
       systemMonitor.stop();
       wledService.stop();
       displayService.stop();
+      deejService.stop();
       automationEngine.stop();
       persistence.stop();
       bambu.stop();

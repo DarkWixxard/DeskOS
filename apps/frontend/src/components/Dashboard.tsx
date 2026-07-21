@@ -13,6 +13,7 @@ import { LogView } from '@/components/LogView';
 import { RgbView } from '@/components/RgbView';
 import { SceneView } from '@/components/SceneView';
 import { DisplaysView } from '@/components/DisplaysView';
+import { DeejView } from '@/components/DeejView';
 import { AutomationsView } from '@/components/AutomationsView';
 import { SensorView } from '@/components/SensorView';
 import { PluginsView } from '@/components/PluginsView';
@@ -44,7 +45,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security', 'labs'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'audio', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security', 'labs'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -69,6 +70,7 @@ export const EMBEDDABLE_MODULES: { id: string; label: string; Component: Compone
   { id: 'rgb', label: 'RGB / LED', Component: RgbView },
   { id: 'scenes', label: 'Szenen', Component: SceneView },
   { id: 'displays', label: 'Displays', Component: DisplaysView },
+  { id: 'audio', label: 'Audio (deej)', Component: DeejView },
   { id: 'automations', label: 'Automations', Component: AutomationsView },
   { id: 'logs', label: 'Log Center', Component: LogView },
   { id: 'oszi', label: 'Oszi', Component: OsziView },
@@ -907,6 +909,8 @@ export function Dashboard() {
         {activeView === 'scenes' && <SceneView />}
 
         {activeView === 'displays' && <DisplaysView />}
+
+        {activeView === 'audio' && <DeejView />}
 
         {activeView === 'automations' && <AutomationsView />}
 

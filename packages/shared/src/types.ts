@@ -426,6 +426,52 @@ export interface DiscordUser {
   avatarUrl: string | null;
 }
 
+// --- deej (Hardware-Lautstärkeregler) ---
+// Ein physischer Lautstärke-Mixer nach dem Open-Source-Projekt "deej"
+// (https://github.com/omriharel/deej): ein Arduino/ESP mit mehreren
+// Potentiometern/Schiebereglern, der die Reglerstellungen zeilenweise über die
+// serielle Schnittstelle sendet (z. B. "512|1023|0|340", Werte 0–1023). DeskOS
+// liest diese Zeile, normiert jeden Regler auf 0–100 % und wendet die
+// Lautstärke auf das zugeordnete Ziel des Betriebssystems an.
+
+// Wofür ein einzelner Regler zuständig ist.
+export type DeejTarget =
+  | 'master' // System-Gesamtlautstärke (Standard-Ausgabegerät)
+  | 'mic' // Mikrofon / Standard-Eingabegerät
+  | 'system' // System-/Benachrichtigungston (nur Windows sinnvoll)
+  | 'app' // eine bestimmte Anwendung (per Prozessname)
+  | 'unmapped'; // nicht zugewiesen (Regler wird ignoriert)
+
+// Stärke der Rauschunterdrückung – wie stark kleine, zappelnde Änderungen der
+// analogen Regler geglättet werden, bevor eine neue Lautstärke gesetzt wird.
+export type DeejNoiseReduction = 'low' | 'default' | 'high';
+
+// Ein einzelner Schieberegler des deej-Geräts.
+export interface DeejSlider {
+  index: number; // Position in der seriellen Zeile (0-basiert)
+  target: DeejTarget; // was dieser Regler steuert
+  app?: string; // Prozess-/App-Name, wenn target === 'app' (z. B. 'spotify.exe')
+  label: string; // Anzeigename in der UI
+  value: number; // aktuelle Stellung 0–100 %
+  muted?: boolean; // manuell stummgeschaltet
+}
+
+// Geheimnis-freier Statusblock des deej-Geräts (für die Audio-Ansicht + API).
+export interface DeejStatus {
+  id: string; // Backing-Device-Id
+  connected: boolean; // serielle Verbindung steht und liefert Daten
+  available: boolean; // 'serialport'-Modul ist installiert (echte Hardware möglich)
+  port: string; // serieller Port (z. B. 'COM3' oder '/dev/ttyUSB0')
+  baud: number; // Baudrate (deej-Firmware-Standard: 9600)
+  invert: boolean; // Regler invertieren (0 % oben statt unten)
+  noiseReduction: DeejNoiseReduction;
+  platform: string; // Betriebssystem des Backends (process.platform)
+  perAppSupported: boolean; // ob pro-App-Lautstärke auf dieser Plattform geht
+  sliders: DeejSlider[]; // Zuordnung + aktuelle Werte
+  lastLine?: string; // zuletzt empfangene Roh-Zeile (Diagnose)
+  updatedAt: number; // Zeitpunkt des letzten Updates (epoch ms)
+}
+
 // --- Bambu Lab (3D-Drucker-Plugin) ---
 // Live-Status eines Bambu-Lab-Druckers (A1 & Co.), lokal per MQTT abgerufen.
 // Enthält keine Secrets – nur ob Zugangsdaten hinterlegt sind (hasCredentials)
