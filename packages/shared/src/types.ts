@@ -472,6 +472,7 @@ export interface DeejStatus {
   lastLine?: string; // zuletzt empfangene Roh-Zeile (Diagnose)
   configPath?: string; // Pfad der config.yaml (deej-kompatibel), falls vorhanden
   configActive: boolean; // true, wenn die config.yaml geladen wurde und maßgeblich ist
+  audioBackend?: string; // letzte Diagnose des OS-Audio-Backends (v. a. Windows pro-App)
   updatedAt: number; // Zeitpunkt des letzten Updates (epoch ms)
 }
 
