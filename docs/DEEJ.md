@@ -130,6 +130,22 @@ Pro-App-Zuordnung ist der **Prozessname** entscheidend (z. B. `chrome`,
 `spotify` – mit oder ohne `.exe`), und die App muss gerade Ton ausgeben (eine
 aktive Audio-Session haben), damit sie zugeordnet werden kann.
 
+### Pro-App reagiert nicht (nur Master funktioniert)?
+
+Die Audio-Ansicht zeigt in der Verbindungsleiste eine Zeile **„Audio-Backend: …"**
+mit der Live-Diagnose des OS-Backends. Typische Fälle:
+
+- **`SESSIONS OK`** – der Pro-App-Teil ist bereit.
+- **`APP-MISS <name> | sessions: chrome, spotify, …`** – der eingetragene Name
+  passt zu keinem laufenden Audio-Stream. Trage **exakt** einen der aufgelisteten
+  Prozessnamen ein (das ist die Liste der Apps, die gerade Ton ausgeben). Häufig
+  ist der Name kürzer als gedacht (z. B. `spotify`, nicht `Spotify Premium`).
+- **`SESSIONS FAIL: …`** – der C#-Helfer ließ sich nicht übersetzen; die Meldung
+  steht dahinter (bitte melden).
+
+Wichtig: Die App muss zum Zeitpunkt des Reglerns **gerade Ton ausgeben**, sonst
+existiert keine Audio-Session, der man die Lautstärke zuweisen kann.
+
 ---
 
 ## Umgebungsvariablen (optional, für Kiosk/headless)

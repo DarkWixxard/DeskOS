@@ -89,6 +89,13 @@ export class AudioController {
     return this.win;
   }
 
+  /** Last diagnostic from the Windows audio helper (undefined off Windows / before use). */
+  getBackendNote(): string | undefined {
+    if (this.platform !== 'win32') return undefined;
+    const note = this.win?.getNote();
+    return note && note.length ? note : undefined;
+  }
+
   private warnOnce(key: string, message: string): void {
     if (this.warned.has(key)) return;
     this.warned.add(key);

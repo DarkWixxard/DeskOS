@@ -93,6 +93,7 @@ export class DeejService {
   private lastLine = '';
   private emitTimer: NodeJS.Timeout | null = null;
   private dirty = false;
+  private noteRefreshTimer: NodeJS.Timeout | null = null;
   // deej-compatible config.yaml: when present it is the source of truth.
   private configPath: string | null = null;
   private configActive = false;
@@ -138,6 +139,10 @@ export class DeejService {
     if (this.emitTimer) {
       clearInterval(this.emitTimer);
       this.emitTimer = null;
+    }
+    if (this.noteRefreshTimer) {
+      clearTimeout(this.noteRefreshTimer);
+      this.noteRefreshTimer = null;
     }
     if (this.configPath) {
       try {
@@ -222,6 +227,7 @@ export class DeejService {
       lastLine: this.lastLine || undefined,
       configPath: this.configPath ?? undefined,
       configActive: this.configActive,
+      audioBackend: audioController.getBackendNote(),
       updatedAt: Date.now(),
     };
   }
@@ -332,6 +338,19 @@ export class DeejService {
       default:
         break;
     }
+    // The Windows helper reports match results asynchronously; nudge an update so
+    // any diagnostic (e.g. "no matching session") reaches the dashboard.
+    this.scheduleNoteRefresh();
+  }
+
+  // Debounced re-broadcast so the OS-audio backend's async diagnostic surfaces.
+  private scheduleNoteRefresh(): void {
+    if (this.noteRefreshTimer) return;
+    this.noteRefreshTimer = setTimeout(() => {
+      this.noteRefreshTimer = null;
+      this.emitUpdate();
+    }, 350);
+    this.noteRefreshTimer.unref?.();
   }
 
   // ---------------------------------------------------------------- config.yaml
