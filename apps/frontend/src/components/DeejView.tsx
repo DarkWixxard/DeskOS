@@ -304,6 +304,26 @@ function ConnectionPanel() {
         </span>
       </div>
 
+      {status?.audioBackend && (
+        <p
+          className={clsx(
+            'mb-3 border px-3 py-2 font-mono text-[11px]',
+            /FAIL|MISS|ERR|stderr|unavailable/.test(status.audioBackend)
+              ? 'border-warning/30 bg-warning/5 text-warning/90'
+              : 'border-accent/20 bg-accent/[0.03] text-accent/70'
+          )}
+          title="Diagnose des Betriebssystem-Audio-Backends"
+        >
+          Audio-Backend: {status.audioBackend}
+          {/APP-MISS/.test(status.audioBackend) && (
+            <span className="mt-1 block text-warning/70">
+              → Kein passender Audio-Stream. Trage exakt den <b>Prozessnamen</b> ein (siehe „sessions:" oben),
+              und die App muss gerade Ton ausgeben.
+            </span>
+          )}
+        </p>
+      )}
+
       {status && !status.available && (
         <p className="mb-3 border border-warning/30 bg-warning/5 px-3 py-2 text-[11px] text-warning/90">
           Das optionale Paket <code className="text-warning">serialport</code> ist nicht installiert. Die Regler

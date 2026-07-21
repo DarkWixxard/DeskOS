@@ -127,8 +127,8 @@ namespace DeskOSAudioS {
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
 
     // Enumerate every audio session and set the volume of those whose owning
-    // process id matches the predicate.
-    static void Apply(float v, Predicate<uint> match) {
+    // process id matches the predicate. Returns how many sessions were changed.
+    static int Apply(float v, Predicate<uint> match) {
       var e = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
       IMMDevice dev; Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0, 0, out dev));
       Guid iid = typeof(IAudioSessionManager2).GUID; object o;
@@ -136,36 +136,50 @@ namespace DeskOSAudioS {
       var mgr = (IAudioSessionManager2)o;
       IAudioSessionEnumerator sessions; Marshal.ThrowExceptionForHR(mgr.GetSessionEnumerator(out sessions));
       int count; sessions.GetCount(out count);
+      int hits = 0;
       for (int i = 0; i < count; i++) {
         IAudioSessionControl2 ctl;
         if (sessions.GetSession(i, out ctl) != 0 || ctl == null) continue;
         uint pid; if (ctl.GetProcessId(out pid) != 0 || pid == 0) continue;
-        if (match(pid)) { var sav = (ISimpleAudioVolume)ctl; var g = Guid.Empty; sav.SetMasterVolume(v, ref g); }
+        if (match(pid)) { var sav = (ISimpleAudioVolume)ctl; var g = Guid.Empty; sav.SetMasterVolume(v, ref g); hits++; }
       }
+      return hits;
     }
-    public static void SetApp(string app, float v) {
+    // List the process names of all current audio sessions (for diagnostics).
+    public static string List() {
+      var names = new System.Collections.Generic.List<string>();
+      Apply(-1f, delegate(uint pid) {
+        try { names.Add(Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant()); } catch { }
+        return false;
+      });
+      return string.Join(", ", names.ToArray());
+    }
+    public static int SetApp(string app, float v) {
       string needle = app.ToLowerInvariant();
       if (needle.EndsWith(".exe")) needle = needle.Substring(0, needle.Length - 4);
-      Apply(v, delegate(uint pid) {
+      return Apply(v, delegate(uint pid) {
         string pname; try { pname = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch { return false; }
         return pname == needle || pname.Contains(needle) || needle.Contains(pname);
       });
     }
-    public static void SetCurrent(float v) {
+    public static int SetCurrent(float v) {
       IntPtr hwnd = GetForegroundWindow();
-      if (hwnd == IntPtr.Zero) return;
+      if (hwnd == IntPtr.Zero) return 0;
       uint target; GetWindowThreadProcessId(hwnd, out target);
-      if (target == 0) return;
-      Apply(v, delegate(uint pid) { return pid == target; });
+      if (target == 0) return 0;
+      return Apply(v, delegate(uint pid) { return pid == target; });
     }
   }
 }
 '@
 
-Add-Type -TypeDefinition $endpointCode
+try { Add-Type -TypeDefinition $endpointCode; [Console]::Out.WriteLine('ENDPOINT OK') }
+catch { [Console]::Out.WriteLine('ENDPOINT FAIL: ' + $_.Exception.Message) }
+
 $sessionsOk = $true
-try { Add-Type -TypeDefinition $sessionCode } catch { $sessionsOk = $false }
-[Console]::Out.WriteLine("READY")
+try { Add-Type -TypeDefinition $sessionCode; [Console]::Out.WriteLine('SESSIONS OK') }
+catch { $sessionsOk = $false; [Console]::Out.WriteLine('SESSIONS FAIL: ' + $_.Exception.Message) }
+[Console]::Out.WriteLine('READY')
 
 while ($true) {
   $line = [Console]::In.ReadLine()
@@ -176,10 +190,21 @@ while ($true) {
       'M' { [DeskOSAudio.Endpoint]::SetMaster([single]([double]$p[1] / 100.0)) }
       'I' { [DeskOSAudio.Endpoint]::SetMic([single]([double]$p[1] / 100.0)) }
       'U' { [DeskOSAudio.Endpoint]::SetMasterMute($p[1] -eq '1') }
-      'A' { if ($sessionsOk) { [DeskOSAudioS.Sessions]::SetApp($p[1], [single]([double]$p[2] / 100.0)) } }
-      'C' { if ($sessionsOk) { [DeskOSAudioS.Sessions]::SetCurrent([single]([double]$p[1] / 100.0)) } }
+      'A' {
+        if ($sessionsOk) {
+          $n = [DeskOSAudioS.Sessions]::SetApp($p[1], [single]([double]$p[2] / 100.0))
+          if ($n -eq 0) { [Console]::Out.WriteLine("APP-MISS $($p[1]) | sessions: " + [DeskOSAudioS.Sessions]::List()) }
+          else { [Console]::Out.WriteLine("APP-OK $($p[1]) -> $n") }
+        } else { [Console]::Out.WriteLine('APP-SKIP sessions-backend-unavailable') }
+      }
+      'C' {
+        if ($sessionsOk) {
+          $n = [DeskOSAudioS.Sessions]::SetCurrent([single]([double]$p[1] / 100.0))
+          if ($n -eq 0) { [Console]::Out.WriteLine('CURRENT-MISS') } else { [Console]::Out.WriteLine("CURRENT-OK -> $n") }
+        } else { [Console]::Out.WriteLine('CURRENT-SKIP sessions-backend-unavailable') }
+      }
     }
-  } catch { }
+  } catch { [Console]::Out.WriteLine('ERR ' + $p[0] + ': ' + $_.Exception.Message) }
 }
 `;
 
@@ -187,6 +212,28 @@ export class WindowsAudio {
   private proc: ChildProcess | null = null;
   private scriptPath: string | null = null;
   private failed = false;
+  private stdoutBuf = '';
+  private lastLogged = '';
+  // Most recent meaningful diagnostic from the helper (surfaced in the deej status).
+  private note = '';
+
+  /** Last diagnostic line from the Windows audio helper (for the UI/status). */
+  getNote(): string {
+    return this.note;
+  }
+
+  /** Handle a line printed by the PowerShell helper: log it (deduped) + remember it. */
+  private onHelperLine(line: string): void {
+    const l = line.trim();
+    if (!l) return;
+    // Remember the notable states so the dashboard can show why per-app failed.
+    if (/^(ENDPOINT|SESSIONS|APP-|CURRENT-|ERR)/.test(l)) this.note = l;
+    // Avoid spamming the console with identical repeated lines (e.g. APP-OK while sliding).
+    if (l !== this.lastLogged) {
+      this.lastLogged = l;
+      console.log(`[deej/win] ${l}`);
+    }
+  }
 
   /** Spawn (or reuse) the persistent PowerShell helper. Returns false if unusable. */
   private ensure(): boolean {
@@ -200,11 +247,28 @@ export class WindowsAudio {
       const proc = spawn(
         'powershell.exe',
         ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', this.scriptPath],
-        { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true }
+        { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
       );
+      // Capture the helper's diagnostics (compile status, per-app match results).
+      proc.stdout?.setEncoding('utf8');
+      proc.stdout?.on('data', (chunk: string) => {
+        this.stdoutBuf += chunk;
+        const lines = this.stdoutBuf.split(/\r?\n/);
+        this.stdoutBuf = lines.pop() ?? '';
+        for (const line of lines) this.onHelperLine(line);
+      });
+      proc.stderr?.setEncoding('utf8');
+      proc.stderr?.on('data', (chunk: string) => {
+        const text = String(chunk).trim();
+        if (text) {
+          this.note = `stderr: ${text}`;
+          console.warn(`[deej/win] stderr: ${text}`);
+        }
+      });
       proc.on('error', (err) => {
         this.failed = true;
         this.proc = null;
+        this.note = `Helfer-Start fehlgeschlagen: ${err.message}`;
         console.warn(`[audio] PowerShell-Audio-Helfer konnte nicht gestartet werden (${err.message}). Lautstärke wird nur angezeigt.`);
       });
       proc.on('exit', () => {
