@@ -127,6 +127,7 @@ export class DeejService {
       this.emitTimer = null;
     }
     this.closePort();
+    audioController.dispose();
   }
 
   private onCommand(event: DeskOSEvent): void {

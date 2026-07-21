@@ -65,7 +65,8 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
   der seine Stellungen über USB-Serial sendet). Das Backend liest die serielle Zeile, normiert jeden Regler auf 0–100 %
   (optional invertiert + rauschgeglättet) und **setzt die Lautstärke** des Betriebssystems.
 - Pro Regler frei zuordenbar: **Master · Mikrofon · bestimmte App** (per Prozessname). Lautstärke-Anwendung „best effort"
-  je Plattform: **Linux** `pactl` (inkl. **pro-App**), **macOS** `osascript`, **Windows** `nircmd`.
+  je Plattform: **Windows** Core Audio via PowerShell (ohne Installation, inkl. **pro-App**),
+  **Linux** `pactl` (inkl. **pro-App**), **macOS** `osascript`.
 - **Audio-Ansicht** mit Live-Fadern, Port-Auswahl, Verbinden/Trennen und Regler-Mapping; Updates live per WebSocket
   (`deej:update`). `serialport` ist eine **optionale** Abhängigkeit – ohne Hardware lassen sich die Regler **ziehen**
   und **simulieren** (steuert trotzdem die echte Lautstärke). Einrichtung in [DEEJ.md](./docs/DEEJ.md).
