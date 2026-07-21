@@ -135,12 +135,12 @@ aktive Audio-Session haben), damit sie zugeordnet werden kann.
 Die Audio-Ansicht zeigt in der Verbindungsleiste eine Zeile **„Audio-Backend: …"**
 mit der Live-Diagnose des OS-Backends. Typische Fälle:
 
-- **`SESSIONS OK`** – der Pro-App-Teil ist bereit.
+- **`AUDIO OK`** – der C#-Helfer ist bereit (Master **und** Pro-App).
 - **`APP-MISS <name> | sessions: chrome, spotify, …`** – der eingetragene Name
   passt zu keinem laufenden Audio-Stream. Trage **exakt** einen der aufgelisteten
   Prozessnamen ein (das ist die Liste der Apps, die gerade Ton ausgeben). Häufig
   ist der Name kürzer als gedacht (z. B. `spotify`, nicht `Spotify Premium`).
-- **`SESSIONS FAIL: …`** – der C#-Helfer ließ sich nicht übersetzen; die Meldung
+- **`AUDIO FAIL: …`** – der C#-Helfer ließ sich nicht übersetzen; die Meldung
   steht dahinter (bitte melden).
 
 Wichtig: Die App muss zum Zeitpunkt des Reglerns **gerade Ton ausgeben**, sonst
