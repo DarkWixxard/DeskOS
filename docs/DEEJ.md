@@ -71,13 +71,17 @@ Log), der Rest funktioniert weiter.
 
 | Plattform | Master | Mikrofon | Pro-App | Werkzeug |
 |-----------|:------:|:--------:|:-------:|----------|
+| **Windows** | ✅ | ✅ | ✅ | Core Audio API über PowerShell (**ohne Installation**) |
 | **Linux** (PulseAudio/PipeWire) | ✅ | ✅ | ✅ | `pactl` |
 | **macOS** | ✅ | ✅ | – | `osascript` |
-| **Windows** | ✅* | – | – | `nircmd` (falls im PATH) |
 
-\* Unter Windows wird `nircmd` verwendet, falls verfügbar. Für vollständige
-Pro-App-Steuerung unter Windows ist die native deej-App weiterhin die
-umfassendere Wahl.
+Unter **Windows** spricht DeskOS direkt die **Windows Core Audio API** an – über
+einen einzigen, dauerhaft laufenden PowerShell-Prozess (kompiliert einmalig einen
+kleinen C#-Helfer via `Add-Type`). Es ist **kein** `nircmd` oder sonstiges Tool
+nötig; PowerShell + .NET Framework sind auf jedem Windows vorhanden. Für die
+Pro-App-Zuordnung ist der **Prozessname** entscheidend (z. B. `chrome`,
+`spotify` – mit oder ohne `.exe`), und die App muss gerade Ton ausgeben (eine
+aktive Audio-Session haben), damit sie zugeordnet werden kann.
 
 ---
 
