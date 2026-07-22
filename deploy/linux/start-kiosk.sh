@@ -52,14 +52,22 @@ fi
 PROFILE_DIR="${HOME}/.config/descos-kiosk"
 mkdir -p "$PROFILE_DIR"
 
+# Chromium-Flags zusammenstellen. Optional: Kiosk auf einen bestimmten Monitor
+# legen via DESCOS_KIOSK_POSITION="X,Y" (linke obere Ecke, X11). Unter Wayland
+# wird die Fensterposition ggf. ignoriert.
+ARGS=(
+  --kiosk
+  --noerrdialogs
+  --disable-infobars
+  --disable-session-crashed-bubble
+  --disable-restore-session-state
+  --disable-features=TranslateUI
+  --check-for-update-interval=31536000
+  --user-data-dir="$PROFILE_DIR"
+)
+if [ -n "${DESCOS_KIOSK_POSITION:-}" ]; then
+  ARGS+=( "--window-position=${DESCOS_KIOSK_POSITION}" )
+fi
+
 echo "[descos-kiosk] Launching ${BROWSER} in kiosk mode -> ${URL}"
-exec "$BROWSER" \
-  --kiosk \
-  --noerrdialogs \
-  --disable-infobars \
-  --disable-session-crashed-bubble \
-  --disable-restore-session-state \
-  --disable-features=TranslateUI \
-  --check-for-update-interval=31536000 \
-  --user-data-dir="$PROFILE_DIR" \
-  "$URL"
+exec "$BROWSER" "${ARGS[@]}" "$URL"

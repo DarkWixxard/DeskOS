@@ -181,6 +181,49 @@ Verknüpfung aus dem Autostart-Ordner löschen:
 
 ---
 
+## Auf einem bestimmten Monitor starten (Multi-Monitor)
+
+Bei mehreren Bildschirmen öffnet der Kiosk-Browser standardmäßig auf dem
+**Hauptmonitor**. Du kannst ihn gezielt auf einen anderen legen – über die
+Variable `DESCOS_KIOSK_POSITION` (`X,Y` = linke obere Ecke des Ziel-Monitors im
+virtuellen Desktop). Die Start-Skripte hängen daraus automatisch das
+Chromium-Flag `--window-position=X,Y` an.
+
+**Position setzen** – dauerhaft in der Root-`.env`:
+
+```env
+# Beispiel: zweiter Monitor rechts neben einem 1920px breiten Hauptmonitor
+DESCOS_KIOSK_POSITION=1920,0
+```
+
+Oder einmalig als Umgebungsvariable (hat Vorrang) – Windows:
+
+```bat
+set DESCOS_KIOSK_POSITION=1920,0
+deploy\windows\start-kiosk.bat
+```
+
+Linux:
+
+```bash
+DESCOS_KIOSK_POSITION=1920,0 ./deploy/linux/start-kiosk.sh
+```
+
+**Den X-Wert (Offset) findest du so:** Er ist die Summe der Breiten aller
+Monitore *links* vom Ziel. Bei einem 1920px-Hauptmonitor liegt der rechte
+Nachbar bei `1920,0`, ein Monitor *links* davon bei `-1920,0`, einer *oberhalb*
+bei `0,-1080`. Die genaue Anordnung zeigt unter Windows
+*Einstellungen → System → Anzeige* (Bildschirme per Ziehen anordnen).
+
+> **Hinweis:** Ignoriert Chrome im `--kiosk`-Modus die Position (kommt je nach
+> Version vor), hilft es, das Kiosk-Profil einmal zu löschen
+> (`%LOCALAPPDATA%\descos-kiosk` bzw. `~/.config/descos-kiosk`), damit keine
+> alte Fensterposition gespeichert bleibt. Unter **Wayland** (neuere Pi-Images)
+> wird `--window-position` teils ignoriert – dort den Ziel-Monitor stattdessen
+> in der Desktop-Anordnung als primär setzen.
+
+---
+
 ## Alternative: Docker
 
 Backend und Frontend lassen sich auch per Docker starten – die
