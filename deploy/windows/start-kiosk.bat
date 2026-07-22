@@ -21,9 +21,6 @@ REM die Monitor-Nummer (wie in list-monitors.bat angezeigt) in ihre X,Y aufgeloe
 if not defined KIOSK_POS if defined KIOSK_MON (
   for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $s=[System.Windows.Forms.Screen]::AllScreens; $i=[int]('%KIOSK_MON%') - 1; if ($i -ge 0 -and $i -lt $s.Count) { '{0},{1}' -f $s[$i].Bounds.X, $s[$i].Bounds.Y }"`) do set "KIOSK_POS=%%P"
 )
-set "POSARG="
-if defined KIOSK_POS set "POSARG=--window-position=%KIOSK_POS%"
-
 echo Waiting for %URL% ...
 set /a tries=0
 :waitloop
@@ -39,19 +36,24 @@ set "CHROME="
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe"      set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
 if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"  set "CHROME=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
 
-if defined CHROME (
-  echo Launching Chrome in kiosk mode...
-  start "" "%CHROME%" --kiosk %POSARG% --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --check-for-update-interval=31536000 --user-data-dir="%LOCALAPPDATA%\descos-kiosk" "%URL%"
-) else (
-  echo Chrome not found - using Microsoft Edge...
-  start "" msedge --kiosk %POSARG% --user-data-dir="%LOCALAPPDATA%\descos-kiosk" %URL% --edge-kiosk-type=fullscreen --no-first-run
-)
-
-REM Chrome/Edge ignorieren --window-position im Kiosk-Modus teils und oeffnen auf
-REM dem Hauptmonitor. Daher das Fenster nach dem Start aktiv auf den Zielmonitor
-REM verschieben (findet nur das Kiosk-Fenster ueber sein eigenes Profil).
 if defined KIOSK_POS (
-  echo Moving kiosk window to monitor at %KIOSK_POS% ...
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0kiosk-place.ps1" -Position "%KIOSK_POS%"
+  REM Chrome/Edge ignorieren --window-position im Kiosk-Modus und oeffnen auf dem
+  REM Hauptmonitor. Daher startet und platziert ein PowerShell-Helfer das Fenster
+  REM gezielt auf dem gewuenschten Monitor (siehe %LOCALAPPDATA%\descos-kiosk-place.log).
+  echo Launching kiosk on monitor at %KIOSK_POS% ...
+  if defined CHROME (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0kiosk-place.ps1" -Browser "%CHROME%" -Url "%URL%" -Position "%KIOSK_POS%"
+  ) else (
+    echo Chrome not found - using Microsoft Edge...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0kiosk-place.ps1" -Browser "msedge" -Url "%URL%" -Position "%KIOSK_POS%" -Edge 1
+  )
+) else (
+  if defined CHROME (
+    echo Launching Chrome in kiosk mode...
+    start "" "%CHROME%" --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --check-for-update-interval=31536000 --user-data-dir="%LOCALAPPDATA%\descos-kiosk" "%URL%"
+  ) else (
+    echo Chrome not found - using Microsoft Edge...
+    start "" msedge --kiosk %URL% --edge-kiosk-type=fullscreen --no-first-run
+  )
 )
 endlocal

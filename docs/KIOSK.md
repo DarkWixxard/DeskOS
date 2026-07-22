@@ -243,10 +243,11 @@ einer *darunter* bei `0,1080`. Die Anordnung zeigt unter Windows
 
 > **Warum nicht nur `--window-position`?** Chrome und Edge **ignorieren dieses
 > Flag im `--kiosk`-Modus** und öffnen immer auf dem Hauptmonitor. Unter Windows
-> verschiebt `start-kiosk.bat` das Kiosk-Fenster deshalb nach dem Start aktiv auf
-> den gewählten Monitor (`kiosk-place.ps1`, per Win32 `SetWindowPos`). Es wird nur
-> das Kiosk-Fenster angefasst – dein normaler Browser bleibt unberührt, weil der
-> Kiosk ein eigenes Profil nutzt.
+> startet `start-kiosk.bat` den Kiosk deshalb über `kiosk-place.ps1`: Der Helfer
+> startet den Browser, kennt so die exakte Prozess-ID und schiebt genau dieses
+> Fenster per Win32 `SetWindowPos` auf den gewählten Monitor. Dein normaler
+> Browser bleibt unberührt (der Kiosk nutzt ein eigenes Profil). Läuft etwas
+> schief, steht der Ablauf in `%LOCALAPPDATA%\descos-kiosk-place.log`.
 >
 > Unter **Wayland** (neuere Pi-Images) wird `--window-position` teils ignoriert –
 > dort den Ziel-Monitor stattdessen in der Desktop-Anordnung als primär setzen.
