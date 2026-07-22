@@ -184,36 +184,64 @@ Verknüpfung aus dem Autostart-Ordner löschen:
 ## Auf einem bestimmten Monitor starten (Multi-Monitor)
 
 Bei mehreren Bildschirmen öffnet der Kiosk-Browser standardmäßig auf dem
-**Hauptmonitor**. Du kannst ihn gezielt auf einen anderen legen – über die
-Variable `DESCOS_KIOSK_POSITION` (`X,Y` = linke obere Ecke des Ziel-Monitors im
-virtuellen Desktop). Die Start-Skripte hängen daraus automatisch das
-Chromium-Flag `--window-position=X,Y` an.
+**Hauptmonitor**. Du kannst ihn gezielt auf einen anderen legen. Es gibt zwei
+Wege – der erste ist unter Windows der einfachste.
 
-**Position setzen** – dauerhaft in der Root-`.env`:
+### 1. Per Monitor-Nummer (Windows, empfohlen)
 
-```env
-# Beispiel: zweiter Monitor rechts neben einem 1920px breiten Hauptmonitor
-DESCOS_KIOSK_POSITION=1920,0
-```
-
-Oder einmalig als Umgebungsvariable (hat Vorrang) – Windows:
+Zuerst die Nummern und Koordinaten der Bildschirme anzeigen:
 
 ```bat
-set DESCOS_KIOSK_POSITION=1920,0
+deploy\windows\list-monitors.bat
+```
+
+Das listet z. B.:
+
+```
+Monitor 1: X=0 Y=0      1920x1080 (Primaer)
+Monitor 2: X=1920 Y=0   1920x1080
+Monitor 3: X=320 Y=1080 1280x720
+```
+
+Dann in der Root-`.env` die gewünschte Nummer eintragen:
+
+```env
+DESCOS_KIOSK_MONITOR=3
+```
+
+Das Start-Skript löst die Nummer automatisch in die passende Fensterposition auf.
+Der Bildschirm **unterhalb** hat dabei eine **positive Y-Zahl** – das ist in der
+Regel der als „3" angeordnete Monitor.
+
+### 2. Per Pixel-Position (Windows + Linux)
+
+Alternativ direkt die linke obere Ecke des Ziel-Monitors angeben
+(`X,Y` im virtuellen Desktop). Hat Vorrang vor `DESCOS_KIOSK_MONITOR`:
+
+```env
+# Beispiel: Monitor unterhalb eines 1920×1080-Hauptmonitors
+DESCOS_KIOSK_POSITION=0,1080
+```
+
+Oder einmalig als Umgebungsvariable (hat Vorrang) – Windows bzw. Linux:
+
+```bat
+set DESCOS_KIOSK_MONITOR=3
 deploy\windows\start-kiosk.bat
 ```
 
-Linux:
-
 ```bash
-DESCOS_KIOSK_POSITION=1920,0 ./deploy/linux/start-kiosk.sh
+DESCOS_KIOSK_POSITION=0,1080 ./deploy/linux/start-kiosk.sh
 ```
 
-**Den X-Wert (Offset) findest du so:** Er ist die Summe der Breiten aller
-Monitore *links* vom Ziel. Bei einem 1920px-Hauptmonitor liegt der rechte
-Nachbar bei `1920,0`, ein Monitor *links* davon bei `-1920,0`, einer *oberhalb*
-bei `0,-1080`. Die genaue Anordnung zeigt unter Windows
-*Einstellungen → System → Anzeige* (Bildschirme per Ziehen anordnen).
+Beide Wege hängen am Ende das Chromium-Flag `--window-position=X,Y` an.
+
+**Den Offset selbst bestimmen:** X ist die Summe der Breiten aller Monitore
+*links* vom Ziel, Y die der Monitore *darüber*. Bei einem 1920×1080-Hauptmonitor
+liegt der rechte Nachbar bei `1920,0`, ein Monitor *links* davon bei `-1920,0`,
+einer *darunter* bei `0,1080`. Die Anordnung zeigt unter Windows
+*Einstellungen → System → Anzeige* (Bildschirme per Ziehen anordnen); unter Linux
+`xrandr --listmonitors`.
 
 > **Hinweis:** Ignoriert Chrome im `--kiosk`-Modus die Position (kommt je nach
 > Version vor), hilft es, das Kiosk-Profil einmal zu löschen
