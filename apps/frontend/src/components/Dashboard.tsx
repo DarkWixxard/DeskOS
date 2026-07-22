@@ -25,7 +25,7 @@ import { ApiConsoleView } from '@/components/ApiConsoleView';
 import { DEVICE_TYPE_OPTIONS, deviceTypeLabel } from '@shared/types';
 import { SettingsView } from '@/components/SettingsView';
 import { SecurityView } from '@/components/SecurityView';
-import { LabsView, LABS_CALM_MODE, LABS_DASHBOARD_CLOCK } from '@/components/LabsView';
+import { LabsView, LABS_CALM_MODE, LABS_DASHBOARD_CLOCK, LABS_COMPACT_MODE } from '@/components/LabsView';
 import { LayoutBar } from '@/components/LayoutBar';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { DeviceDetail } from '@/components/DeviceDetail';
@@ -833,6 +833,17 @@ export function Dashboard() {
 
   // Labs experiment: the "Ruhemodus" flag drops the holo flicker + scanline motion.
   const calm = useLabsFlag(LABS_CALM_MODE);
+
+  // Labs experiment: "Kompaktmodus (7-Zoll)" forces the compact density scale on
+  // any display by tagging <html data-compact>. Small screens already compact
+  // themselves via CSS media queries — this only adds the manual override.
+  const compact = useLabsFlag(LABS_COMPACT_MODE);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (compact) root.setAttribute('data-compact', 'on');
+    else root.removeAttribute('data-compact');
+    return () => root.removeAttribute('data-compact');
+  }, [compact]);
 
   // A section is visible unless it was explicitly switched off in the Anzeige view.
   const shows = (id: string) => dashboardWidgets[id] !== false;

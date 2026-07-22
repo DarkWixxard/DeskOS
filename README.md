@@ -339,6 +339,7 @@ Automation/Layout, MQTT (mit eingebettetem Broker) und die Plugin-Registry ab.
 - **Linux / Raspberry Pi (systemd):** `sudo ./deploy/linux/install.sh` → `descos-backend.service` + `descos-frontend.service`; Kiosk via `./deploy/linux/start-kiosk.sh`.
 - **Windows (Autostart):** `powershell -ExecutionPolicy Bypass -File deploy\windows\install-autostart.ps1`.
 - **Docker:** `docker-compose up -d`.
+- **7-Zoll- / kleine Touch-Displays:** Das Dashboard ist responsiv und verdichtet sich auf kleinen Panels (800×480 / 1024×600) automatisch; per Labs-Schalter „Kompaktmodus (7-Zoll)" auch erzwingbar – siehe [KIOSK.md](./docs/KIOSK.md#7-zoll--kleine-touch-displays).
 
 Details: [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) · [TAILSCALE.md](./docs/TAILSCALE.md).
 

@@ -25,6 +25,38 @@ Alle Dateien liegen unter [`deploy/`](../deploy).
 
 ---
 
+## 7-Zoll / kleine Touch-Displays
+
+DeskOS lässt sich problemlos auf einem kleinen, fest montierten Touch-Panel betreiben
+(z. B. offizielles Raspberry-Pi-7"-Display oder ein günstiges HDMI-TFT). Das Dashboard
+ist responsiv: Die Kacheln stapeln sich auf schmalen Screens automatisch untereinander,
+und die gesamte Oberfläche wird auf kleinen/kurzen Panels **automatisch dichter skaliert**,
+damit sie ohne Scroll-Marathon auf typische 7-Zoll-Auflösungen passt:
+
+- **800 × 480** (verbreitete günstige TFTs) und **1024 × 600** (offizielles Pi-7") –
+  beide werden per CSS-Media-Query erkannt und kompakter gerendert.
+- Für **Hochformat** (z. B. 600 × 1024) greift dieselbe Verdichtung.
+
+Zusätzlich gibt es in **Labs** (🧪) den Schalter **„Kompaktmodus (7-Zoll)"**, der den
+kompakten Maßstab **auf jedem Display erzwingt** – nützlich, falls dein Panel eine große
+logische Auflösung meldet oder du das Dashboard generell dichter möchtest. Der Schalter ist
+opt-in und wird pro Gerät/Browser gespeichert (siehe [LABS.md](./LABS.md)).
+
+**Empfohlene Einrichtung für ein 7-Zoll-Panel:**
+
+1. Kiosk wie unten für Linux bzw. Windows einrichten (Vollbild-Browser auf `:4000`).
+2. Einmalig **Strg + K** (bzw. das Kern-Symbol unten rechts) öffnen → **Labs** → bei Bedarf
+   **„Kompaktmodus (7-Zoll)"** aktivieren.
+3. Optional das Display im Betriebssystem auf **Querformat** stellen und die
+   Touch-Kalibrierung prüfen.
+
+> **Tipp:** Reicht die Verdichtung nicht, lässt sich der Chromium-Kiosk zusätzlich mit
+> `--force-device-scale-factor=0.9` (oder kleiner) starten – das skaliert die ganze Seite
+> nochmals herunter. Die Option kann in `deploy/linux/start-kiosk.sh` bzw.
+> `deploy/windows/start-kiosk.bat` ergänzt werden.
+
+---
+
 ## Linux / Raspberry Pi
 
 Getestet für Raspberry Pi OS / Debian / Ubuntu mit Desktop-Umgebung.

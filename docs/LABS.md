@@ -29,6 +29,7 @@ solange man sie nicht einschaltet.
 |------------|-----------|---------|
 | **Ruhemodus** (`calm-mode`) | Beta | Schaltet das holografische Flackern und die Scanline-Textur ab – ruhigeres Bild, angenehm bei Bewegungsempfindlichkeit oder im Dauerbetrieb. |
 | **Dashboard-Uhr** (`dashboard-clock`) | Experimentell | Blendet eine Live-Uhr mit Datum in die Kopfzeile des Dashboards ein (bisher nur im Overlay-Menü vorhanden). |
+| **Kompaktmodus (7-Zoll)** (`compact-mode`) | Beta | Skaliert die gesamte Oberfläche dichter – ideal für kleine, fest montierte Touch-Panels (z. B. 7-Zoll-Displays, 800×480 / 1024×600). Erzwingt den kompakten Maßstab auf jedem Display; kleine Screens verdichten sich ohnehin automatisch (siehe [KIOSK.md](./KIOSK.md#7-zoll--kleine-touch-displays)). |
 
 ---
 

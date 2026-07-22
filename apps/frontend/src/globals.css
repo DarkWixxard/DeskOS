@@ -152,3 +152,38 @@ body {
 
 /* The `* { transition-colors }` rule above must not slow the tile transform */
 .holo-tile, .holo-corner, .holo-panel { transition-property: all; }
+
+/* ===================================================================
+   Compact density for small touch panels (7" displays etc.)
+
+   Tailwind's spacing + type scale is rem-based, so shrinking the root
+   font-size compacts padding, gaps and text together — the whole dense
+   holo UI fits an 800×480 / 1024×600 panel without per-component tweaks.
+   px-based media-query breakpoints (Tailwind's sm:/md:, the grid's
+   breakpoints) still fire at the real viewport width, so the responsive
+   stacking keeps working; only the visual density changes.
+
+   Two auto tiers target the common 7" landscape panels (short height) and
+   narrow/portrait screens. The Labs "Kompaktmodus" flag sets
+   [data-compact='on'] on <html> to force the same scale on any display.
+   =================================================================== */
+
+/* Tier 1 — small landscape panels (1024×600) + narrow/portrait screens. */
+@media (max-width: 1100px) and (max-height: 720px),
+       (max-width: 700px) {
+  :root { font-size: 13px; }
+}
+
+/* Tier 2 — very short landscape panels (800×480) + small phones. */
+@media (max-width: 860px) and (max-height: 520px),
+       (max-width: 420px) {
+  :root { font-size: 12px; }
+}
+
+/* Labs "Kompaktmodus": force the compact scale regardless of screen size.
+   Placed after the media queries so it wins on larger displays; the very
+   short panels above still get the denser 12px tier. */
+:root[data-compact='on'] { font-size: 13px; }
+@media (max-height: 520px) {
+  :root[data-compact='on'] { font-size: 12px; }
+}

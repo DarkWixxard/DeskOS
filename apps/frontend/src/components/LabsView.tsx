@@ -32,6 +32,7 @@ export interface LabsFeature {
 // tatsächlich wirkt (siehe Dashboard.tsx), damit keine Magic-Strings driften.
 export const LABS_CALM_MODE = 'calm-mode';
 export const LABS_DASHBOARD_CLOCK = 'dashboard-clock';
+export const LABS_COMPACT_MODE = 'compact-mode';
 
 // Katalog aller Experimente. Reihenfolge = Anzeigereihenfolge.
 export const LABS_FEATURES: LabsFeature[] = [
@@ -52,6 +53,17 @@ export const LABS_FEATURES: LabsFeature[] = [
       'die gleiche Zeitanzeige, die es bisher nur im Overlay-Menü gab.',
     icon: 'activity',
     stage: 'experimental',
+  },
+  {
+    id: LABS_COMPACT_MODE,
+    label: 'Kompaktmodus (7-Zoll)',
+    description:
+      'Skaliert die gesamte Oberfläche dichter – ideal für kleine, fest montierte ' +
+      'Touch-Panels (z. B. 7-Zoll-Displays, 800×480 / 1024×600). Kleine Screens ' +
+      'werden bereits automatisch verdichtet; dieser Schalter erzwingt den ' +
+      'kompakten Maßstab auf jedem Display.',
+    icon: 'monitor',
+    stage: 'beta',
   },
 ];
 
