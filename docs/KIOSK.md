@@ -234,8 +234,6 @@ deploy\windows\start-kiosk.bat
 DESCOS_KIOSK_POSITION=0,1080 ./deploy/linux/start-kiosk.sh
 ```
 
-Beide Wege hängen am Ende das Chromium-Flag `--window-position=X,Y` an.
-
 **Den Offset selbst bestimmen:** X ist die Summe der Breiten aller Monitore
 *links* vom Ziel, Y die der Monitore *darüber*. Bei einem 1920×1080-Hauptmonitor
 liegt der rechte Nachbar bei `1920,0`, ein Monitor *links* davon bei `-1920,0`,
@@ -243,12 +241,15 @@ einer *darunter* bei `0,1080`. Die Anordnung zeigt unter Windows
 *Einstellungen → System → Anzeige* (Bildschirme per Ziehen anordnen); unter Linux
 `xrandr --listmonitors`.
 
-> **Hinweis:** Ignoriert Chrome im `--kiosk`-Modus die Position (kommt je nach
-> Version vor), hilft es, das Kiosk-Profil einmal zu löschen
-> (`%LOCALAPPDATA%\descos-kiosk` bzw. `~/.config/descos-kiosk`), damit keine
-> alte Fensterposition gespeichert bleibt. Unter **Wayland** (neuere Pi-Images)
-> wird `--window-position` teils ignoriert – dort den Ziel-Monitor stattdessen
-> in der Desktop-Anordnung als primär setzen.
+> **Warum nicht nur `--window-position`?** Chrome und Edge **ignorieren dieses
+> Flag im `--kiosk`-Modus** und öffnen immer auf dem Hauptmonitor. Unter Windows
+> verschiebt `start-kiosk.bat` das Kiosk-Fenster deshalb nach dem Start aktiv auf
+> den gewählten Monitor (`kiosk-place.ps1`, per Win32 `SetWindowPos`). Es wird nur
+> das Kiosk-Fenster angefasst – dein normaler Browser bleibt unberührt, weil der
+> Kiosk ein eigenes Profil nutzt.
+>
+> Unter **Wayland** (neuere Pi-Images) wird `--window-position` teils ignoriert –
+> dort den Ziel-Monitor stattdessen in der Desktop-Anordnung als primär setzen.
 
 ---
 

@@ -44,6 +44,14 @@ if defined CHROME (
   start "" "%CHROME%" --kiosk %POSARG% --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --check-for-update-interval=31536000 --user-data-dir="%LOCALAPPDATA%\descos-kiosk" "%URL%"
 ) else (
   echo Chrome not found - using Microsoft Edge...
-  start "" msedge --kiosk %POSARG% %URL% --edge-kiosk-type=fullscreen --no-first-run
+  start "" msedge --kiosk %POSARG% --user-data-dir="%LOCALAPPDATA%\descos-kiosk" %URL% --edge-kiosk-type=fullscreen --no-first-run
+)
+
+REM Chrome/Edge ignorieren --window-position im Kiosk-Modus teils und oeffnen auf
+REM dem Hauptmonitor. Daher das Fenster nach dem Start aktiv auf den Zielmonitor
+REM verschieben (findet nur das Kiosk-Fenster ueber sein eigenes Profil).
+if defined KIOSK_POS (
+  echo Moving kiosk window to monitor at %KIOSK_POS% ...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0kiosk-place.ps1" -Position "%KIOSK_POS%"
 )
 endlocal
