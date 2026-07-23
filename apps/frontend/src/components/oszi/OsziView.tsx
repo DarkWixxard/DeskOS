@@ -89,6 +89,9 @@ export function OsziView() {
   const [scpiHistory, setScpiHistory] = useState<string[]>([]);
   const [trigger, setTrigger] = useState<'CHAN1' | 'CHAN2'>('CHAN1');
 
+  // Steuerung (Live-Tab)
+  const [cmdMsg, setCmdMsg] = useState<string | null>(null);
+
   // Export
   const [scanResult, setScanResult] = useState<string | null>(null);
 
@@ -163,6 +166,21 @@ export function OsziView() {
     } catch {
       setScpiError(true);
       setScpiResult('Netzwerkfehler beim Senden des Befehls.');
+    }
+  };
+
+  // Fire-and-forget Steuerbefehle (Verbinden/Start/Stop/Autoscale).
+  // Wichtig: Fehler (z. B. HTTP 502, wenn der Oszi-Dienst offline ist) hier
+  // abfangen, sonst wird die abgelehnte Promise zu einem "Unhandled Runtime
+  // Error" und legt die Ansicht lahm.
+  const runCommand = async (path: string, label: string) => {
+    try {
+      await sendCommand(path);
+      setReachable(true);
+      setCmdMsg(`${label}: OK`);
+    } catch {
+      setReachable(false);
+      setCmdMsg(`${label} fehlgeschlagen — Oszi-Dienst nicht erreichbar.`);
     }
   };
 
@@ -268,11 +286,21 @@ export function OsziView() {
 
           <Panel title="Steuerung">
             <div className="flex flex-wrap gap-2">
-              <OsziButton onClick={() => sendCommand('/connect')}>Verbinden</OsziButton>
-              <OsziButton tone="go" onClick={() => sendCommand('/run')}>Start</OsziButton>
-              <OsziButton tone="stop" onClick={() => sendCommand('/stop')}>Stop</OsziButton>
-              <OsziButton tone="warn" onClick={() => sendCommand('/autoscale')}>Autoscale</OsziButton>
+              <OsziButton onClick={() => runCommand('/connect', 'Verbinden')}>Verbinden</OsziButton>
+              <OsziButton tone="go" onClick={() => runCommand('/run', 'Start')}>Start</OsziButton>
+              <OsziButton tone="stop" onClick={() => runCommand('/stop', 'Stop')}>Stop</OsziButton>
+              <OsziButton tone="warn" onClick={() => runCommand('/autoscale', 'Autoscale')}>Autoscale</OsziButton>
             </div>
+            {cmdMsg && (
+              <div
+                className={clsx(
+                  'mt-3 font-mono text-[11px]',
+                  reachable ? 'text-accent/70' : 'text-danger'
+                )}
+              >
+                {cmdMsg}
+              </div>
+            )}
           </Panel>
         </div>
       )}
