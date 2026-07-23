@@ -38,8 +38,13 @@ using System.Runtime.InteropServices;
 namespace DeskOSAudio {
   [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
   interface IMMDeviceEnumerator {
-    int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IntPtr ppDevices);
+    int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IMMDeviceCollection ppDevices);
     int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppEndpoint);
+  }
+  [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IMMDeviceCollection {
+    int GetCount(out uint pcDevices);
+    int Item(uint nDevice, out IMMDevice ppDevice);
   }
   [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
   interface IMMDevice {
@@ -113,21 +118,30 @@ namespace DeskOSAudio {
     public static void SetMic(float v) { var g = Guid.Empty; Vol(1).SetMasterVolumeLevelScalar(v, ref g); }
     public static void SetMasterMute(bool m) { var g = Guid.Empty; Vol(0).SetMute(m, ref g); }
 
-    // Set the volume of every audio session whose owning pid matches; returns hit count.
+    // Set the volume of every matching audio session across ALL active output
+    // devices (not just the default one) — an app may play on any device.
     static int Apply(float v, Predicate<uint> match) {
       var e = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
-      IMMDevice dev; Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0, 0, out dev));
-      Guid iid = typeof(IAudioSessionManager2).GUID; object o;
-      Marshal.ThrowExceptionForHR(dev.Activate(ref iid, 1, IntPtr.Zero, out o));
-      var mgr = (IAudioSessionManager2)o;
-      IAudioSessionEnumerator sessions; Marshal.ThrowExceptionForHR(mgr.GetSessionEnumerator(out sessions));
-      int count; sessions.GetCount(out count);
+      IMMDeviceCollection col;
+      Marshal.ThrowExceptionForHR(e.EnumAudioEndpoints(0 /*eRender*/, 1 /*DEVICE_STATE_ACTIVE*/, out col));
+      uint devCount; col.GetCount(out devCount);
+      Guid iid = typeof(IAudioSessionManager2).GUID;
       int hits = 0;
-      for (int i = 0; i < count; i++) {
-        IAudioSessionControl2 ctl;
-        if (sessions.GetSession(i, out ctl) != 0 || ctl == null) continue;
-        uint pid; if (ctl.GetProcessId(out pid) != 0 || pid == 0) continue;
-        if (match(pid)) { var sav = (ISimpleAudioVolume)ctl; var g = Guid.Empty; sav.SetMasterVolume(v, ref g); hits++; }
+      for (uint d = 0; d < devCount; d++) {
+        IMMDevice dev;
+        if (col.Item(d, out dev) != 0 || dev == null) continue;
+        object o;
+        if (dev.Activate(ref iid, 1, IntPtr.Zero, out o) != 0 || o == null) continue;
+        var mgr = (IAudioSessionManager2)o;
+        IAudioSessionEnumerator sessions;
+        if (mgr.GetSessionEnumerator(out sessions) != 0 || sessions == null) continue;
+        int count; sessions.GetCount(out count);
+        for (int i = 0; i < count; i++) {
+          IAudioSessionControl2 ctl;
+          if (sessions.GetSession(i, out ctl) != 0 || ctl == null) continue;
+          uint pid; if (ctl.GetProcessId(out pid) != 0 || pid == 0) continue;
+          if (match(pid)) { var sav = (ISimpleAudioVolume)ctl; var g = Guid.Empty; sav.SetMasterVolume(v, ref g); hits++; }
+        }
       }
       return hits;
     }
@@ -135,10 +149,10 @@ namespace DeskOSAudio {
     public static string List() {
       var names = new System.Collections.Generic.List<string>();
       Apply(-1f, delegate(uint pid) {
-        try { names.Add(Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant()); } catch { }
+        try { string n = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); if (!names.Contains(n)) names.Add(n); } catch { }
         return false;
       });
-      return string.Join(", ", names.ToArray());
+      return names.Count == 0 ? "(keine)" : string.Join(", ", names.ToArray());
     }
     public static int SetApp(string app, float v) {
       string needle = app.ToLowerInvariant();

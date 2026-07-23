@@ -140,6 +140,8 @@ mit der Live-Diagnose des OS-Backends. Typische Fälle:
   passt zu keinem laufenden Audio-Stream. Trage **exakt** einen der aufgelisteten
   Prozessnamen ein (das ist die Liste der Apps, die gerade Ton ausgeben). Häufig
   ist der Name kürzer als gedacht (z. B. `spotify`, nicht `Spotify Premium`).
+  DeskOS durchsucht **alle aktiven Ausgabegeräte** – taucht die App trotzdem nicht
+  in der Liste auf, gibt sie gerade keinen Ton aus (dann kurz Musik starten).
 - **`AUDIO FAIL: …`** – der C#-Helfer ließ sich nicht übersetzen; die Meldung
   steht dahinter (bitte melden).
 
