@@ -14,7 +14,16 @@
 import { randomUUID } from 'crypto';
 import { eventSystem } from '../core/EventSystem';
 import type { PluginRegistry } from './PluginRegistry';
-import type { SpotifyStatus, SpotifyTrack } from '@shared/types';
+import type {
+  SpotifyStatus,
+  SpotifyTrack,
+  SpotifyDevice,
+  SpotifyPlaybackState,
+  SpotifyQueue,
+  SpotifyArtistResult,
+  SpotifyAlbumResult,
+  SpotifySearchResults,
+} from '@shared/types';
 
 const PLUGIN_ID = 'spotify';
 const ACCOUNTS_BASE = 'https://accounts.spotify.com';
@@ -224,6 +233,76 @@ export class SpotifyService {
     return this.toTrack(json);
   }
 
+  /**
+   * Vollen Wiedergabe-Status abrufen: Shuffle, Repeat, Lautstärke, aktives Gerät
+   * und laufender Titel (null = nichts aktiv / nicht verbunden). Nutzt denselben
+   * Scope wie getNowPlaying (user-read-playback-state) – kein neues Login nötig.
+   */
+  async getPlaybackState(): Promise<SpotifyPlaybackState | null> {
+    const res = await this.api('/me/player?additional_types=track').catch(() => null);
+    if (!res || res.status === 204 || !res.ok) return null;
+    const json: any = await res.json().catch(() => null);
+    if (!json) return null;
+    const device = json.device ? this.toDevice(json.device) : null;
+    return {
+      isPlaying: !!json.is_playing,
+      shuffle: !!json.shuffle_state,
+      repeat: json.repeat_state === 'track' || json.repeat_state === 'context' ? json.repeat_state : 'off',
+      volumePercent: device?.volumePercent ?? null,
+      device,
+      track: this.toTrack(json),
+    };
+  }
+
+  /** Verfügbare Wiedergabegeräte abrufen (Name, Typ, aktiv, Lautstärke). */
+  async getDevices(): Promise<SpotifyDevice[]> {
+    const res = await this.api('/me/player/devices').catch(() => null);
+    if (!res || !res.ok) return [];
+    const json: any = await res.json().catch(() => null);
+    const devices = Array.isArray(json?.devices) ? json.devices : [];
+    return devices.map((d: any) => this.toDevice(d));
+  }
+
+  /** Aktuellen Titel + Warteschlange abrufen (null = nicht verbunden). */
+  async getQueue(): Promise<SpotifyQueue | null> {
+    const res = await this.api('/me/player/queue').catch(() => null);
+    if (!res || res.status === 204 || !res.ok) return null;
+    const json: any = await res.json().catch(() => null);
+    if (!json) return null;
+    const queue = Array.isArray(json.queue) ? json.queue : [];
+    return {
+      current: this.toTrackObject(json.currently_playing),
+      queue: queue.map((t: any) => this.toTrackObject(t)).filter((t: SpotifyTrack | null): t is SpotifyTrack => t !== null),
+    };
+  }
+
+  /**
+   * Katalog-Suche nach Titeln/Künstlern/Alben. `type` ist eine kommagetrennte
+   * Liste aus 'track' | 'artist' | 'album' (Standard: 'track'). Die Suche ist
+   * nicht nutzerspezifisch und braucht keinen zusätzlichen Scope.
+   */
+  async search(query: string, type = 'track'): Promise<SpotifySearchResults> {
+    const empty: SpotifySearchResults = { tracks: [], artists: [], albums: [] };
+    const q = query.trim();
+    if (!q) return empty;
+    const types = type
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t === 'track' || t === 'artist' || t === 'album');
+    const params = new URLSearchParams({ q, type: (types.length ? types : ['track']).join(','), limit: '10' });
+    const res = await this.api(`/search?${params.toString()}`).catch(() => null);
+    if (!res || !res.ok) return empty;
+    const json: any = await res.json().catch(() => null);
+    if (!json) return empty;
+    return {
+      tracks: (json.tracks?.items ?? [])
+        .map((t: any) => this.toTrackObject(t))
+        .filter((t: SpotifyTrack | null): t is SpotifyTrack => t !== null),
+      artists: (json.artists?.items ?? []).filter(Boolean).map((a: any) => this.toArtist(a)),
+      albums: (json.albums?.items ?? []).filter(Boolean).map((a: any) => this.toAlbum(a)),
+    };
+  }
+
   /** Wiedergabe steuern. Liefert true bei Erfolg. */
   async control(action: PlaybackAction): Promise<boolean> {
     const route: Record<PlaybackAction, { method: string; path: string }> = {
@@ -238,19 +317,57 @@ export class SpotifyService {
     return !!res && (res.ok || res.status === 204);
   }
 
+  // Player-Antworten (/me/player, /me/player/currently-playing) verpacken den
+  // Track in `item` samt `is_playing`/`progress_ms`; Queue-/Such-Ergebnisse
+  // liefern das Track-Objekt dagegen direkt. `toTrackObject` mappt das rohe
+  // Track-Objekt, `toTrack` zieht es zuvor aus dem Player-Wrapper.
   private toTrack(json: any): SpotifyTrack | null {
-    const item = json?.item;
+    return this.toTrackObject(json?.item, !!json?.is_playing, typeof json?.progress_ms === 'number' ? json.progress_ms : 0);
+  }
+
+  private toTrackObject(item: any, isPlaying = false, progressMs = 0): SpotifyTrack | null {
     if (!item) return null;
     const images: Array<{ url: string }> = item.album?.images ?? [];
     return {
-      isPlaying: !!json.is_playing,
+      isPlaying,
       title: item.name ?? '',
       artists: Array.isArray(item.artists) ? item.artists.map((a: any) => a?.name).filter(Boolean).join(', ') : '',
       album: item.album?.name ?? '',
       albumArt: images[0]?.url ?? null,
       durationMs: typeof item.duration_ms === 'number' ? item.duration_ms : 0,
-      progressMs: typeof json.progress_ms === 'number' ? json.progress_ms : 0,
+      progressMs,
       trackUrl: item.external_urls?.spotify ?? null,
+    };
+  }
+
+  private toDevice(d: any): SpotifyDevice {
+    return {
+      id: d?.id ?? null,
+      name: d?.name ?? '',
+      type: d?.type ?? '',
+      isActive: !!d?.is_active,
+      volumePercent: typeof d?.volume_percent === 'number' ? d.volume_percent : null,
+    };
+  }
+
+  private toArtist(a: any): SpotifyArtistResult {
+    const images: Array<{ url: string }> = a?.images ?? [];
+    return {
+      id: a?.id ?? '',
+      name: a?.name ?? '',
+      imageUrl: images[0]?.url ?? null,
+      url: a?.external_urls?.spotify ?? null,
+    };
+  }
+
+  private toAlbum(a: any): SpotifyAlbumResult {
+    const images: Array<{ url: string }> = a?.images ?? [];
+    return {
+      id: a?.id ?? '',
+      name: a?.name ?? '',
+      artists: Array.isArray(a?.artists) ? a.artists.map((x: any) => x?.name).filter(Boolean).join(', ') : '',
+      imageUrl: images[0]?.url ?? null,
+      url: a?.external_urls?.spotify ?? null,
     };
   }
 }

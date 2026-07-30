@@ -20,7 +20,7 @@
 import mqtt, { MqttClient } from 'mqtt';
 import { eventSystem, DeskOSEvent } from '../core/EventSystem';
 import type { PluginRegistry } from './PluginRegistry';
-import type { BambuStatus } from '@shared/types';
+import type { BambuStatus, BambuDetail, BambuAmsTray, BambuCloudDevice } from '@shared/types';
 import * as BambuCloud from './BambuCloud';
 import type { BambuRegion } from './BambuCloud';
 
@@ -215,6 +215,74 @@ export class BambuService {
       bedTarget: num(p.bed_target_temper),
       updatedAt: this.lastReport,
     };
+  }
+
+  /**
+   * Erweiterter Status: baut auf getStatus() auf und ergänzt weitere Felder aus
+   * demselben (gecachten) Report – Lüfter, Kammer, AMS-Filament, Fehlercodes.
+   * Keine neue Verbindung/kein zusätzlicher MQTT-Traffic.
+   */
+  getDetail(): BambuDetail {
+    const p = this.print;
+    return {
+      ...this.getStatus(),
+      chamberTemp: num(p.chamber_temper),
+      partFanSpeed: num(p.cooling_fan_speed),
+      auxFanSpeed: num(p.big_fan1_speed),
+      chamberFanSpeed: num(p.big_fan2_speed),
+      speedLevel: num(p.spd_lvl),
+      wifiSignal: String(p.wifi_signal ?? ''),
+      nozzleDiameter: num(p.nozzle_diameter),
+      stage: num(p.mc_print_stage),
+      printErrorCode: num(p.print_error),
+      hmsCodes: this.parseHms(p.hms),
+      ams: this.parseAms(p.ams),
+    };
+  }
+
+  // HMS-Warncodes werden als {attr, code}-Paare geliefert; DeskOS stellt sie als
+  // "ATTR_CODE" (jeweils 8-stelliges Hex) dar – die übliche Schreibweise, unter
+  // der sich die Codes im Bambu-Wiki nachschlagen lassen.
+  private parseHms(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    const toHex = (v: unknown) => (Number(v) >>> 0).toString(16).padStart(8, '0').toUpperCase();
+    return raw
+      .filter((h) => (h as any)?.attr !== undefined && (h as any)?.code !== undefined)
+      .map((h) => `${toHex((h as any).attr)}_${toHex((h as any).code)}`);
+  }
+
+  // AMS-Report: { ams: [ { id, tray: [ { id, tray_type, tray_color, remain } ] } ] }.
+  private parseAms(raw: unknown): BambuAmsTray[] {
+    const units = (raw as { ams?: unknown } | null)?.ams;
+    if (!Array.isArray(units)) return [];
+    const trays: BambuAmsTray[] = [];
+    for (const unit of units) {
+      const unitId = num((unit as any)?.id);
+      const list = Array.isArray((unit as any)?.tray) ? (unit as any).tray : [];
+      for (const t of list) {
+        trays.push({
+          unit: unitId,
+          slot: num(t?.id),
+          type: String(t?.tray_type ?? ''),
+          color: String(t?.tray_color ?? ''),
+          remainPercent: num(t?.remain),
+        });
+      }
+    }
+    return trays;
+  }
+
+  /**
+   * Im Cloud-Konto gebundene Drucker auflisten (nur im Cloud-Modus). Nutzt das
+   * persistierte Cloud-Token; ohne Token bzw. bei Fehlern eine leere Liste.
+   */
+  async getCloudDevices(): Promise<BambuCloudDevice[]> {
+    const s = this.registry.getSettings(PLUGIN_ID);
+    if (!s.cloudToken) return [];
+    const region = normalizeRegion(s.cloudRegion);
+    const devices = await BambuCloud.listDevices(region, s.cloudToken);
+    const active = (this.activeSerial || s.serial || '').trim();
+    return devices.map((d) => ({ serial: d.serial, name: d.name, active: d.serial === active }));
   }
 
   // ---------------------------------------------------------------- control

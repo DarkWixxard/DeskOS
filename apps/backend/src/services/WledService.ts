@@ -9,7 +9,7 @@ import { deviceManager } from '../core/DeviceManager';
 import { eventSystem, DeskOSEvent } from '../core/EventSystem';
 import { systemMonitor } from './SystemMonitor';
 import type { Device } from '../core/DeviceManager';
-import type { SystemMetrics, WledLight, WledState, RgbMode, WledOffSchedule } from '@shared/types';
+import type { SystemMetrics, WledLight, WledState, RgbMode, WledOffSchedule, WledInfo, WledPreset } from '@shared/types';
 
 interface ControlInput {
   on?: boolean;
@@ -249,6 +249,69 @@ export class WledService {
     try {
       const eff = await this.getJson(ip, '/json/eff');
       return Array.isArray(eff) ? eff : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Verfügbare Farbpaletten abrufen (analog zu getEffects). */
+  async getPalettes(id: string): Promise<string[]> {
+    const device = deviceManager.getDevice(id);
+    if (!device || !isWledDevice(device)) return [];
+    const ip = String((device.metadata as any)?.ip ?? '');
+    try {
+      const pal = await this.getJson(ip, '/json/pal');
+      return Array.isArray(pal) ? pal : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Geräteinfo abrufen (Version, LED-Anzahl, Uptime, WLAN, FPS, freier Speicher). */
+  async getInfo(id: string): Promise<WledInfo | null> {
+    const device = deviceManager.getDevice(id);
+    if (!device || !isWledDevice(device)) return null;
+    const ip = String((device.metadata as any)?.ip ?? '');
+    try {
+      const info = await this.getJson(ip, '/json/info');
+      const n = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+      return {
+        name: typeof info?.name === 'string' ? info.name : '',
+        version: typeof info?.ver === 'string' ? info.ver : '',
+        ledCount: typeof info?.leds?.count === 'number' ? info.leds.count : 0,
+        uptimeSec: typeof info?.uptime === 'number' ? info.uptime : 0,
+        wifiRssi: n(info?.wifi?.rssi),
+        wifiSignal: n(info?.wifi?.signal),
+        fps: n(info?.leds?.fps),
+        freeHeap: n(info?.freeheap),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Gespeicherte Presets abrufen. WLED liefert `/presets.json` als Objekt, dessen
+   * Schlüssel die Slot-Nummern sind; Slot 0 ist reserviert (aktueller Zustand),
+   * leere Slots haben keinen Namen und keinen Inhalt.
+   */
+  async getPresets(id: string): Promise<WledPreset[]> {
+    const device = deviceManager.getDevice(id);
+    if (!device || !isWledDevice(device)) return [];
+    const ip = String((device.metadata as any)?.ip ?? '');
+    try {
+      const json = await this.getJson(ip, '/presets.json');
+      if (!json || typeof json !== 'object') return [];
+      const presets: WledPreset[] = [];
+      for (const [key, value] of Object.entries(json as Record<string, any>)) {
+        const slot = Number(key);
+        if (!Number.isInteger(slot) || slot <= 0) continue;
+        const name = typeof value?.n === 'string' ? value.n : '';
+        // Leere Slots überspringen (kein Name und kein gespeicherter Zustand).
+        if (!name && value?.on === undefined && value?.seg === undefined) continue;
+        presets.push({ id: slot, name: name || `Preset ${slot}` });
+      }
+      return presets.sort((a, b) => a.id - b.id);
     } catch {
       return [];
     }

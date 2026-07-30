@@ -165,6 +165,24 @@ export interface WledLight {
   offSchedule?: WledOffSchedule;
 }
 
+// Geräteinfo eines WLED-Controllers (Abfrage: /json/info).
+export interface WledInfo {
+  name: string;
+  version: string; // WLED-Version (info.ver)
+  ledCount: number;
+  uptimeSec: number; // Laufzeit seit letztem Neustart
+  wifiRssi: number | null; // WLAN-Signal in dBm (info.wifi.rssi)
+  wifiSignal: number | null; // WLAN-Signalqualität 0–100 (info.wifi.signal)
+  fps: number | null; // aktuelle Bildrate der LED-Engine
+  freeHeap: number | null; // freier Arbeitsspeicher in Bytes
+}
+
+// Ein gespeichertes WLED-Preset (Abfrage: /presets.json).
+export interface WledPreset {
+  id: number; // Preset-Slot (1..250)
+  name: string;
+}
+
 export type NotificationLevel = 'info' | 'success' | 'warn' | 'error';
 
 export interface DeskNotification {
@@ -408,6 +426,55 @@ export interface SpotifyTrack {
   trackUrl: string | null; // Link zum Track in Spotify
 }
 
+// Ein verfügbares Wiedergabegerät (Abfrage: /me/player/devices).
+export interface SpotifyDevice {
+  id: string | null;
+  name: string;
+  type: string; // z. B. 'Computer', 'Smartphone', 'Speaker'
+  isActive: boolean; // aktuell aktives Gerät
+  volumePercent: number | null; // 0–100 (null wenn nicht steuerbar)
+}
+
+// Voller Wiedergabe-Status (Abfrage: /me/player) inkl. aktivem Gerät.
+export interface SpotifyPlaybackState {
+  isPlaying: boolean;
+  shuffle: boolean;
+  repeat: 'off' | 'track' | 'context';
+  volumePercent: number | null; // Lautstärke des aktiven Geräts
+  device: SpotifyDevice | null;
+  track: SpotifyTrack | null;
+}
+
+// Aktueller Titel + Warteschlange (Abfrage: /me/player/queue).
+export interface SpotifyQueue {
+  current: SpotifyTrack | null;
+  queue: SpotifyTrack[]; // nächste Titel
+}
+
+// Ein Künstler-Treffer der Katalog-Suche (/search?type=artist).
+export interface SpotifyArtistResult {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  url: string | null; // Link zum Künstler in Spotify
+}
+
+// Ein Album-Treffer der Katalog-Suche (/search?type=album).
+export interface SpotifyAlbumResult {
+  id: string;
+  name: string;
+  artists: string; // zusammengeführte Künstlernamen
+  imageUrl: string | null;
+  url: string | null; // Link zum Album in Spotify
+}
+
+// Ergebnis der Katalog-Suche (/search). Leere Listen für nicht angefragte Typen.
+export interface SpotifySearchResults {
+  tracks: SpotifyTrack[];
+  artists: SpotifyArtistResult[];
+  albums: SpotifyAlbumResult[];
+}
+
 // --- Discord (Communication-Plugin) ---
 // Verbindungsstatus des Discord-Plugins. Enthält keine Secrets – nur ob
 // Client-ID/Secret hinterlegt sind und ob bereits ein OAuth-Login (mit dem
@@ -495,4 +562,37 @@ export interface BambuStatus {
   bedTemp: number; // Betttemperatur °C (ist)
   bedTarget: number; // Betttemperatur °C (soll)
   updatedAt: number; // Zeitpunkt des letzten Reports (epoch ms)
+}
+
+// Ein AMS-Filament-Fach (Automatic Material System). Farbe als RGBA-Hex.
+export interface BambuAmsTray {
+  unit: number; // AMS-Einheit (0-basiert)
+  slot: number; // Fach innerhalb der Einheit (0–3)
+  type: string; // Filament-Typ (PLA, PETG, ABS, …); leer = kein Filament
+  color: string; // RGBA-Hex, z. B. "FF6A13FF"
+  remainPercent: number; // Restmenge 0–100 (0/-1 wenn unbekannt)
+}
+
+// Erweiterter Live-Status (Abfrage: /api/bambu/detail). Baut auf BambuStatus
+// auf und ergänzt weitere Felder aus demselben MQTT-Report – keine neue
+// Verbindung nötig.
+export interface BambuDetail extends BambuStatus {
+  chamberTemp: number; // Kammertemperatur °C
+  partFanSpeed: number; // Bauteillüfter %
+  auxFanSpeed: number; // Zusatzlüfter %
+  chamberFanSpeed: number; // Kammerlüfter %
+  speedLevel: number; // Geschwindigkeitsstufe (1=leise .. 4=Ludicrous)
+  wifiSignal: string; // WLAN-Signal, z. B. "-52dBm"
+  nozzleDiameter: number; // Düsendurchmesser in mm
+  stage: number; // aktuelle Druckphase (mc_print_stage)
+  printErrorCode: number; // aktueller Fehlercode (0 = kein Fehler)
+  hmsCodes: string[]; // HMS-Warncodes (Health Management System)
+  ams: BambuAmsTray[]; // geladene Filamente
+}
+
+// Ein im Bambu-Cloud-Konto gebundener Drucker (Abfrage: /api/bambu/cloud/devices).
+export interface BambuCloudDevice {
+  serial: string;
+  name: string;
+  active: boolean; // aktuell in DeskOS verbundener Drucker
 }

@@ -174,6 +174,18 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     res.json(await wledService.getEffects(req.params.id));
   });
 
+  app.get('/api/wled/lights/:id/palettes', async (req, res) => {
+    res.json(await wledService.getPalettes(req.params.id));
+  });
+
+  app.get('/api/wled/lights/:id/info', async (req, res) => {
+    res.json(await wledService.getInfo(req.params.id));
+  });
+
+  app.get('/api/wled/lights/:id/presets', async (req, res) => {
+    res.json(await wledService.getPresets(req.params.id));
+  });
+
   // ---- Displays / Info-Panels ----
   app.get('/api/displays', (req, res) => {
     res.json(displayService.listPanels());
@@ -410,6 +422,33 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     res.json(await deps.spotify.getNowPlaying());
   });
 
+  // Voller Player-Status (Shuffle/Repeat/Lautstärke/Gerät + Titel).
+  app.get('/api/spotify/playback', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    res.json(await deps.spotify.getPlaybackState());
+  });
+
+  // Verfügbare Wiedergabegeräte.
+  app.get('/api/spotify/devices', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    res.json(await deps.spotify.getDevices());
+  });
+
+  // Aktueller Titel + Warteschlange.
+  app.get('/api/spotify/queue', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    res.json(await deps.spotify.getQueue());
+  });
+
+  // Katalog-Suche: ?q=<Begriff>&type=track,artist,album (Standard: track).
+  app.get('/api/spotify/search', async (req, res) => {
+    if (!deps.spotify) return spotifyUnavailable(res);
+    const q = (req.query.q as string | undefined)?.trim();
+    if (!q) return res.status(400).json({ error: 'Query-Parameter "q" erforderlich' });
+    const type = (req.query.type as string | undefined) || 'track';
+    res.json(await deps.spotify.search(q, type));
+  });
+
   app.post('/api/spotify/control/:action', async (req, res) => {
     if (!deps.spotify) return spotifyUnavailable(res);
     const action = req.params.action as PlaybackAction;
@@ -475,6 +514,18 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
   app.get('/api/bambu/status', (req, res) => {
     if (!deps.bambu) return bambuUnavailable(res);
     res.json(deps.bambu.getStatus());
+  });
+
+  // Erweiterter Live-Status (Lüfter, Kammer, AMS-Filament, Fehlercodes).
+  app.get('/api/bambu/detail', (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    res.json(deps.bambu.getDetail());
+  });
+
+  // Im Cloud-Konto gebundene Drucker (nur im Cloud-Modus befüllt).
+  app.get('/api/bambu/cloud/devices', async (req, res) => {
+    if (!deps.bambu) return bambuUnavailable(res);
+    res.json(await deps.bambu.getCloudDevices());
   });
 
   app.post('/api/bambu/control/:action', (req, res) => {

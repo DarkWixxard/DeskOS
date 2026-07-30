@@ -88,6 +88,29 @@ describe('SpotifyService', () => {
     await expect(spotify.handleCallback('any-code', 'unknown-state')).rejects.toThrow();
   });
 
+  test('Abfragen ohne Verbindung liefern sichere Defaults (kein Netzwerk)', async () => {
+    const dbFile = tempDbPath();
+    created.push(dbFile);
+    const reg = await freshRegistry(dbFile);
+    const spotify = new SpotifyService(reg); // kein Refresh-Token -> nicht verbunden
+
+    await expect(spotify.getPlaybackState()).resolves.toBeNull();
+    await expect(spotify.getDevices()).resolves.toEqual([]);
+    await expect(spotify.getQueue()).resolves.toBeNull();
+    await expect(spotify.search('daft punk')).resolves.toEqual({ tracks: [], artists: [], albums: [] });
+  });
+
+  test('search mit leerem Begriff geht gar nicht erst ans Netz', async () => {
+    const dbFile = tempDbPath();
+    created.push(dbFile);
+    const reg = await freshRegistry(dbFile);
+    await reg.updateSettings('spotify', { clientId: 'cid', clientSecret: 'sec', refreshToken: 'refresh-abc' });
+    const spotify = new SpotifyService(reg);
+    spotify.restore();
+
+    await expect(spotify.search('   ')).resolves.toEqual({ tracks: [], artists: [], albums: [] });
+  });
+
   test('restore lädt persistierten Refresh-Token; disconnect entfernt ihn', async () => {
     const dbFile = tempDbPath();
     created.push(dbFile);

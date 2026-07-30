@@ -5,6 +5,7 @@ import { wledService } from '../src/services/WledService';
 import { deviceManager } from '../src/core/DeviceManager';
 
 const EFFECTS = ['Solid', 'Blink', 'Breathe', 'Wipe'];
+const PALETTES = ['Default', 'Random Cycle', 'Fire'];
 
 /** Minimal WLED-like server that remembers the last POSTed state. */
 function startMockWled(): Promise<{ server: http.Server; port: number; getState: () => any; lastBody: () => any }> {
@@ -32,6 +33,22 @@ function startMockWled(): Promise<{ server: http.Server; port: number; getState:
       res.end(JSON.stringify({ state, info: { name: 'Mock WLED', ver: '0.14.0', leds: { count: 30 } }, effects: EFFECTS }));
     } else if (req.url === '/json/eff') {
       res.end(JSON.stringify(EFFECTS));
+    } else if (req.url === '/json/pal') {
+      res.end(JSON.stringify(PALETTES));
+    } else if (req.url === '/json/info') {
+      res.end(
+        JSON.stringify({
+          name: 'Mock WLED',
+          ver: '0.14.0',
+          uptime: 12345,
+          freeheap: 20000,
+          leds: { count: 30, fps: 42 },
+          wifi: { rssi: -55, signal: 80 },
+        })
+      );
+    } else if (req.url === '/presets.json') {
+      // Slot 0 = reservierter Momentzustand, Slot 3 = leerer Platz.
+      res.end(JSON.stringify({ '0': {}, '1': { n: 'Sunset', on: true }, '2': { n: 'Movie' }, '3': {} }));
     } else {
       res.statusCode = 404;
       res.end('{}');
@@ -76,6 +93,34 @@ describe('WledService', () => {
     // cleanup
     expect(wledService.removeLight(light.id)).toBe(true);
     expect(deviceManager.getDevice(light.id)).toBeNull();
+    await new Promise<void>((r) => mock.server.close(() => r()));
+  });
+
+  test('reads device info, palettes and presets', async () => {
+    const mock = await startMockWled();
+    const light = wledService.addLight('Info-Licht', `127.0.0.1:${mock.port}`);
+
+    const info = await wledService.getInfo(light.id);
+    expect(info?.name).toBe('Mock WLED');
+    expect(info?.version).toBe('0.14.0');
+    expect(info?.ledCount).toBe(30);
+    expect(info?.uptimeSec).toBe(12345);
+    expect(info?.wifiRssi).toBe(-55);
+    expect(info?.wifiSignal).toBe(80);
+    expect(info?.fps).toBe(42);
+    expect(info?.freeHeap).toBe(20000);
+
+    const palettes = await wledService.getPalettes(light.id);
+    expect(palettes).toEqual(PALETTES);
+
+    // Slot 0 (reserviert) und Slot 3 (leer) werden übersprungen.
+    const presets = await wledService.getPresets(light.id);
+    expect(presets).toEqual([
+      { id: 1, name: 'Sunset' },
+      { id: 2, name: 'Movie' },
+    ]);
+
+    wledService.removeLight(light.id);
     await new Promise<void>((r) => mock.server.close(() => r()));
   });
 

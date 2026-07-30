@@ -143,4 +143,52 @@ describe('BambuService', () => {
     bambu.ingestReport({ print: { gcode_state: 'RUNNING', gcode_file: 'cache/xyz/cube.gcode', mc_percent: 5 } });
     expect(bambu.getStatus().jobName).toBe('cube');
   });
+
+  test('getDetail() ergänzt Lüfter/Kammer/AMS/HMS aus demselben Report', async () => {
+    const dbFile = tempDbPath();
+    created.push(dbFile);
+    const reg = await freshRegistry(dbFile);
+    await reg.updateSettings('bambu', { ip: '192.168.1.50', accessCode: 'ABCD1234', serial: '00M09A1234567' });
+    const bambu = new BambuService(reg);
+
+    bambu.ingestReport({
+      print: {
+        ...SAMPLE_REPORT.print,
+        chamber_temper: 28,
+        cooling_fan_speed: '100',
+        big_fan1_speed: '80',
+        big_fan2_speed: '0',
+        spd_lvl: 2,
+        wifi_signal: '-52dBm',
+        nozzle_diameter: '0.4',
+        mc_print_stage: '2',
+        print_error: 0,
+        hms: [{ attr: 50331904, code: 65543 }],
+        ams: { ams: [{ id: '0', tray: [{ id: '0', tray_type: 'PLA', tray_color: 'FF6A13FF', remain: 75 }] }] },
+      },
+    });
+
+    const d = bambu.getDetail();
+    // Basisfelder von getStatus() bleiben erhalten.
+    expect(d.gcodeState).toBe('RUNNING');
+    expect(d.progress).toBe(47);
+    // Erweiterte Felder.
+    expect(d.chamberTemp).toBe(28);
+    expect(d.partFanSpeed).toBe(100);
+    expect(d.auxFanSpeed).toBe(80);
+    expect(d.speedLevel).toBe(2);
+    expect(d.wifiSignal).toBe('-52dBm');
+    expect(d.nozzleDiameter).toBe(0.4);
+    expect(d.hmsCodes).toEqual(['03000100_00010007']);
+    expect(d.ams).toEqual([{ unit: 0, slot: 0, type: 'PLA', color: 'FF6A13FF', remainPercent: 75 }]);
+  });
+
+  test('getCloudDevices() liefert ohne Cloud-Token eine leere Liste', async () => {
+    const dbFile = tempDbPath();
+    created.push(dbFile);
+    const reg = await freshRegistry(dbFile);
+    const bambu = new BambuService(reg);
+
+    await expect(bambu.getCloudDevices()).resolves.toEqual([]);
+  });
 });
