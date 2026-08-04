@@ -232,6 +232,11 @@ export class DeejService {
     };
   }
 
+  /** Process names of apps that currently have an audio session (for the app picker). */
+  listAudioApps(): Promise<string[]> {
+    return audioController.listAudioSessions();
+  }
+
   /** List the serial ports the OS currently exposes (needs the serialport dep). */
   async listPorts(): Promise<{ path: string; manufacturer?: string }[]> {
     const SerialPort = await this.loadSerial();

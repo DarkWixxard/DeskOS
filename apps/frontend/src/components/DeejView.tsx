@@ -118,20 +118,37 @@ function Fader({ value, onChange, accent }: { value: number; onChange: (v: numbe
 function SliderCard({ slider }: { slider: DeejSlider }) {
   const setDeejVolume = useDashboardStore((s) => s.setDeejVolume);
   const updateDeejSlider = useDashboardStore((s) => s.updateDeejSlider);
+  const fetchDeejAudioSessions = useDashboardStore((s) => s.fetchDeejAudioSessions);
 
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(slider.label);
   const [apps, setApps] = useState((slider.apps ?? []).join(', '));
+  const [sessions, setSessions] = useState<string[] | null>(null);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
   useEffect(() => setLabel(slider.label), [slider.label]);
   useEffect(() => setApps((slider.apps ?? []).join(', ')), [slider.apps]);
 
   // Turn the comma-separated text field into a clean process-name list.
-  const commitApps = () => {
-    const list = apps.split(',').map((a) => a.trim()).filter(Boolean);
+  const commitAppsList = (list: string[]) => {
     if (JSON.stringify(list) !== JSON.stringify(slider.apps ?? [])) {
       updateDeejSlider(slider.index, { apps: list });
     }
+  };
+  const commitApps = () => commitAppsList(apps.split(',').map((a) => a.trim()).filter(Boolean));
+
+  const loadSessions = async () => {
+    setLoadingSessions(true);
+    setSessions(await fetchDeejAudioSessions());
+    setLoadingSessions(false);
+  };
+
+  // Add a picked process name to the field (and persist immediately).
+  const addApp = (name: string) => {
+    const list = apps.split(',').map((a) => a.trim()).filter(Boolean);
+    if (!list.includes(name)) list.push(name);
+    setApps(list.join(', '));
+    commitAppsList(list);
   };
 
   const target = TARGETS.find((t) => t.id === slider.target) ?? TARGETS[4];
@@ -228,7 +245,37 @@ function SliderCard({ slider }: { slider: DeejSlider }) {
                 placeholder="Prozessname(n), z. B. spotify.exe, chrome.exe"
                 className="w-full border border-accent/30 bg-darker/60 px-2 py-1 text-sm text-white outline-none focus:border-accent"
               />
-              <p className="text-[10px] text-accent/40">Mehrere durch Komma trennen = Gruppe.</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] text-accent/40">Mehrere durch Komma trennen = Gruppe.</p>
+                <button
+                  type="button"
+                  onClick={loadSessions}
+                  className="shrink-0 border border-accent/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-accent/80 transition-colors hover:border-accent hover:bg-accent/10"
+                >
+                  {loadingSessions ? '…' : 'Laufende Apps'}
+                </button>
+              </div>
+              {sessions !== null && (
+                <div className="rounded-none border border-accent/15 bg-accent/[0.03] p-1.5">
+                  {sessions.length === 0 ? (
+                    <p className="text-[10px] text-accent/40">Keine App gibt gerade Ton aus. Starte Wiedergabe und erneut klicken.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {sessions.map((name) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => addApp(name)}
+                          title="Übernehmen"
+                          className="border border-accent/25 px-1.5 py-0.5 font-mono text-[10px] text-accent/80 transition-colors hover:border-accent hover:bg-accent/10"
+                        >
+                          + {name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

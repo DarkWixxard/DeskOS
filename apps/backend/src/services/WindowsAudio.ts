@@ -197,6 +197,7 @@ while ($true) {
         $n = [DeskOSAudio.Audio]::SetCurrent([single]([double]$p[1] / 100.0))
         if ($n -eq 0) { [Console]::Out.WriteLine('CURRENT-MISS') } else { [Console]::Out.WriteLine("CURRENT-OK -> $n") }
       }
+      'L' { [Console]::Out.WriteLine('SESSIONS-LIST: ' + [DeskOSAudio.Audio]::List()) }
     }
   } catch { [Console]::Out.WriteLine('ERR ' + $p[0] + ': ' + $_.Exception.Message) }
 }
@@ -210,16 +211,49 @@ export class WindowsAudio {
   private lastLogged = '';
   // Most recent meaningful diagnostic from the helper (surfaced in the deej status).
   private note = '';
+  // Pending resolvers for `list()` requests (answered by SESSIONS-LIST: lines).
+  private listResolvers: ((names: string[]) => void)[] = [];
 
   /** Last diagnostic line from the Windows audio helper (for the UI/status). */
   getNote(): string {
     return this.note;
   }
 
+  /** Ask the helper for the process names of all current audio sessions. */
+  list(): Promise<string[]> {
+    if (!this.ensure() || !this.proc?.stdin?.writable) return Promise.resolve([]);
+    return new Promise((resolve) => {
+      const done = (names: string[]) => {
+        clearTimeout(timer);
+        const idx = this.listResolvers.indexOf(done);
+        if (idx >= 0) this.listResolvers.splice(idx, 1);
+        resolve(names);
+      };
+      const timer = setTimeout(() => done([]), 1500);
+      this.listResolvers.push(done);
+      try {
+        this.proc!.stdin!.write('L\n');
+      } catch {
+        done([]);
+      }
+    });
+  }
+
   /** Handle a line printed by the PowerShell helper: log it (deduped) + remember it. */
   private onHelperLine(line: string): void {
     const l = line.trim();
     if (!l) return;
+    // Answer a pending list() request without touching the diagnostic note.
+    if (l.startsWith('SESSIONS-LIST:')) {
+      const names = l
+        .slice('SESSIONS-LIST:'.length)
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s && s !== '(keine)');
+      const resolve = this.listResolvers.shift();
+      if (resolve) resolve(names);
+      return;
+    }
     if (/^(AUDIO|APP-|CURRENT-|ERR)/.test(l)) this.note = l;
     // Avoid spamming the console with identical repeated lines (e.g. APP-OK while sliding).
     if (l !== this.lastLogged) {
