@@ -214,6 +214,11 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     res.json(await deejService.listPorts());
   });
 
+  // Aktuell laufende Audio-Apps (Prozessnamen) – für den App-Auswahl-Picker.
+  app.get('/api/deej/audio-sessions', async (req, res) => {
+    res.json(await deejService.listAudioApps());
+  });
+
   app.post('/api/deej/connect', async (req, res) => {
     try {
       res.json(await deejService.connect());

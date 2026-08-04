@@ -171,6 +171,7 @@ interface DashboardStore {
   removeDisplay: (id: string) => Promise<void>;
   fetchDeej: () => Promise<void>;
   fetchDeejPorts: () => Promise<{ path: string; manufacturer?: string }[]>;
+  fetchDeejAudioSessions: () => Promise<string[]>;
   connectDeej: () => Promise<string | null>;
   disconnectDeej: () => Promise<void>;
   updateDeejConfig: (patch: { port?: string; baud?: number; invert?: boolean; noiseReduction?: DeejNoiseReduction; sliderCount?: number }) => Promise<void>;
@@ -739,6 +740,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       return (await res.json()) as { path: string; manufacturer?: string }[];
     } catch (error) {
       console.error('Unable to list serial ports:', error);
+      return [];
+    }
+  },
+
+  fetchDeejAudioSessions: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/deej/audio-sessions`);
+      return (await res.json()) as string[];
+    } catch (error) {
+      console.error('Unable to list audio sessions:', error);
       return [];
     }
   },

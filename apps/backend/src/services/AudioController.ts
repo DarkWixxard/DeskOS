@@ -96,6 +96,18 @@ export class AudioController {
     return note && note.length ? note : undefined;
   }
 
+  /** Process names of apps that currently have an audio session (for the app picker). */
+  async listAudioSessions(): Promise<string[]> {
+    if (this.platform === 'win32') return this.windows().list();
+    if (this.platform === 'linux') {
+      const inputs = await this.listSinkInputs();
+      const names = new Set<string>();
+      for (const si of inputs) for (const n of si.names) if (n) names.add(n.toLowerCase());
+      return [...names];
+    }
+    return [];
+  }
+
   private warnOnce(key: string, message: string): void {
     if (this.warned.has(key)) return;
     this.warned.add(key);

@@ -148,6 +148,18 @@ mit der Live-Diagnose des OS-Backends. Typische Fälle:
 Wichtig: Die App muss zum Zeitpunkt des Reglerns **gerade Ton ausgeben**, sonst
 existiert keine Audio-Session, der man die Lautstärke zuweisen kann.
 
+**Prozessnamen finden – am einfachsten:** Beim Bearbeiten eines App-Reglers (Zahnrad)
+gibt es den Knopf **„Laufende Apps"**. Er zeigt genau die Prozesse, die gerade Ton
+ausgeben – ein Klick übernimmt den Namen. So musst du nichts raten. Ein paar
+Stolperfallen:
+
+- **Chrome/Edge** tauchen nur auf, wenn ein Tab **gerade** Ton abspielt (`chrome`
+  bzw. `msedge`).
+- **Minecraft** heißt **nicht** `minecraft.exe`: Java-Edition = `javaw`,
+  Bedrock/Windows-Edition = `Minecraft.Windows`.
+- Spiele mit eigenem Launcher/Anti-Cheat geben den Ton teils unter einem anderen
+  Prozess aus – der „Laufende Apps"-Knopf zeigt dir den echten Namen.
+
 ---
 
 ## Umgebungsvariablen (optional, für Kiosk/headless)
