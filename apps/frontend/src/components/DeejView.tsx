@@ -355,17 +355,20 @@ function ConnectionPanel() {
         <p
           className={clsx(
             'mb-3 border px-3 py-2 font-mono text-[11px]',
-            /FAIL|MISS|ERR|stderr|unavailable/.test(status.audioBackend)
+            // Only genuine problems are a warning; APP-MISS is the normal "app is
+            // silent right now" case and stays neutral.
+            /FAIL|ERR|stderr|unavailable/.test(status.audioBackend)
               ? 'border-warning/30 bg-warning/5 text-warning/90'
               : 'border-accent/20 bg-accent/[0.03] text-accent/70'
           )}
           title="Diagnose des Betriebssystem-Audio-Backends"
         >
           Audio-Backend: {status.audioBackend}
-          {/APP-MISS/.test(status.audioBackend) && (
-            <span className="mt-1 block text-warning/70">
-              → Kein passender Audio-Stream. Trage exakt den <b>Prozessnamen</b> ein (siehe „sessions:" oben),
-              und die App muss gerade Ton ausgeben.
+          {/APP-MISS|CURRENT-MISS/.test(status.audioBackend) && (
+            <span className="mt-1 block text-accent/50">
+              → Das ist normal: die App gibt gerade keinen Ton aus, deshalb gibt es nichts zu regeln.
+              Der Regler greift automatisch, sobald sie Ton abspielt. Passt der Name nicht?
+              Öffne den Regler (Zahnrad) und nutze <b>„Laufende Apps"</b>.
             </span>
           )}
         </p>
