@@ -5,23 +5,16 @@ import clsx from 'clsx';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { Panel, HoloCorners, HoloIcon } from '@/components/holo';
 import { getApiBaseUrl } from '@/lib/api';
+import { readingMeta, fmt } from '@/lib/sensorReadings';
 import type { SensorNode } from '@shared/types';
 
 /* =========================================================================
    DeskOS Sensor Hub + Module Manager (M5)
 
    Lists MQTT / sensor nodes with their latest readings and announced modules.
+   Reading labels/units come from the shared map in lib/sensorReadings, so the
+   Sensor Hub and the BME280 dashboard tile stay in sync.
    ========================================================================= */
-
-const READINGS: Record<string, { unit: string; label: string }> = {
-  temperature: { unit: '°C', label: 'Temperatur' },
-  humidity: { unit: '%', label: 'Luftfeuchte' },
-  co2: { unit: 'ppm', label: 'CO₂' },
-  light: { unit: 'lx', label: 'Licht' },
-  noise: { unit: 'dB', label: 'Geräusch' },
-};
-
-const fmt = (v: unknown): string => (typeof v === 'number' ? `${Math.round(v * 10) / 10}` : String(v));
 
 function NodeCard({ node, onCommand }: { node: SensorNode; onCommand: (id: string) => void }) {
   const d = node.device;
@@ -60,7 +53,7 @@ function NodeCard({ node, onCommand }: { node: SensorNode; onCommand: (id: strin
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {readings.map(([key, value]) => {
-            const meta = READINGS[key] ?? { unit: '', label: key };
+            const meta = readingMeta(key);
             return (
               <div key={key} className="rounded-none border border-accent/15 bg-accent/[0.03] p-2.5">
                 <div className="holo-label">{meta.label}</div>
