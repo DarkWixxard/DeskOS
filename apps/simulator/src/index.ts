@@ -24,11 +24,12 @@ const INTERVAL = parseInt(process.env.SIM_INTERVAL || '2000');
 const base = `deskos/nodes/${NODE_ID}`;
 
 // Sensor state with gentle random-walk drift.
-const sensors = { temperature: 22.5, humidity: 45, co2: 600, light: 320, noise: 38 };
+const sensors = { temperature: 22.5, humidity: 45, pressure: 1013, co2: 600, light: 320, noise: 38 };
 const bounds: Record<keyof typeof sensors, [number, number, number]> = {
   // [min, max, max step]
   temperature: [18, 30, 0.3],
   humidity: [30, 70, 1],
+  pressure: [980, 1040, 1.5], // Luftdruck in hPa (wie ein BME280 ihn liefert)
   co2: [400, 1600, 25],
   light: [0, 1000, 40],
   noise: [30, 90, 3],
@@ -63,7 +64,7 @@ function announce() {
       type: 'sensor',
       capabilities: ['sensor', 'led'],
       modules: [
-        { id: 'env', type: 'sensor', sensors: ['temperature', 'humidity', 'co2', 'light', 'noise'] },
+        { id: 'env', type: 'sensor', sensors: ['temperature', 'humidity', 'pressure', 'co2', 'light', 'noise'] },
         { id: 'led', type: 'led' },
       ],
       fw: 'sim-1.0',

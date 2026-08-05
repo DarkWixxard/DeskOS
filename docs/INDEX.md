@@ -290,6 +290,7 @@ npm run dev --workspace=apps/agent
 | **QUICKSTART.md** | 5-minute setup guide | [🚀](./QUICKSTART.md) |
 | **API.md** | Complete API reference | [🔌](./API.md) |
 | **API-CONSOLE.md** | Built-in REST client (Dashboard) | [🔌](./API-CONSOLE.md) |
+| **NODE-RED.md** | BME280 via Node-RED → MQTT → DeskOS | [📡](./NODE-RED.md) |
 | **DEPLOYMENT.md** | Production deployment | [🚀](./DEPLOYMENT.md) |
 | **CONTRIBUTING.md** | Contributing guide | [🤝](./CONTRIBUTING.md) |
 | **CHANGELOG.md** | Version history | [📋](./CHANGELOG.md) |

@@ -19,6 +19,7 @@ import { SensorView } from '@/components/SensorView';
 import { PluginsView } from '@/components/PluginsView';
 import { PluginWidgets } from '@/components/PluginWidgets';
 import { SpanishVocabWidget } from '@/components/SpanishVocabWidget';
+import { SensorWidget } from '@/components/SensorWidget';
 // xterm greift auf window/document zu -> client-only laden (kein SSR).
 const TerminalView = dynamic(() => import('@/components/TerminalView').then((m) => m.TerminalView), { ssr: false });
 import { ApiConsoleView } from '@/components/ApiConsoleView';
@@ -58,6 +59,7 @@ export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
   { id: 'moduleStatus', label: 'Modul-Status (LEDs)' },
   { id: 'history', label: 'Metrics-Verlauf' },
   { id: 'spanishVocab', label: 'Spanisch-Vokabel' },
+  { id: 'sensorEnv', label: 'Umgebungssensor (BME280)' },
   { id: 'plugins', label: 'Plugin-Widgets' },
   { id: 'devices', label: 'Geräte' },
 ];
@@ -102,6 +104,7 @@ export const DASHBOARD_WIDGET_DEFAULTS: Record<
   moduleStatus: { w: 6, h: 7, minW: 4, minH: 4 },
   history: { w: 6, h: 7, minW: 4, minH: 4 },
   spanishVocab: { w: 4, h: 7, minW: 3, minH: 5 },
+  sensorEnv: { w: 4, h: 6, minW: 3, minH: 4 },
   plugins: { w: 12, h: 8, minW: 4, minH: 4 },
   devices: { w: 12, h: 10, minW: 4, minH: 6 },
 };
@@ -870,6 +873,8 @@ export function Dashboard() {
         return <MetricsHistoryChart />;
       case 'spanishVocab':
         return <SpanishVocabWidget />;
+      case 'sensorEnv':
+        return <SensorWidget />;
       case 'plugins':
         return <PluginWidgets />;
       case 'devices':

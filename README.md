@@ -86,9 +86,12 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 ### 📡 ESP32 / MQTT, Sensor-Hub & Modul-Manager
 - `MqttService` mit **eingebettetem Broker** (aedes) – funktioniert out-of-the-box ohne externe Infrastruktur.
 - Topic-Schema `deskos/nodes/<id>/{announce,telemetry,status,cmd}`: Auto-Registrierung, Telemetrie, LWT-Status, Befehle.
-- **Sensor-Hub**: Sensor-Nodes mit Live-Messwerten (Temp/Feuchte/CO₂/Licht/Geräusch).
+- **Sensor-Hub**: Sensor-Nodes mit Live-Messwerten (Temp/Feuchte/Luftdruck/CO₂/Licht/Geräusch)
+  + Dashboard-Kachel **„Umgebungssensor (BME280)“**.
 - **Modul-Manager**: Module werden beim `announce` automatisch erfasst und angezeigt.
 - **ESP32-Simulator** (`apps/simulator`): testet die komplette MQTT-Strecke ohne Hardware.
+- **Node-RED / BME280**: fertiger Flow + Anleitung, um einen BME280 (I2C) via Node-RED
+  einzubinden – siehe [docs/NODE-RED.md](docs/NODE-RED.md).
 
 ### 🔧 Firmware-Center & 🧩 Plugin-Marktplatz
 - Firmware-Center (im Geräte-Detail): **Neustart / WLAN-Konfig / OTA** für MQTT-Nodes; WLED verlinkt auf seine OTA-Web-UI.
