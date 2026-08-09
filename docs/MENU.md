@@ -43,6 +43,11 @@ Das Menü hat aktuell zwei Seiten:
 2. **HARDWARE & CONTROL** – Remote PCs, ESP32, Sensor Hub, RGB / LED, Displays,
    Audio, Power, Cameras, Security, Scenes, Plugins, Oszi, Labs
 
+> **7-Zoll / kleine Panels:** Auf kurzen oder schmalen Displays füllt das Overlay
+> automatisch **genau das Fenster aus – ohne Scrollen**. Die Seiten-Panels und die
+> Icon-Leiste werden ausgeblendet, und das Kachel-Raster nutzt die volle Fläche, damit
+> alle Module auf einen Blick erreichbar bleiben. Details in [KIOSK.md](./KIOSK.md).
+
 ---
 
 ## Warum die `` ` ``-Taste auf deutschen Tastaturen nicht funktionierte

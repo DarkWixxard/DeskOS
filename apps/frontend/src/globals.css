@@ -187,3 +187,67 @@ body {
 @media (max-height: 520px) {
   :root[data-compact='on'] { font-size: 12px; }
 }
+
+/* ===================================================================
+   Overlay launcher — fit-to-screen (no scroll) on small/short panels.
+
+   On a fixed-mount 7" panel (800×480, 1024×600, or a portrait TFT) the
+   holo launcher opened with Ctrl+K used to be taller than the screen, so
+   the whole overlay scrolled — you could never see all tiles at once.
+   Here the overlay is pinned to exactly the viewport height and the app
+   grid's rows share whatever space is left over, so every module tile is
+   reachable without scrolling — it "sits" perfectly in the window.
+
+   Scoped to short OR narrow viewports, so roomy desktops keep the
+   original layout (side info-panels, square tiles, scroll-if-ever-needed).
+
+   Every override is qualified with the `.overlay-root` ancestor (and the
+   root itself is doubled as `.overlay-root.overlay-root`). That lifts each
+   rule to a two-class specificity so it reliably beats the Tailwind
+   responsive utilities on the same elements — `lg:flex`, `lg:grid-cols-*`,
+   `overflow-y-auto`, `gap-*`, `p-*` — which are single-class and, at these
+   widths, otherwise win on source order.
+   =================================================================== */
+@media (max-height: 760px), (max-width: 820px) {
+  /* The outer scroll container stops scrolling: everything is made to fit.
+     Doubled class beats `.overflow-y-auto` set on the same element. */
+  .overlay-root.overlay-root { overflow: hidden; }
+
+  /* Pin the shell to the viewport so its flex children can be told to
+     shrink instead of growing the page. Tighter padding/gaps buy height. */
+  .overlay-root .overlay-shell {
+    height: 100%;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  /* Drop the decorative side info-panels and the non-interactive
+     quick-access icon row — pure chrome that only ate vertical space. The
+     app grid then owns the full width and height of the panel. */
+  .overlay-root .overlay-side,
+  .overlay-root .overlay-quickbar { display: none; }
+
+  /* Collapse the body to a single full-width, full-height cell and let the
+     middle regions actually shrink inside the flex column (min-height:0). */
+  .overlay-root .overlay-body {
+    grid-template-columns: 1fr;
+    grid-auto-rows: 1fr;
+    gap: 0.5rem;
+    min-height: 0;
+  }
+  .overlay-root .overlay-center { min-height: 0; }
+
+  /* The tile grid fills the leftover height; rows share it equally and the
+     tiles give up their square aspect ratio so they flex to whatever fits. */
+  .overlay-root .overlay-tiles {
+    grid-auto-rows: 1fr;
+    align-content: stretch;
+    gap: 0.5rem;
+    min-height: 0;
+  }
+  .overlay-root .overlay-tiles > .holo-tile {
+    aspect-ratio: auto;
+    min-height: 0;
+    padding: 0.25rem;
+  }
+}

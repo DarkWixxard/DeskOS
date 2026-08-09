@@ -42,6 +42,22 @@ kompakten Maßstab **auf jedem Display erzwingt** – nützlich, falls dein Pane
 logische Auflösung meldet oder du das Dashboard generell dichter möchtest. Der Schalter ist
 opt-in und wird pro Gerät/Browser gespeichert (siehe [LABS.md](./LABS.md)).
 
+### Overlay-Menü ohne Scrollen (Strg + K)
+
+Auf kleinen oder niedrigen Panels **füllt das Overlay-Menü (Strg + K) jetzt exakt das
+Fenster aus, ohne dass gescrollt werden muss** – alle Modul-Kacheln sind auf einen Blick
+erreichbar. Dazu passiert bei kurzer/schmaler Auflösung automatisch Folgendes:
+
+- Das Overlay wird auf **genau die Bildschirmhöhe** fixiert (kein Seiten-Scrollen mehr).
+- Die dekorativen **Info-Panels an den Seiten** und die reine Icon-Leiste werden ausgeblendet,
+  sodass die App-Kacheln die **volle Breite und Höhe** bekommen.
+- Das **Kachel-Raster füllt den verbleibenden Platz** – die Kacheln werden größer/flacher und
+  bleiben so gut mit dem Finger treffbar.
+
+Greift automatisch bei **kurzen Panels** (Höhe ≤ 760 px, z. B. 800 × 480 / 1024 × 600) und
+**schmalen/Hochformat-Panels** (Breite ≤ 820 px). Größere Desktops behalten das gewohnte
+Layout mit Seiten-Panels. Die Umschaltung ist reines CSS – es ist nichts zu konfigurieren.
+
 **Empfohlene Einrichtung für ein 7-Zoll-Panel:**
 
 1. Kiosk wie unten für Linux bzw. Windows einrichten (Vollbild-Browser auf `:4000`).
