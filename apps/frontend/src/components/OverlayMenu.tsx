@@ -259,12 +259,16 @@ export function OverlayMenu() {
             aria-label="DeskOS Overlay Menü"
             className="fixed inset-0 z-50 overflow-y-auto"
           >
-            {/* Backdrop */}
+            {/* Backdrop — fixed (not absolute) so it always covers the whole
+               viewport. On short panels (e.g. 7") the menu content is taller
+               than the screen and this container scrolls; an absolute inset-0
+               backdrop would only cover the first screenful, letting the
+               previously open view bleed through when scrolling down. */}
             <button
               type="button"
               aria-label="Menü schließen"
               onClick={() => setOpen(false)}
-              className="absolute inset-0 cursor-default bg-black/80 backdrop-blur-sm"
+              className="fixed inset-0 cursor-default bg-black/80 backdrop-blur-sm"
             />
 
             {/* Content */}
