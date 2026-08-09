@@ -257,7 +257,7 @@ export function OverlayMenu() {
             role="dialog"
             aria-modal="true"
             aria-label="DeskOS Overlay Menü"
-            className="fixed inset-0 z-50 overflow-y-auto"
+            className="overlay-root fixed inset-0 z-50 overflow-y-auto"
           >
             {/* Backdrop — fixed (not absolute) so it always covers the whole
                viewport. On short panels (e.g. 7") the menu content is taller
@@ -277,7 +277,7 @@ export function OverlayMenu() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.985 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="holo-grid-bg holo-scanlines animate-holo-flicker relative mx-auto flex min-h-full max-w-[1500px] flex-col gap-4 p-4 md:p-6 lg:p-8"
+              className="overlay-shell holo-grid-bg holo-scanlines animate-holo-flicker relative mx-auto flex min-h-full max-w-[1500px] flex-col gap-4 p-4 md:p-6 lg:p-8"
             >
               {/* ---------------- Top bar ---------------- */}
               <div className="flex items-center justify-between gap-4">
@@ -321,13 +321,13 @@ export function OverlayMenu() {
               </div>
 
               {/* ---------------- Body grid ---------------- */}
-              <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[280px_1fr_280px]">
+              <div className="overlay-body grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[280px_1fr_280px]">
                 {/* ===== Left column ===== */}
                 <motion.div
                   initial={{ opacity: 0, x: -24 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.05 }}
-                  className="hidden flex-col gap-4 lg:flex"
+                  className="overlay-side hidden flex-col gap-4 lg:flex"
                 >
                   <Panel title="System Load">
                     <Sparkline values={cpuSeries} />
@@ -369,9 +369,9 @@ export function OverlayMenu() {
                 </motion.div>
 
                 {/* ===== Center: app grid ===== */}
-                <div className="flex flex-col">
+                <div className="overlay-center flex flex-col">
                   {/* quick-access toolbar */}
-                  <div className="mb-4 flex items-center justify-center gap-2">
+                  <div className="overlay-quickbar mb-4 flex items-center justify-center gap-2">
                     {['activity', 'zap', 'database', 'bell', 'gear'].map((ic) => (
                       <div
                         key={ic}
@@ -389,7 +389,7 @@ export function OverlayMenu() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.2 }}
-                      className="grid flex-1 grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-5"
+                      className="overlay-tiles grid flex-1 grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-5"
                     >
                       {activePage.modules.map((mod) => (
                         <button
@@ -437,7 +437,7 @@ export function OverlayMenu() {
                   initial={{ opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.05 }}
-                  className="hidden flex-col gap-4 lg:flex"
+                  className="overlay-side hidden flex-col gap-4 lg:flex"
                 >
                   <Panel title="Backend Link">
                     <div className="holo-value text-2xl">{wsConnected ? 'CONNECTED' : 'OFFLINE'}</div>
