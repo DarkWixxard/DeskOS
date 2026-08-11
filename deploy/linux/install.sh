@@ -53,7 +53,10 @@ if [ -f "${REPO_DIR}/.env" ]; then
 fi
 FRONTEND_PORT="${FRONTEND_PORT:-4000}"
 BACKEND_PORT="${BACKEND_PORT:-4001}"
-echo "==> Ports:                                frontend :${FRONTEND_PORT}, backend :${BACKEND_PORT}"
+OSZI_PORT="${OSZI_PORT:-4002}"
+RIGOL_IP="${RIGOL_IP:-192.168.1.45}"
+OSZI_VENV_PY="${REPO_DIR}/services/oszi/.venv/bin/python"
+echo "==> Ports:                                frontend :${FRONTEND_PORT}, backend :${BACKEND_PORT}, oszi :${OSZI_PORT}"
 
 # --- Build if needed -------------------------------------------------------
 if [ ! -d "${REPO_DIR}/apps/backend/dist" ] || [ ! -d "${REPO_DIR}/apps/frontend/.next" ]; then
@@ -75,6 +78,9 @@ install_service() {
       -e "s|__NODE_DIR__|${NODE_DIR}|g" \
       -e "s|__BACKEND_PORT__|${BACKEND_PORT}|g" \
       -e "s|__FRONTEND_PORT__|${FRONTEND_PORT}|g" \
+      -e "s|__OSZI_PORT__|${OSZI_PORT}|g" \
+      -e "s|__RIGOL_IP__|${RIGOL_IP}|g" \
+      -e "s|__OSZI_VENV_PY__|${OSZI_VENV_PY}|g" \
       "$src" > "$dst"
   echo "==> Installed ${dst}"
 }
@@ -82,9 +88,32 @@ install_service() {
 install_service "descos-backend.service"
 install_service "descos-frontend.service"
 
+# --- Optional: Oszi-Service (Python/Flask) ---------------------------------
+# Nur einrichten, wenn python3 für den Zieluser verfügbar ist. Schlägt das Setup
+# fehl oder fehlt Python, läuft der Rest normal weiter – die Oszi-Ansicht zeigt
+# dann lediglich „Dienst offline" (Backend/Frontend hängen NICHT von oszi ab).
+OSZI_INSTALLED=0
+OSZI_PY="$(sudo -u "$TARGET_USER" bash -lc 'command -v python3' 2>/dev/null || true)"
+if [ -n "$OSZI_PY" ]; then
+  echo "==> Setting up Oszi service (Python venv + Abhängigkeiten)..."
+  if sudo -u "$TARGET_USER" bash -lc "cd '${REPO_DIR}' && npm run setup:oszi"; then
+    install_service "descos-oszi.service"
+    OSZI_INSTALLED=1
+  else
+    echo "WARN: Oszi-Setup fehlgeschlagen – überspringe descos-oszi. Dashboard bleibt funktionsfähig." >&2
+  fi
+else
+  echo "WARN: python3 für '${TARGET_USER}' nicht gefunden – überspringe Oszi-Service." >&2
+  echo "      Python 3 installieren und Installer erneut ausführen, sonst zeigt die Oszi-Kachel 'Dienst offline'." >&2
+fi
+
 systemctl daemon-reload
 systemctl enable --now descos-backend.service
 systemctl enable --now descos-frontend.service
+if [ "$OSZI_INSTALLED" -eq 1 ]; then
+  systemctl enable --now descos-oszi.service
+  echo "==> Oszi-Service aktiv (RIGOL_IP=${RIGOL_IP}, Port :${OSZI_PORT})"
+fi
 
 # --- Set up kiosk autostart (.desktop in the user's autostart dir) ---------
 chmod +x "${SCRIPT_DIR}/start-kiosk.sh"
@@ -103,7 +132,8 @@ cat <<EOF
   Services:
     systemctl status descos-backend
     systemctl status descos-frontend
-    journalctl -u descos-backend -u descos-frontend -f
+    systemctl status descos-oszi     # (nur falls Python 3 vorhanden war)
+    journalctl -u descos-backend -u descos-frontend -u descos-oszi -f
 
   Dashboard:  http://localhost:${FRONTEND_PORT}   (backend API on :${BACKEND_PORT})
 
@@ -115,8 +145,8 @@ Test the kiosk now (without rebooting):
     ${SCRIPT_DIR}/start-kiosk.sh
 
 Uninstall:
-    sudo systemctl disable --now descos-backend descos-frontend
-    sudo rm /etc/systemd/system/descos-backend.service /etc/systemd/system/descos-frontend.service
+    sudo systemctl disable --now descos-backend descos-frontend descos-oszi
+    sudo rm /etc/systemd/system/descos-backend.service /etc/systemd/system/descos-frontend.service /etc/systemd/system/descos-oszi.service
     rm ${AUTOSTART_DIR}/descos-kiosk.desktop
     sudo systemctl daemon-reload
 EOF

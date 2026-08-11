@@ -8,10 +8,14 @@ pushd "%REPO_DIR%"
 REM --- Zentrale Port-Konfiguration laden -----------------------------------
 set "BACKEND_PORT=4001"
 set "FRONTEND_PORT=4000"
+set "RIGOL_IP="
+set "OSZI_DEMO="
 if exist ".env" (
   for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
     if /i "%%A"=="BACKEND_PORT"  set "BACKEND_PORT=%%B"
     if /i "%%A"=="FRONTEND_PORT" set "FRONTEND_PORT=%%B"
+    if /i "%%A"=="RIGOL_IP"      set "RIGOL_IP=%%B"
+    if /i "%%A"=="OSZI_DEMO"     set "OSZI_DEMO=%%B"
   )
 )
 
@@ -32,6 +36,13 @@ echo Starting DeskOS backend (port %BACKEND_PORT%)...
 start "DeskOS Backend"  /min cmd /c "set NODE_ENV=production&& set BACKEND_PORT=%BACKEND_PORT%&& npm run start --workspace=apps/backend"
 echo Starting DeskOS frontend (port %FRONTEND_PORT%)...
 start "DeskOS Frontend" /min cmd /c "set NODE_ENV=production&& set PORT=%FRONTEND_PORT%&& npm run start --workspace=apps/frontend"
+
+echo Starting DeskOS Oszi service (port 4002)...
+if exist "services\oszi\.venv\Scripts\python.exe" (
+  start "DeskOS Oszi" /min cmd /c "set RIGOL_IP=%RIGOL_IP%&& set OSZI_DEMO=%OSZI_DEMO%&& services\oszi\.venv\Scripts\python.exe services\oszi\oszi_server.py"
+) else (
+  echo   Oszi service skipped - run "npm run setup:oszi" once to enable it.
+)
 
 popd
 endlocal

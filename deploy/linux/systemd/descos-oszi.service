@@ -1,0 +1,23 @@
+[Unit]
+Description=DeskOS Oszi Service (Rigol-Bridge, Port __OSZI_PORT__)
+Documentation=https://github.com/DarkWixxard/DeskOS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__DESCOS_USER__
+Group=__DESCOS_USER__
+WorkingDirectory=__DESCOS_DIR__
+Environment=OSZI_PORT=__OSZI_PORT__
+Environment=RIGOL_IP=__RIGOL_IP__
+Environment=PATH=__NODE_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=__OSZI_VENV_PY__ services/oszi/oszi_server.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=descos-oszi
+
+[Install]
+WantedBy=multi-user.target

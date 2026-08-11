@@ -32,9 +32,10 @@ services:
       - "${OSZI_PORT:-4002}:${OSZI_PORT:-4002}"
     environment:
       - OSZI_PORT=${OSZI_PORT:-4002}
-      # IP des Rigol-Oszilloskops (LAN/VISA). Fuer Test ohne Hardware: OSZI_DEMO=1
-      - RIGOL_IP=192.168.1.45
-      # - OSZI_DEMO=1
+      # IP des Rigol-Oszilloskops (LAN/VISA); ueber die Root-.env steuerbar.
+      - RIGOL_IP=${RIGOL_IP:-192.168.1.45}
+      # Demo-Modus ohne Hardware: in der Root-.env OSZI_DEMO=1 setzen.
+      - OSZI_DEMO=${OSZI_DEMO:-}
     restart: unless-stopped
 
   frontend:
