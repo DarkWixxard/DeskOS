@@ -40,10 +40,10 @@ echo "==> Using npm:  ${NPM_BIN}"
 echo "==> Using node: ${NODE_BIN}"
 
 # --- Ensure env files exist ------------------------------------------------
-sudo -u "$TARGET_USER" bash -lc "cd '${REPO_DIR}' && \\
-  { [ -f .env ] || cp .env.example .env; } && \\
-  { [ -f apps/backend/.env ]  || cp apps/backend/.env.example apps/backend/.env; } && \\
-  { [ -f apps/frontend/.env.local ] || touch apps/frontend/.env.local; } && \\
+sudo -u "$TARGET_USER" bash -lc "cd '${REPO_DIR}' && \
+  { [ -f .env ] || cp .env.example .env; } && \
+  { [ -f apps/backend/.env ]  || cp apps/backend/.env.example apps/backend/.env; } && \
+  { [ -f apps/frontend/.env.local ] || touch apps/frontend/.env.local; } && \
   { [ ! -f apps/agent/.env.example ] || [ -f apps/agent/.env ] || cp apps/agent/.env.example apps/agent/.env; }"
 
 # --- Load central port configuration (root .env) ---------------------------
@@ -72,15 +72,15 @@ install_service() {
   local name="$1"
   local src="${SYSTEMD_DIR}/${name}"
   local dst="/etc/systemd/system/${name}"
-  sed -e "s|__DESCOS_USER__|${TARGET_USER}|g" \\
-      -e "s|__DESCOS_DIR__|${REPO_DIR}|g" \\
-      -e "s|__NPM_BIN__|${NPM_BIN}|g" \\
-      -e "s|__NODE_DIR__|${NODE_DIR}|g" \\
-      -e "s|__BACKEND_PORT__|${BACKEND_PORT}|g" \\
-      -e "s|__FRONTEND_PORT__|${FRONTEND_PORT}|g" \\
-      -e "s|__OSZI_PORT__|${OSZI_PORT}|g" \\
-      -e "s|__RIGOL_IP__|${RIGOL_IP}|g" \\
-      -e "s|__OSZI_VENV_PY__|${OSZI_VENV_PY}|g" \\
+  sed -e "s|__DESCOS_USER__|${TARGET_USER}|g" \
+      -e "s|__DESCOS_DIR__|${REPO_DIR}|g" \
+      -e "s|__NPM_BIN__|${NPM_BIN}|g" \
+      -e "s|__NODE_DIR__|${NODE_DIR}|g" \
+      -e "s|__BACKEND_PORT__|${BACKEND_PORT}|g" \
+      -e "s|__FRONTEND_PORT__|${FRONTEND_PORT}|g" \
+      -e "s|__OSZI_PORT__|${OSZI_PORT}|g" \
+      -e "s|__RIGOL_IP__|${RIGOL_IP}|g" \
+      -e "s|__OSZI_VENV_PY__|${OSZI_VENV_PY}|g" \
       "$src" > "$dst"
   echo "==> Installed ${dst}"
 }
@@ -119,7 +119,7 @@ fi
 chmod +x "${SCRIPT_DIR}/start-kiosk.sh"
 AUTOSTART_DIR="${TARGET_HOME}/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
-sed -e "s|__DESCOS_DIR__|${REPO_DIR}|g" \\
+sed -e "s|__DESCOS_DIR__|${REPO_DIR}|g" \
     "${SCRIPT_DIR}/descos-kiosk.desktop" > "${AUTOSTART_DIR}/descos-kiosk.desktop"
 chown -R "${TARGET_USER}:${TARGET_USER}" "${TARGET_HOME}/.config" 2>/dev/null || true
 
