@@ -110,12 +110,49 @@ function start(args, extraEnv) {
   children.push(child);
 }
 
+// Der Oszi-Dienst (Python/Flask) läuft außerhalb der npm-Workspaces und ist
+// optional: fehlt die Python-venv, wird nur ein Hinweis ausgegeben und der Rest
+// des Stacks läuft normal weiter. Anders als bei start() beendet ein Absturz des
+// Oszi-Dienstes NICHT den ganzen Dev-Stack.
+function startOszi() {
+  const venvPython =
+    process.platform === 'win32'
+      ? join(rootDir, 'services', 'oszi', '.venv', 'Scripts', 'python.exe')
+      : join(rootDir, 'services', 'oszi', '.venv', 'bin', 'python');
+
+  if (!existsSync(venvPython)) {
+    console.log('ℹ Oszi-Dienst übersprungen (keine Python-venv). Aktivieren mit: npm run setup:oszi');
+    return;
+  }
+
+  // Ohne echte Hardware-Konfiguration standardmäßig Demo-Modus, damit im Dev
+  // sofort ein Testsignal sichtbar ist (statt „Dienst offline").
+  const extraEnv = {};
+  if (!process.env.OSZI_DEMO && !process.env.RIGOL_IP) {
+    extraEnv.OSZI_DEMO = '1';
+  }
+
+  const child = spawn(venvPython, ['services/oszi/oszi_server.py'], {
+    stdio: 'inherit',
+    cwd: rootDir,
+    env: { ...process.env, ...extraEnv },
+  });
+  child.on('exit', (code) => {
+    if (!shuttingDown) {
+      console.error(
+        `⚠ Oszi-Dienst beendet (Code ${code ?? 0}). Dashboard läuft weiter; die Oszi-Ansicht zeigt „Dienst offline".`,
+      );
+    }
+  });
+  children.push(child);
+}
+
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 ensureDependencies();
 
-console.log(`▶ DeskOS dev — Backend :${BACKEND_PORT}, Frontend :${FRONTEND_PORT}, Simulator`);
+console.log(`▶ DeskOS dev — Backend :${BACKEND_PORT}, Frontend :${FRONTEND_PORT}, Simulator, Oszi`);
 
 start(['run', 'dev', '--workspace=apps/backend'], {
   BACKEND_PORT,
@@ -126,3 +163,4 @@ start(['run', 'dev', '--workspace=apps/frontend', '--', '-p', FRONTEND_PORT], {
   NEXT_PUBLIC_DESKOS_TOKEN: process.env.DESKOS_TOKEN || '',
 });
 start(['run', 'dev', '--workspace=apps/simulator'], {});
+startOszi();

@@ -51,7 +51,15 @@ except ImportError:
     pdf_canvas = None
     HAS_REPORTLAB = False
 
-from flask import Flask, jsonify, request, Response, render_template
+try:
+    from flask import Flask, jsonify, request, Response, render_template
+except ImportError:
+    print(
+        "FEHLER: Flask ist nicht installiert. Oszi-Abhaengigkeiten einrichten mit:"
+        "  npm run setup:oszi"
+        "  (oder: pip install -r services/oszi/requirements-web.txt)"
+    )
+    raise SystemExit(1)
 
 # ---------------------------------------------------------------------------
 # Konfiguration
