@@ -125,12 +125,9 @@ function startOszi() {
     return;
   }
 
-  // Ohne echte Hardware-Konfiguration standardmäßig Demo-Modus, damit im Dev
-  // sofort ein Testsignal sichtbar ist (statt „Dienst offline").
+  // Echt-Modus ist Default (LAN via RIGOL_IP oder USB). Demo NUR bei explizit
+  // gesetztem OSZI_DEMO – wird unverändert aus process.env übernommen.
   const extraEnv = {};
-  if (!process.env.OSZI_DEMO && !process.env.RIGOL_IP) {
-    extraEnv.OSZI_DEMO = '1';
-  }
 
   const child = spawn(venvPython, ['services/oszi/oszi_server.py'], {
     stdio: 'inherit',

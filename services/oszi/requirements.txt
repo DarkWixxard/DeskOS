@@ -1,5 +1,7 @@
 pyvisa
 pyvisa-py
+pyusb
+libusb-package
 numpy
 matplotlib
 scipy
