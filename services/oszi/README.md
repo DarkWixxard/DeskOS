@@ -1,6 +1,6 @@
 # Oszi-Service (Rigol-Oszilloskop)
 
-Python/Flask-Backend für die **„Oszi“**-Ansicht in DeskOS. Ursprünglich aus dem
+Python/Flask-Backend für die **„Oszi"**-Ansicht in DeskOS. Ursprünglich aus dem
 Repo *Oszilloskop* (`ultimate_rigol_lab.py`). Hier liegen zwei Varianten:
 
 | Datei | Zweck |
@@ -72,5 +72,5 @@ weitere Änderung. Wichtig: **Python- und VISA-Bitness müssen übereinstimmen**
    > WinUSB ersetzt den TMC-Treiber – UltraSigma/NI-VISA sehen das Gerät erst nach
    > Zurücksetzen wieder.
 
-Danach `python oszi_server.py` (ohne `OSZI_DEMO`) → Status „USB Verbunden: …“.
+Danach `python oszi_server.py` (ohne `OSZI_DEMO`) → Status „USB Verbunden: …".
 Kein LAN-Timeout gewünscht? `OSZI_CONN=usb` setzen (überspringt den LAN-Versuch).
