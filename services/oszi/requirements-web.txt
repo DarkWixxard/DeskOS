@@ -5,4 +5,8 @@ flask
 numpy
 pyvisa
 pyvisa-py
+# USB-TMC-Transport fuer pyvisa-py (Rigol per USB). libusb-package bringt die
+# libusb-1.0-Bibliothek plattformuebergreifend mit (auch Windows).
+pyusb
+libusb-package
 reportlab
