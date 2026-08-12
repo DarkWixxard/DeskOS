@@ -68,6 +68,8 @@ RIGOL_IP = os.environ.get("RIGOL_IP", "192.168.1.45")
 OSZI_HOST = os.environ.get("OSZI_HOST", "0.0.0.0")
 OSZI_PORT = int(os.environ.get("OSZI_PORT", "4002"))
 DEMO = os.environ.get("OSZI_DEMO", "").lower() in ("1", "true", "yes", "on")
+# Verbindungspraeferenz: "auto" (LAN falls RIGOL_IP gesetzt, dann USB) | "usb" | "lan".
+OSZI_CONN = os.environ.get("OSZI_CONN", "auto").strip().lower()
 
 # ---------------------------------------------------------------------------
 # Globaler Zustand
@@ -140,43 +142,57 @@ def connect_scope():
         status_text = "pyvisa nicht verfuegbar"
         return False
 
+    # Leere RIGOL_IP wird wie "usb" behandelt (kein LAN-Timeout).
+    want_lan = OSZI_CONN in ("auto", "lan") and bool(RIGOL_IP.strip())
+    want_usb = OSZI_CONN in ("auto", "usb")
+
     # 1) LAN
-    try:
-        status_text = "Versuche LAN Verbindung..."
-        test_scope = rm.open_resource(f"TCPIP::{RIGOL_IP}::INSTR")
-        test_scope.timeout = 10000
-        idn = test_scope.query("*IDN?")
-        if "RIGOL" in idn.upper():
-            scope = test_scope
-            scope.write(":WAV:MODE NORM")
-            scope.write(":WAV:FORM ASC")
-            status_text = f"LAN Verbunden: {idn.strip()}"
-            return True
-    except Exception as lan_error:
-        print("LAN Fehler:", lan_error)
+    if want_lan:
+        try:
+            status_text = "Versuche LAN Verbindung..."
+            test_scope = rm.open_resource(f"TCPIP::{RIGOL_IP}::INSTR")
+            test_scope.timeout = 10000
+            idn = test_scope.query("*IDN?")
+            if "RIGOL" in idn.upper():
+                scope = test_scope
+                scope.write(":WAV:MODE NORM")
+                scope.write(":WAV:FORM ASC")
+                status_text = f"LAN Verbunden: {idn.strip()}"
+                return True
+        except Exception as lan_error:
+            print("LAN Fehler:", lan_error)
 
     # 2) USB
-    try:
-        status_text = "Versuche USB Verbindung..."
-        for resource in rm.list_resources():
-            if "USB" not in resource.upper():
-                continue
-            try:
-                test_scope = rm.open_resource(resource)
-                test_scope.timeout = 10000
-                idn = test_scope.query("*IDN?")
-                if "RIGOL" in idn.upper():
-                    scope = test_scope
-                    scope.write(":WAV:MODE NORM")
-                    scope.write(":WAV:FORM ASC")
-                    status_text = f"USB Verbunden: {idn.strip()}"
-                    return True
-            except Exception as usb_error:
-                print(f"USB Fehler bei {resource}:", usb_error)
-    except Exception as usb_main_error:
-        print("USB Hauptfehler:", usb_main_error)
+    if want_usb:
+        try:
+            status_text = "Versuche USB Verbindung..."
+            resources = rm.list_resources()
+            usb_resources = [r for r in resources if "USB" in r.upper()]
+            print(f"VISA-Ressourcen: {resources or '()'} | USB: {usb_resources or '()'}")
+            if not usb_resources:
+                status_text = (
+                    "Keine USB-Ressource gefunden - VISA/Treiber pruefen "
+                    "(Diagnose: npm run oszi:doctor)"
+                )
+            for resource in usb_resources:
+                try:
+                    test_scope = rm.open_resource(resource)
+                    test_scope.timeout = 10000
+                    idn = test_scope.query("*IDN?")
+                    if "RIGOL" in idn.upper():
+                        scope = test_scope
+                        scope.write(":WAV:MODE NORM")
+                        scope.write(":WAV:FORM ASC")
+                        status_text = f"USB Verbunden: {idn.strip()}"
+                        return True
+                except Exception as usb_error:
+                    print(f"USB Fehler bei {resource}:", usb_error)
+        except Exception as usb_main_error:
+            print("USB Hauptfehler:", usb_main_error)
 
-    status_text = "Kein Rigol gefunden"
+    # Fallback-Status nur setzen, wenn keine aussagekraeftigere Meldung vorliegt.
+    if scope is None and "USB-Ressource" not in status_text:
+        status_text = "Kein Rigol gefunden"
     return False
 
 
@@ -466,7 +482,12 @@ def main():
         print(f"Oszi-Service im DEMO-Modus -> http://{OSZI_HOST}:{OSZI_PORT}")
         threading.Thread(target=demo_loop, daemon=True).start()
     else:
-        print(f"Oszi-Service -> http://{OSZI_HOST}:{OSZI_PORT} (Rigol: {RIGOL_IP})")
+        print(f"Oszi-Service -> http://{OSZI_HOST}:{OSZI_PORT} (Rigol: {RIGOL_IP or '-'}, conn={OSZI_CONN})")
+        if rm is not None:
+            try:
+                print(f"VISA-Backend: {rm.visalib}")
+            except Exception:
+                pass
         connect_scope()
         threading.Thread(target=measurement_loop, daemon=True).start()
         threading.Thread(target=auto_reconnect, daemon=True).start()
