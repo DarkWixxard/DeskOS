@@ -21,6 +21,7 @@ import { createPluginRegistry } from './services/PluginRegistry';
 import { createSpotifyService } from './services/SpotifyService';
 import { createDiscordService } from './services/DiscordService';
 import { createBambuService } from './services/BambuService';
+import { createPiholeService } from './services/PiholeService';
 import { pluginSystem } from './core/PluginSystem';
 import { eventSystem } from './core/EventSystem';
 import { deviceManager } from './core/DeviceManager';
@@ -95,9 +96,10 @@ const plugins = createPluginRegistry(database);
 const spotify = createSpotifyService(plugins);
 const discord = createDiscordService(plugins);
 const bambu = createBambuService(plugins);
+const pihole = createPiholeService(plugins);
 
 // Setup routes
-setupRoutes(app, { persistence, notifications, layout, scenes, plugins, spotify, discord, bambu, wsServer });
+setupRoutes(app, { persistence, notifications, layout, scenes, plugins, spotify, discord, bambu, pihole, wsServer });
 
 // Event logging
 eventSystem.on('*', (event) => {
@@ -171,6 +173,10 @@ async function bootstrap(): Promise<void> {
     bambu.attach();
     console.log('✅ Bambu service ready');
 
+    // Pi-hole: bei hinterlegter URL + Passwort pollen (erkennt v6/v5 selbst).
+    pihole.attach();
+    console.log('✅ Pi-hole service ready');
+
     // MQTT (ESP32 / sensor nodes) — embedded broker + client.
     await mqttService.start();
 
@@ -228,6 +234,7 @@ async function bootstrap(): Promise<void> {
       automationEngine.stop();
       persistence.stop();
       bambu.stop();
+      pihole.stop();
       await mqttService.stop();
       await database.close();
       server.close(() => {

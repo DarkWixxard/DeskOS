@@ -139,6 +139,19 @@ const CATALOG: PluginManifest[] = [
       { key: 'serial', label: 'Seriennummer', type: 'text' },
     ],
   },
+  {
+    id: 'pihole',
+    name: 'Pi-hole',
+    description: 'DNS-Blocking: Queries, Blockrate & Top-Domains.',
+    category: 'smart-home',
+    icon: 'shield',
+    requiresAuth: true,
+    hasWidget: true,
+    settingsSchema: [
+      { key: 'url', label: 'Pi-hole URL (z. B. http://192.168.178.10)', type: 'url' },
+      { key: 'password', label: 'App-Passwort (v6) bzw. API-Token (v5)', type: 'password' },
+    ],
+  },
 ];
 
 const BUILTIN_DEFAULT_ENABLED = ['clock', 'system-summary'];

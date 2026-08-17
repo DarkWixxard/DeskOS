@@ -29,13 +29,14 @@ const fromHex = (hex: string): [number, number, number] => [
 
 // A short human summary of what a scene does, from its action list.
 function summarize(actions: AutomationAction[]): string {
-  const counts = { wled: 0, notify: 0, layout: 0, scene: 0, emit_event: 0 } as Record<string, number>;
+  const counts = { wled: 0, notify: 0, layout: 0, scene: 0, emit_event: 0, pihole: 0 } as Record<string, number>;
   for (const a of actions) counts[a.type] = (counts[a.type] ?? 0) + 1;
   const parts: string[] = [];
   if (counts.wled) parts.push(`${counts.wled}× Licht`);
   if (counts.notify) parts.push(`${counts.notify}× Notify`);
   if (counts.layout) parts.push(`${counts.layout}× Layout`);
   if (counts.scene) parts.push(`${counts.scene}× Szene`);
+  if (counts.pihole) parts.push(`${counts.pihole}× Pi-hole`);
   if (counts.emit_event) parts.push(`${counts.emit_event}× Event`);
   return parts.length ? parts.join(' · ') : 'Keine Aktionen';
 }

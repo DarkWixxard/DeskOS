@@ -40,7 +40,16 @@ const actionDefaults: Record<AutomationAction['type'], AutomationAction> = {
   emit_event: { type: 'emit_event', eventType: '', message: '', priority: 'normal' },
   layout: { type: 'layout', view: 'dashboard' },
   scene: { type: 'scene', sceneId: '' },
+  pihole: { type: 'pihole', enabled: false, seconds: 300 },
 };
+
+// Auswahl für die Pi-hole-Pause; 0 = dauerhaft, bis wieder eingeschaltet wird.
+const PIHOLE_DURATIONS: { v: number; label: string }[] = [
+  { v: 30, label: '30 Sekunden' },
+  { v: 300, label: '5 Minuten' },
+  { v: 3600, label: '1 Stunde' },
+  { v: 0, label: 'dauerhaft' },
+];
 
 function triggerSummary(t: AutomationTrigger): string {
   switch (t.type) {
@@ -68,6 +77,8 @@ function actionSummary(a: AutomationAction): string {
       return `🗂 Layout`;
     case 'scene':
       return `🎬 Szene`;
+    case 'pihole':
+      return `🛡 Pi-hole ${a.enabled ? 'an' : 'aus'}`;
     default:
       return '—';
   }
@@ -259,6 +270,7 @@ export function AutomationsView() {
                         <option value="notify">Benachrichtigung</option>
                         <option value="wled">WLED steuern</option>
                         <option value="scene">Szene ausführen</option>
+                        <option value="pihole">Pi-hole-Blocking</option>
                         <option value="emit_event">Event auslösen</option>
                       </select>
                       {actions.length > 1 && (
@@ -311,6 +323,30 @@ export function AutomationsView() {
                         </select>
                         {scenes.length === 0 && (
                           <span className="text-[10px] text-accent/40">Noch keine Szenen angelegt</span>
+                        )}
+                      </div>
+                    )}
+
+                    {action.type === 'pihole' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={action.enabled ? 'on' : 'off'}
+                          onChange={(e) => updateAction(i, { enabled: e.target.value === 'on' })}
+                          className={clsx(FIELD, 'cursor-pointer')}
+                        >
+                          <option value="off">Blocking ausschalten</option>
+                          <option value="on">Blocking einschalten</option>
+                        </select>
+                        {!action.enabled && (
+                          <select
+                            value={String(action.seconds ?? 0)}
+                            onChange={(e) => updateAction(i, { seconds: Number(e.target.value) || undefined })}
+                            className={clsx(FIELD, 'cursor-pointer')}
+                          >
+                            {PIHOLE_DURATIONS.map((d) => (
+                              <option key={d.v} value={d.v}>{d.label}</option>
+                            ))}
+                          </select>
                         )}
                       </div>
                     )}

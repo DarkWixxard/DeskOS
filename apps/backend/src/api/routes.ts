@@ -18,6 +18,7 @@ import type { PluginRegistry } from '../services/PluginRegistry';
 import type { SpotifyService, PlaybackAction } from '../services/SpotifyService';
 import type { DiscordService } from '../services/DiscordService';
 import type { BambuService, BambuAction } from '../services/BambuService';
+import type { PiholeService } from '../services/PiholeService';
 import type { WebSocketServer } from '../services/WebSocketServer';
 import type { LogLevel } from '@shared/types';
 
@@ -30,6 +31,7 @@ export interface RouteDeps {
   spotify?: SpotifyService;
   discord?: DiscordService;
   bambu?: BambuService;
+  pihole?: PiholeService;
   wsServer?: WebSocketServer;
 }
 
@@ -513,6 +515,39 @@ export function setupRoutes(app: Express, deps: RouteDeps = {}): void {
     if (!deps.bambu) return bambuUnavailable(res);
     await deps.bambu.cloudLogout();
     res.json({ ok: true });
+  });
+
+  // ---- Pi-hole (DNS-Blocking-Plugin) ----
+  // Das Backend spricht den Pi-hole stellvertretend an, damit weder CORS noch das
+  // App-Passwort das Frontend erreichen. URL/Passwort liegen in den Plugin-Settings.
+  const piholeUnavailable = (res: any) => res.status(503).json({ error: 'Pi-hole-Service nicht verfügbar' });
+
+  app.get('/api/pihole/status', (req, res) => {
+    if (!deps.pihole) return piholeUnavailable(res);
+    res.json(deps.pihole.getStatus());
+  });
+
+  app.get('/api/pihole/details', async (req, res) => {
+    if (!deps.pihole) return piholeUnavailable(res);
+    res.json(await deps.pihole.getDetails(req.query.refresh === '1'));
+  });
+
+  // { enabled: boolean, seconds?: number } – seconds gilt nur beim Deaktivieren.
+  app.post('/api/pihole/blocking', async (req, res) => {
+    if (!deps.pihole) return piholeUnavailable(res);
+    const { enabled, seconds } = (req.body ?? {}) as { enabled?: unknown; seconds?: unknown };
+    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) erforderlich' });
+    const secs = typeof seconds === 'number' && seconds > 0 ? seconds : undefined;
+    try {
+      res.json(await deps.pihole.setBlocking(enabled, secs));
+    } catch (error) {
+      res.status(502).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post('/api/pihole/test', async (req, res) => {
+    if (!deps.pihole) return piholeUnavailable(res);
+    res.json(await deps.pihole.testConnection());
   });
 
   // ---- Security-Center ----

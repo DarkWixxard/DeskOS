@@ -78,6 +78,11 @@ export class WebSocketServer {
     eventSystem.on('scene:update', (event: DeskOSEvent) => {
       this.io.emit('scene:update', event.payload);
     });
+
+    // Relay live Pi-hole status (queries, block rate, blocking on/off).
+    eventSystem.on('pihole:update', (event: DeskOSEvent) => {
+      this.io.emit('pihole:update', event.payload);
+    });
   }
 
   private registerLocalDeviceListener(): void {

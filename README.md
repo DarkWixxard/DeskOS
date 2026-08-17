@@ -75,7 +75,7 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 
 ### ⚡ Automation-Engine v2 + 🗂️ Layout-Profile + 🎬 Szenen
 - Trigger: **Schwellwert · Event · Gerätestatus · Zeitplan**. Aktionen (entkoppelt über Event-Bus):
-  Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**, **Szene ausführen**.
+  Event auslösen, **Benachrichtigung**, **WLED steuern**, **Layout wechseln**, **Szene ausführen**, **Pi-hole-Blocking**.
 - **No-Code-Regelbuilder** im Frontend; Regeln persistent, mit Cooldown.
 - **Szenen** (eigene Ansicht, `scene:update` live): eine benannte, wiederverwendbare Momentaufnahme der
   Schreibtisch-Stimmung (primär WLED-Licht). Per Ein-Klick anwendbar, „aus aktuellem Licht" erfassbar und aus
@@ -96,11 +96,16 @@ mit holografischem React-Dashboard, Echtzeit-WebSockets, MQTT und einem Plugin-M
 ### 🔧 Firmware-Center & 🧩 Plugin-Marktplatz
 - Firmware-Center (im Geräte-Detail): **Neustart / WLAN-Konfig / OTA** für MQTT-Nodes; WLED verlinkt auf seine OTA-Web-UI.
 - Plugin-System v2 mit **Marktplatz**: funktionale Built-ins (Uhr, System-Übersicht) + Katalog
-  (Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue) mit Install/Aktivieren/Einstellungen, persistent.
+  (Spotify, Discord, OBS, Steam, Home Assistant, Philips Hue, Bambu Lab A1, Pi-hole) mit Install/Aktivieren/Einstellungen, persistent.
 - **Spotify-Plugin voll funktionsfähig**: OAuth-Login, „Now Playing"-Anzeige (Cover/Titel/Fortschritt)
   und Wiedergabesteuerung (Play/Pause/Vor/Zurück) über die Spotify Web API – Einrichtung in [SPOTIFY.md](./docs/SPOTIFY.md).
 - **Discord-Plugin voll funktionsfähig**: OAuth-Login mit dem eigenen Discord-Konto
   (kein Bot), zeigt Avatar & Anzeigename im Widget – Einrichtung in [DISCORD.md](./docs/DISCORD.md).
+- **Pi-hole-Plugin voll funktionsfähig**: Anfragen, Blockrate, Top-Domains/-Clients und
+  24-h-Verlauf als Widget **und** eigene Ansicht; Blocking direkt aus DeskOS pausieren
+  (30 s / 5 min / 1 h / dauerhaft), auch als Automations- und Szenen-Aktion. Pi-hole **v6
+  und v5** werden automatisch erkannt; die Abfrage läuft über das Backend, das Passwort
+  bleibt serverseitig – Einrichtung in [PIHOLE.md](./docs/PIHOLE.md).
 - Aktivierte Plugins rendern Widgets im Dashboard.
 
 ### 🔐 Security-Center
@@ -296,10 +301,11 @@ DeskOS/
 | **Sensoren** | `GET /api/sensors` |
 | **Plugins** | `GET /api/plugins` · `POST /api/plugins/:id/{install,uninstall,enable,disable}` · `PATCH /api/plugins/:id/settings` |
 | **Spotify** | `GET /api/spotify/{status,login,callback,now-playing}` · `POST /api/spotify/control/:action` · `POST /api/spotify/disconnect` |
+| **Pi-hole** | `GET /api/pihole/status` · `GET /api/pihole/details` · `POST /api/pihole/blocking` · `POST /api/pihole/test` |
 | **Oszi** | `ALL /api/oszi/*` (Proxy zum Flask-Dienst) |
 
 **WebSocket (Socket.IO), Server → Client:** `devices:list`, `device:update`, `event:new`,
-`notification:new`, `wled:update`, `display:update`, `deej:update`, `layout:set`, `local:device:id`.
+`notification:new`, `wled:update`, `display:update`, `deej:update`, `layout:set`, `pihole:update`, `local:device:id`.
 **Client → Server:** `get:devices`, `subscribe:device`, `subscribe:events`, `register-agent`, `metrics`.
 
 Detaillierte Beispiele: [API.md](./docs/API.md).
@@ -359,6 +365,7 @@ Details: [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) ·
 | [LABS.md](./docs/LABS.md) | Labs – experimentelle Funktionen (Feature-Flags) |
 | [SPOTIFY.md](./docs/SPOTIFY.md) | Spotify verbinden (OAuth, Now Playing, Steuerung) |
 | [DISCORD.md](./docs/DISCORD.md) | Discord-Konto verbinden (OAuth, kein Bot) |
+| [PIHOLE.md](./docs/PIHOLE.md) | Pi-hole einbinden (v6/v5, Statistiken & Blocking steuern) |
 | [DEEJ.md](./docs/DEEJ.md) | deej-Hardware-Lautstärkeregler einbinden (Audio-Ansicht) |
 | [API.md](./docs/API.md) | API-Beispiele |
 | [DEPLOYMENT.md](./docs/DEPLOYMENT.md) · [KIOSK.md](./docs/KIOSK.md) | Produktion / Kiosk |
