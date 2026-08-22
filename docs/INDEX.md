@@ -291,6 +291,7 @@ npm run dev --workspace=apps/agent
 | **API.md** | Complete API reference | [🔌](./API.md) |
 | **API-CONSOLE.md** | Built-in REST client (Dashboard) | [🔌](./API-CONSOLE.md) |
 | **NODE-RED.md** | BME280 via Node-RED → MQTT → DeskOS | [📡](./NODE-RED.md) |
+| **PIHOLE.md** | Pi-hole integration (v6/v5 stats & blocking) | [🛡️](./PIHOLE.md) |
 | **DEPLOYMENT.md** | Production deployment | [🚀](./DEPLOYMENT.md) |
 | **CONTRIBUTING.md** | Contributing guide | [🤝](./CONTRIBUTING.md) |
 | **CHANGELOG.md** | Version history | [📋](./CHANGELOG.md) |

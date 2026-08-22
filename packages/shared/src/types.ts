@@ -263,7 +263,20 @@ export interface SceneAction {
   type: 'scene';
   sceneId: string;
 }
-export type AutomationAction = EmitEventAction | NotifyAction | WledAction | LayoutAction | SceneAction;
+// Schaltet das DNS-Blocking des Pi-hole. `seconds` gilt nur beim Deaktivieren und
+// lässt Pi-hole selbst zurückschalten (kein Timer auf DeskOS-Seite nötig).
+export interface PiholeAction {
+  type: 'pihole';
+  enabled: boolean;
+  seconds?: number;
+}
+export type AutomationAction =
+  | EmitEventAction
+  | NotifyAction
+  | WledAction
+  | LayoutAction
+  | SceneAction
+  | PiholeAction;
 
 export interface AutomationRule {
   id: string;
@@ -495,4 +508,49 @@ export interface BambuStatus {
   bedTemp: number; // Betttemperatur °C (ist)
   bedTarget: number; // Betttemperatur °C (soll)
   updatedAt: number; // Zeitpunkt des letzten Reports (epoch ms)
+}
+
+// --- Pi-hole (DNS-Blocking-Plugin) ---
+// Das Backend spricht den Pi-hole stellvertretend an (CORS + Passwort bleiben
+// serverseitig) und normalisiert dabei beide API-Generationen auf diese Typen:
+// v6 (FTL-REST unter /api) und v5 (/admin/api.php).
+
+/** Ein Eintrag einer Top-Liste (Domain, Client, Query-Typ, Upstream). */
+export interface PiholeTopItem {
+  name: string;
+  count: number;
+}
+
+/** Ein 10-Minuten-Bucket des 24-Stunden-Verlaufs. */
+export interface PiholeHistoryPoint {
+  t: number; // Bucket-Start (epoch ms)
+  total: number; // Anfragen gesamt
+  blocked: number; // davon geblockt
+}
+
+/** Kompaktstatus für Widget + Kopfzeile. Enthält bewusst keine Zugangsdaten. */
+export interface PiholeStatus {
+  hasCredentials: boolean; // URL + Passwort hinterlegt
+  apiVersion: 'v6' | 'v5' | 'none'; // erkannte API-Generation
+  online: boolean; // letzter Poll erfolgreich
+  blocking: boolean; // DNS-Blocking aktiv
+  blockingTimerSec: number | null; // Restzeit einer temporären Deaktivierung
+  queriesToday: number;
+  blockedToday: number;
+  blockedPercent: number;
+  domainsOnBlocklist: number;
+  uniqueClients: number;
+  gravityLastUpdate: number | null; // letzte Blocklisten-Aktualisierung (epoch ms)
+  error: string | null; // letzter Fehler, für die Anzeige
+  updatedAt: number; // Zeitpunkt des letzten Polls (epoch ms)
+}
+
+/** Detaildaten der Vollansicht (Charts + Top-Listen). */
+export interface PiholeDetails {
+  topQueries: PiholeTopItem[];
+  topBlocked: PiholeTopItem[];
+  topClients: PiholeTopItem[];
+  queryTypes: PiholeTopItem[];
+  upstreams: PiholeTopItem[];
+  history: PiholeHistoryPoint[]; // 24 h in 10-Minuten-Buckets
 }

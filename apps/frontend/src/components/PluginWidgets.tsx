@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useDashboardStore, type PluginInstance } from '@/stores/dashboardStore';
 import { getApiBaseUrl } from '@/lib/api';
-import { Panel, HoloIcon, StatBar } from '@/components/holo';
+import { Panel, HoloIcon, StatBar, StatusLed, RadialGauge } from '@/components/holo';
+import { fmtCount, fmtDuration, PIHOLE_BTN } from '@/lib/pihole';
 import type { SpotifyStatus, SpotifyTrack, DiscordStatus, DiscordUser, BambuStatus } from '@shared/types';
 
 /* =========================================================================
@@ -760,12 +761,117 @@ function BambuWidget() {
   );
 }
 
+/* ------------------------------- Pi-hole -------------------------------- */
+
+// Der Status kommt live per WebSocket in den Store (pihole:update) – hier wird
+// also nicht gepollt, anders als bei Spotify/Bambu.
+function PiholeWidget() {
+  const setActiveView = useDashboardStore((s) => s.setActiveView);
+  const status = useDashboardStore((s) => s.piholeStatus);
+  const setBlocking = useDashboardStore((s) => s.setPiholeBlocking);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (enabled: boolean, seconds?: number) => {
+    setBusy(true);
+    try {
+      await setBlocking(enabled, seconds);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // 1) Noch keine Zugangsdaten -> auf die Plugin-Einrichtung verweisen.
+  if (!status || !status.hasCredentials) {
+    return (
+      <Panel title="Pi-hole">
+        <div className="flex flex-col items-center gap-2 py-5 text-center">
+          <HoloIcon name="shield" className="h-7 w-7 text-accent/40" />
+          <p className="text-[12px] text-accent/55">Nicht eingerichtet</p>
+          <p className="text-[10px] text-accent/35">URL und App-Passwort hinterlegen.</p>
+          <button type="button" onClick={() => setActiveView('plugins')} className={PIHOLE_BTN}>
+            Einrichten
+          </button>
+        </div>
+      </Panel>
+    );
+  }
+
+  // 2) Konfiguriert, aber nicht erreichbar / Passwort abgelehnt.
+  if (!status.online) {
+    return (
+      <Panel title="Pi-hole">
+        <div className="flex flex-col items-center gap-2 py-5 text-center">
+          <HoloIcon name="shield" className="h-7 w-7 text-danger/50" />
+          <p className="text-[12px] text-accent/55">Nicht erreichbar</p>
+          <p className="text-[10px] text-accent/35">{status.error ?? 'Verbindung wird versucht …'}</p>
+          <button type="button" onClick={() => setActiveView('pihole')} className={PIHOLE_BTN}>
+            Details
+          </button>
+        </div>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel
+      title="Pi-hole"
+      badge={
+        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-accent/50">
+          <StatusLed status={status.blocking ? 'online' : 'error'} size={8} />
+          {status.blocking ? 'Aktiv' : 'Pausiert'}
+        </span>
+      }
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-[46%] shrink-0">
+          <RadialGauge value={status.blockedPercent} label="geblockt" />
+        </div>
+        <div className="flex-1 space-y-2">
+          <StatBar label="Anfragen" value={fmtCount(status.queriesToday)} />
+          <StatBar label="Geblockt" value={fmtCount(status.blockedToday)} />
+          <StatBar label="Clients" value={fmtCount(status.uniqueClients)} />
+        </div>
+      </div>
+
+      {/* Schnellsteuerung: aus für 30 s / 5 min / dauerhaft, bzw. wieder an. */}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-accent/15 pt-3">
+        {status.blocking ? (
+          <>
+            <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-accent/40">Aus für</span>
+            <button type="button" disabled={busy} onClick={() => void toggle(false, 30)} className={PIHOLE_BTN}>
+              30 s
+            </button>
+            <button type="button" disabled={busy} onClick={() => void toggle(false, 300)} className={PIHOLE_BTN}>
+              5 min
+            </button>
+            <button type="button" disabled={busy} onClick={() => void toggle(false)} className={PIHOLE_BTN}>
+              Dauerhaft
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" disabled={busy} onClick={() => void toggle(true)} className={PIHOLE_BTN}>
+              Blocking an
+            </button>
+            {status.blockingTimerSec != null && (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-warning/70">
+                noch {fmtDuration(status.blockingTimerSec)}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 const BUILTIN_WIDGETS: Record<string, ComponentType> = {
   clock: ClockWidget,
   'system-summary': SystemSummaryWidget,
   spotify: SpotifyWidget,
   discord: DiscordWidget,
   bambu: BambuWidget,
+  pihole: PiholeWidget,
 };
 
 export function PluginWidgets() {

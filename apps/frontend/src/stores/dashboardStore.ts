@@ -24,6 +24,8 @@ import type {
   LayoutProfile,
   Scene,
   PluginInstance,
+  PiholeStatus,
+  PiholeDetails,
 } from '@shared/types';
 
 // Canonical domain types live in @shared/types; re-exported so existing
@@ -48,6 +50,8 @@ export type {
   LayoutProfile,
   Scene,
   PluginInstance,
+  PiholeStatus,
+  PiholeDetails,
 };
 export type DashboardEvent = DeskOSEvent;
 
@@ -108,6 +112,8 @@ interface DashboardStore {
   scenes: Scene[];
   // Plugins
   plugins: PluginInstance[];
+  // Pi-hole: Kompaktstatus (per Socket live), null solange nichts geladen wurde.
+  piholeStatus: PiholeStatus | null;
   // Per-section dashboard visibility (id -> shown). Missing id defaults to visible.
   dashboardWidgets: Record<string, boolean>;
   // Extra module views embedded on the dashboard (id -> shown). Missing id defaults
@@ -193,6 +199,9 @@ interface DashboardStore {
   fetchPlugins: () => Promise<void>;
   pluginAction: (id: string, action: 'install' | 'uninstall' | 'enable' | 'disable') => Promise<void>;
   updatePluginSettings: (id: string, settings: Record<string, string>) => Promise<void>;
+  fetchPihole: () => Promise<void>;
+  fetchPiholeDetails: (refresh?: boolean) => Promise<PiholeDetails | null>;
+  setPiholeBlocking: (enabled: boolean, seconds?: number) => Promise<void>;
 }
 
 // Visibility maps (dashboard sections, menu tiles) persist across reloads in
@@ -269,6 +278,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   activeLayoutId: null,
   scenes: [],
   plugins: [],
+  piholeStatus: null,
   // Start empty (all visible) so server and first client render match; the saved
   // selection is applied after mount via hydrateDashboardWidgets()/hydrateDashboardModules().
   dashboardWidgets: {},
@@ -303,6 +313,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().fetchLayouts();
       get().fetchScenes();
       get().fetchPlugins();
+      get().fetchPihole();
     });
 
     socket.on('layout:set', (data: { profileId?: string; view?: string }) => {
@@ -330,6 +341,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     socket.on('scene:update', (scenes: Scene[]) => {
       set({ scenes });
+    });
+
+    socket.on('pihole:update', (status: PiholeStatus) => {
+      set({ piholeStatus: status });
     });
 
     socket.on('local:device:id', (data: { deviceId: string }) => {
@@ -1006,6 +1021,44 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Plugin settings update failed:', error);
+    }
+  },
+
+  // ---- Pi-hole ----
+  // Der Status kommt danach live per 'pihole:update' nach; dieser Abruf füllt nur
+  // die erste Anzeige direkt nach dem Verbinden.
+  fetchPihole: async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/pihole/status`);
+      if (res.ok) set({ piholeStatus: (await res.json()) as PiholeStatus });
+    } catch (error) {
+      console.error('Unable to fetch Pi-hole status:', error);
+    }
+  },
+
+  // Detaildaten (Top-Listen, Verlauf) holt sich nur die Pi-hole-Ansicht, deshalb
+  // liegen sie nicht im Store, sondern werden direkt zurückgegeben.
+  fetchPiholeDetails: async (refresh = false) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/pihole/details${refresh ? '?refresh=1' : ''}`);
+      if (!res.ok) return null;
+      return (await res.json()) as PiholeDetails;
+    } catch (error) {
+      console.error('Unable to fetch Pi-hole details:', error);
+      return null;
+    }
+  },
+
+  setPiholeBlocking: async (enabled, seconds) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/pihole/blocking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, seconds }),
+      });
+      if (res.ok) set({ piholeStatus: (await res.json()) as PiholeStatus });
+    } catch (error) {
+      console.error('Pi-hole blocking toggle failed:', error);
     }
   },
 }));

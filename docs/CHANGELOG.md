@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- 🛡️ **Pi-hole-Plugin**: bindet einen Pi-hole im LAN ein. Der neue `PiholeService`
+  fragt Kennzahlen (Anfragen, Blockrate, Blocklisten-Domains, aktive Clients),
+  Top-Domains/-Clients, Query-Typen, Upstreams und den 24-Stunden-Verlauf ab und
+  **erkennt dabei selbst, ob Pi-hole v6 (FTL-REST unter `/api`, Session per
+  `X-FTL-SID`) oder v5 (`/admin/api.php` mit `?auth=`) antwortet**. Neue
+  **Pi-hole-Ansicht** (Overlay-Menü) mit Verlaufschart und Top-Listen plus ein
+  Dashboard-Widget mit Blockrate-Gauge; Live-Updates per WebSocket
+  (`pihole:update`). Das **DNS-Blocking lässt sich aus DeskOS pausieren**
+  (30 s / 5 min / 1 h / dauerhaft) – auch als Automations-/Szenen-Aktion
+  (`{ type: 'pihole' }`). Die Abfrage läuft bewusst über das Backend, damit weder
+  CORS noch das App-Passwort das Frontend erreichen; URL und Passwort liegen in
+  den Plugin-Settings (SQLite) und werden nie über die API zurückgegeben.
+  Endpunkte unter `/api/pihole/*`. Dokumentiert in [PIHOLE.md](./PIHOLE.md).
 - 🗂️ **deej `config.yaml`** (deej-kompatibel): Der Lautstärkeregler lässt sich jetzt
   auch über eine Datei im deej-Format konfigurieren (`slider_mapping` inkl.
   **App-Gruppen** als Liste, `invert_sliders`, `com_port`, `baud_rate`,

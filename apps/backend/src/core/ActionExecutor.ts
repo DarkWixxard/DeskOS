@@ -3,8 +3,8 @@
 // Executes automation / layout-scene actions by emitting bus events. The
 // owning services react (NotificationService -> notification:push,
 // WledService -> wled:command, WebSocketServer -> layout:set, SceneService ->
-// scene:apply), so the AutomationEngine and LayoutService stay decoupled from
-// those subsystems.
+// scene:apply, PiholeService -> pihole:command), so the AutomationEngine and
+// LayoutService stay decoupled from those subsystems.
 
 import { eventSystem } from './EventSystem';
 import type { AutomationAction } from '@shared/types';
@@ -35,6 +35,9 @@ export function executeAction(action: AutomationAction, source: string, context?
       // Delegated to the SceneService, which resolves the id and runs the
       // scene's own actions (guarding against scene->scene cycles).
       eventSystem.emit('scene:apply', { sceneId: action.sceneId }, source);
+      break;
+    case 'pihole':
+      eventSystem.emit('pihole:command', { enabled: action.enabled, seconds: action.seconds }, source);
       break;
   }
 }

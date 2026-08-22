@@ -16,6 +16,7 @@ import { DisplaysView } from '@/components/DisplaysView';
 import { DeejView } from '@/components/DeejView';
 import { AutomationsView } from '@/components/AutomationsView';
 import { SensorView } from '@/components/SensorView';
+import { PiholeView } from '@/components/PiholeView';
 import { PluginsView } from '@/components/PluginsView';
 import { PluginWidgets } from '@/components/PluginWidgets';
 import { SpanishVocabWidget } from '@/components/SpanishVocabWidget';
@@ -46,7 +47,7 @@ import {
 // activeView values handled by the dedicated Monitoring Center (MonitorView).
 const MONITOR_VIEWS = ['monitor', 'metrics', 'network', 'storage', 'processes'];
 // All activeView values that replace the default dashboard with a full-page view.
-const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'audio', 'automations', 'sensors', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security', 'labs'];
+const FULL_VIEWS = [...MONITOR_VIEWS, 'oszi', 'logs', 'rgb', 'scenes', 'displays', 'audio', 'automations', 'sensors', 'pihole', 'plugins', 'status', 'display', 'terminal', 'api', 'settings', 'security', 'labs'];
 
 // Toggleable dashboard sections, shown as switches in the "Anzeige" view. The id
 // is the key stored in dashboardWidgets; a missing id counts as visible.
@@ -69,6 +70,7 @@ export const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
 // dashboard section. Hidden by default — the user opts a module in.
 export const EMBEDDABLE_MODULES: { id: string; label: string; Component: ComponentType }[] = [
   { id: 'sensors', label: 'Sensor Hub', Component: SensorView },
+  { id: 'pihole', label: 'Pi-hole', Component: PiholeView },
   { id: 'rgb', label: 'RGB / LED', Component: RgbView },
   { id: 'scenes', label: 'Szenen', Component: SceneView },
   { id: 'displays', label: 'Displays', Component: DisplaysView },
@@ -931,6 +933,8 @@ export function Dashboard() {
         {activeView === 'automations' && <AutomationsView />}
 
         {activeView === 'sensors' && <SensorView />}
+
+        {activeView === 'pihole' && <PiholeView />}
 
         {activeView === 'plugins' && <PluginsView />}
 

@@ -54,6 +54,7 @@ const PAGES: { title: string; modules: ModuleDef[] }[] = [
       { id: 'remote', label: 'Remote PCs', icon: 'monitor', filter: 'remote' },
       { id: 'esp32', label: 'ESP32', icon: 'cpu', filter: 'esp32' },
       { id: 'sensors', label: 'Sensor Hub', icon: 'thermometer', view: 'sensors' },
+      { id: 'pihole', label: 'Pi-hole', icon: 'shield', view: 'pihole' },
       { id: 'rgb', label: 'RGB / LED', icon: 'bulb', view: 'rgb' },
       { id: 'displays', label: 'Displays', icon: 'monitor', view: 'displays' },
       { id: 'audio', label: 'Audio', icon: 'speaker', view: 'audio' },
