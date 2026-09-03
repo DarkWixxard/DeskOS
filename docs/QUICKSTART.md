@@ -124,24 +124,38 @@ npm install
 
 ## Deploy Remote Agent
 
+> Full guide (incl. autostart and troubleshooting): [`apps/agent/README.md`](../apps/agent/README.md)
+
 ### 1. On Remote PC
 
 ```bash
-# Navigate to agent directory
-cd apps/agent
-
-# Install dependencies
+# Clone the repo on the remote machine (recommended)
+git clone https://github.com/DarkWixxard/DeskOS.git
+cd DeskOS
 npm install
 
-# Setup environment
-cp .env.example .env
-# Edit .env with your backend URL:
-# BACKEND_URL=http://your-backend-ip:4001
+# Or copy just the apps/agent folder and install inside it:
+#   cd agent && npm install
 ```
+
+`npm install` must run once per machine — `tsx` is a devDependency, so
+`--omit=dev` / `--production` installs leave the agent unable to start.
 
 ### 2. Start Agent
 ```bash
-npm run dev
+npm run dev --workspace=apps/agent
+# copied folder:  npm run dev
+# Windows:        deploy\windows\start-agent.bat
+# Linux / Pi:     ./deploy/linux/start-agent.sh
+```
+
+The launcher checks the Node version, creates `apps/agent/.env` from
+`.env.example` on first run and installs missing dependencies before starting.
+Then set your backend address in that file:
+
+```env
+BACKEND_URL=http://your-backend-ip:4001   # not localhost, unless same machine
+AGENT_NAME=living-room-pc
 ```
 
 Or for production:

@@ -1,0 +1,25 @@
+[Unit]
+Description=DeskOS Remote Agent (sendet Systemmetriken an das Backend)
+Documentation=https://github.com/DarkWixxard/DeskOS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__DESCOS_USER__
+Group=__DESCOS_USER__
+WorkingDirectory=__DESCOS_DIR__/apps/agent
+Environment=NODE_ENV=production
+Environment=PATH=__NODE_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Startet die TypeScript-Quellen ueber den Agent-Launcher (installiert fehlende
+# Abhaengigkeiten beim ersten Start selbst nach). Wer den Agent vorher baut
+# ("npm run build"), kann stattdessen "ExecStart=__NPM_BIN__ run start" nutzen.
+ExecStart=__NPM_BIN__ run dev
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=descos-agent
+
+[Install]
+WantedBy=multi-user.target

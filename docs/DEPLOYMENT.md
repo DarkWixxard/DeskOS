@@ -79,12 +79,23 @@ npm start
 
 ### 4. Deploy agent to remote machines
 
+Two options — see [`apps/agent/README.md`](../apps/agent/README.md) for the full
+guide (autostart via systemd / Windows startup folder, troubleshooting).
+
 ```bash
+# a) Run from source on the remote machine (clone the repo there):
+npm install
+npm run dev --workspace=apps/agent
+
+# b) Prebuilt: build here, copy dist/ + package.json + .env to the remote machine
 cd apps/agent
 npm run build
-# Copy dist/ and .env to remote machine
-# Run: node dist/index.js
+# On the remote machine: npm install --omit=dev && node dist/index.js
 ```
+
+`npm run dev` runs a preflight (Node version, `.env`, dependencies) and installs
+missing packages itself — `tsx` is a devDependency, so an `--omit=dev` install
+would otherwise fail with `tsx: command not found`.
 
 ## Docker Deployment (Optional)
 

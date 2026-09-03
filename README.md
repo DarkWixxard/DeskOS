@@ -202,6 +202,10 @@ npm run dev --workspace=apps/simulator
 npm run dev --workspace=apps/agent
 ```
 
+Der Agent läuft auch als **einzeln kopierter Ordner** (`apps/agent`) auf dem Remote-PC — dort einmal
+`npm install`, dann `npm run dev`. Komplette Anleitung inkl. Autostart und Fehlerbehebung:
+[`apps/agent/README.md`](apps/agent/README.md).
+
 Im Dashboard das Overlay-Menü mit **Strg + K** (bzw. ⌘ + K auf Mac) öffnen – alternativ mit der
 **`** -Taste oder **F2** → Monitor / RGB / Automationen / Sensoren / Plugins / Logs.
 
@@ -227,7 +231,7 @@ DeskOS/
 │   │       │                      #   SensorView, PluginsView, PluginWidgets, NotificationCenter, SecurityView,
 │   │       │                      #   LabsView, DeviceDetail, LayoutBar, OverlayMenu, holo
 │   │       └── stores/            # Zustand Store (dashboardStore.ts)
-│   ├── agent/                    # Remote-PC-Agent (sendet Metriken via WebSocket)
+│   ├── agent/                    # Remote-PC-Agent (sendet Metriken via WebSocket, eigenständig lauffähig)
 │   └── simulator/                # Virtueller ESP32-Sensor-/LED-Node (MQTT)
 ├── packages/
 │   └── shared/                   # Einzige Typquelle (Device, SystemMetrics, WledLight, AutomationRule,
@@ -275,7 +279,8 @@ DeskOS/
 `NEXT_PUBLIC_API_URL` – Backend-URL (Standard `http://localhost:4001`).
 
 ### Agent (`apps/agent/.env`)
-`BACKEND_URL`, `AGENT_NAME`, `POLL_INTERVAL`.
+`BACKEND_URL` (LAN-IP des Backends, **nicht** `localhost`), `AGENT_NAME`, `POLL_INTERVAL`,
+optional `AGENT_TYPE` (`remote` | `RaspberryPi` | `Arduino`). Siehe [`apps/agent/README.md`](apps/agent/README.md).
 
 ### Simulator (`apps/simulator`)
 `MQTT_BROKER` (Standard `mqtt://localhost:1883`), `SIM_NODE_ID`, `SIM_NAME`, `SIM_INTERVAL`.
